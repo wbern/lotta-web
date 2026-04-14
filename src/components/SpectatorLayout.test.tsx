@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateClubCode } from '../domain/club-codes'
 import * as store from '../stores/client-p2p-store'
 import type { PlayerDto, ResultType, RoundDto, TournamentListItemDto } from '../types/api'
 import { SpectatorLayout } from './SpectatorLayout'
+
+const mockRedeemClubCode = vi.fn()
+vi.mock('../api/club-code-rpc', () => ({
+  redeemClubCode: (code: string) => mockRedeemClubCode(code),
+}))
 
 const mockTournaments: TournamentListItemDto[] = [
   {
@@ -214,6 +218,7 @@ describe('SpectatorLayout', () => {
     store.resetClientStore()
     mockUseRounds.mockReturnValue({ data: mockRounds })
     mockUseRound.mockReturnValue({ data: mockRounds[1] })
+    mockRedeemClubCode.mockReset()
   })
 
   afterEach(cleanup)
@@ -231,32 +236,6 @@ describe('SpectatorLayout', () => {
     expect(rows.length).toBe(2)
     expect(screen.getByText('Anna Svensson')).toBeTruthy()
     expect(screen.getByText('Erik Johansson')).toBeTruthy()
-  })
-
-  it('filters games by club when clubFilter is set', () => {
-    store.setShareMode('view')
-    store.setClubFilter(['Skara SK'])
-    renderWithQuery(<SpectatorLayout />)
-    expect(screen.getByText('Skara SK')).toBeTruthy()
-    const table = screen.getByTestId('spectator-pairings')
-    const rows = table.querySelectorAll('tbody tr')
-    // Both games involve Skara SK players
-    expect(rows.length).toBe(2)
-  })
-
-  it('redacts opponent first name for non-club players when club filter active', () => {
-    store.setShareMode('view')
-    store.setClubFilter(['Skara SK'])
-    renderWithQuery(<SpectatorLayout />)
-    // Skara SK players show full name
-    expect(screen.getByText('Anna Svensson')).toBeTruthy()
-    expect(screen.getByText('Maria Lindberg')).toBeTruthy()
-    // Opponents show only first name
-    expect(screen.getByText('Erik')).toBeTruthy()
-    expect(screen.getByText('Karl')).toBeTruthy()
-    // Full opponent names should not appear
-    expect(screen.queryByText('Erik Johansson')).toBeNull()
-    expect(screen.queryByText('Karl Nilsson')).toBeNull()
   })
 
   it('shows result display for completed games', () => {
@@ -343,20 +322,31 @@ describe('SpectatorLayout', () => {
     expect(screen.getByPlaceholderText('### ###')).toBeTruthy()
   })
 
-  it('accepts valid club code and sets filter', () => {
-    const allClubs = ['Lidköping SS', 'Skara SK', '__CLUBLESS__']
-    const secret = 'Test Tournament/A'
-    const code = generateClubCode(['Skara SK'], allClubs, secret)
+  it('shows empty state in view mode before club code is redeemed', () => {
+    store.setShareMode('view')
+    store.setRoomCode('TESTRC')
+
+    renderWithQuery(<SpectatorLayout />)
+
+    expect(screen.getByText('Ange klubbkod för att se lottningar.')).toBeTruthy()
+    expect(screen.queryByTestId('spectator-pairings')).toBeNull()
+  })
+
+  it('accepts valid club code and sets filter', async () => {
+    mockRedeemClubCode.mockResolvedValue({ status: 'ok', clubs: ['Skara SK'] })
     store.setShareMode('view')
     store.setRoomCode('TESTRC')
 
     renderWithQuery(<SpectatorLayout />)
 
     const input = screen.getByPlaceholderText('### ###')
-    fireEvent.change(input, { target: { value: code } })
+    fireEvent.change(input, { target: { value: '123456' } })
     fireEvent.click(screen.getByTestId('club-code-submit'))
 
-    expect(store.getClientP2PState().clubFilter).toEqual(['Skara SK'])
+    await waitFor(() => {
+      expect(store.getClientP2PState().clubFilter).toEqual(['Skara SK'])
+    })
+    expect(mockRedeemClubCode).toHaveBeenCalledWith('123456')
   })
 
   it('auto-inserts a space separator as the user types digits', () => {
@@ -371,22 +361,20 @@ describe('SpectatorLayout', () => {
     expect(input.value).toBe('123 456')
   })
 
-  it('accepts a code entered with a space separator', () => {
-    const allClubs = ['Lidköping SS', 'Skara SK', '__CLUBLESS__']
-    const secret = 'Test Tournament/A'
-    const code = generateClubCode(['Skara SK'], allClubs, secret)
-    const mid = Math.floor(code.length / 2)
-    const spaced = `${code.slice(0, mid)} ${code.slice(mid)}`
+  it('strips the space separator before sending the code', async () => {
+    mockRedeemClubCode.mockResolvedValue({ status: 'ok', clubs: ['Skara SK'] })
     store.setShareMode('view')
     store.setRoomCode('TESTRC')
 
     renderWithQuery(<SpectatorLayout />)
 
     const input = screen.getByPlaceholderText('### ###')
-    fireEvent.change(input, { target: { value: spaced } })
+    fireEvent.change(input, { target: { value: '123 456' } })
     fireEvent.click(screen.getByTestId('club-code-submit'))
 
-    expect(store.getClientP2PState().clubFilter).toEqual(['Skara SK'])
+    await waitFor(() => {
+      expect(mockRedeemClubCode).toHaveBeenCalledWith('123456')
+    })
   })
 
   it('does not set club filter when dialog is dismissed', () => {
@@ -401,16 +389,20 @@ describe('SpectatorLayout', () => {
     expect(store.getClientP2PState().clubFilter).toBeNull()
   })
 
-  it('does not set club filter when invalid code is entered', () => {
+  it('shows error and keeps club filter null when server rejects the code', async () => {
+    mockRedeemClubCode.mockResolvedValue({ status: 'error', reason: 'invalid' })
     store.setShareMode('view')
     store.setRoomCode('TESTRC')
 
     renderWithQuery(<SpectatorLayout />)
 
     const input = screen.getByPlaceholderText('### ###')
-    fireEvent.change(input, { target: { value: 'XXXXXX' } })
+    fireEvent.change(input, { target: { value: '999999' } })
     fireEvent.click(screen.getByTestId('club-code-submit'))
 
+    await waitFor(() => {
+      expect(screen.getByTestId('club-code-error')).toBeTruthy()
+    })
     expect(store.getClientP2PState().clubFilter).toBeNull()
   })
 
@@ -424,22 +416,25 @@ describe('SpectatorLayout', () => {
     expect(screen.queryByTestId('club-code-dialog')).toBeNull()
   })
 
-  it('verifies codes that include clubless players', () => {
-    const allClubs = ['Lidköping SS', 'Skara SK', '__CLUBLESS__']
-    const secret = 'Test Tournament/A'
-    const code = generateClubCode(['Skara SK', '__CLUBLESS__'], allClubs, secret)
+  it('sets the returned club list even when it includes clubless players', async () => {
+    mockRedeemClubCode.mockResolvedValue({
+      status: 'ok',
+      clubs: ['Skara SK', '__CLUBLESS__'],
+    })
     store.setShareMode('view')
     store.setRoomCode('TESTRC')
 
     renderWithQuery(<SpectatorLayout />)
 
     const input = screen.getByPlaceholderText('### ###')
-    fireEvent.change(input, { target: { value: code } })
+    fireEvent.change(input, { target: { value: '456789' } })
     fireEvent.click(screen.getByTestId('club-code-submit'))
 
-    const filter = store.getClientP2PState().clubFilter
-    expect(filter).toContain('Skara SK')
-    expect(filter).toContain('__CLUBLESS__')
+    await waitFor(() => {
+      const filter = store.getClientP2PState().clubFilter
+      expect(filter).toContain('Skara SK')
+      expect(filter).toContain('__CLUBLESS__')
+    })
   })
 
   it('does not show dialog in full share mode', () => {
@@ -451,19 +446,69 @@ describe('SpectatorLayout', () => {
     expect(screen.queryByTestId('club-code-dialog')).toBeNull()
   })
 
-  it('highlights club players with a CSS class when club filter is active', () => {
+  it('auto-redeems pendingClubCode from store and hides the dialog', async () => {
+    mockRedeemClubCode.mockResolvedValue({ status: 'ok', clubs: ['Skara SK'] })
+    store.setShareMode('view')
+    store.setRoomCode('TESTRC')
+    store.setPendingClubCode('123456')
+
+    renderWithQuery(<SpectatorLayout />)
+
+    await waitFor(() => {
+      expect(mockRedeemClubCode).toHaveBeenCalledWith('123456')
+    })
+    await waitFor(() => {
+      expect(store.getClientP2PState().clubFilter).toEqual(['Skara SK'])
+    })
+    expect(screen.queryByTestId('club-code-dialog')).toBeNull()
+    expect(store.getClientP2PState().pendingClubCode).toBeNull()
+  })
+
+  it('falls back to manual dialog when pendingClubCode fails to redeem', async () => {
+    mockRedeemClubCode.mockResolvedValue({ status: 'error', reason: 'invalid' })
+    store.setShareMode('view')
+    store.setRoomCode('TESTRC')
+    store.setPendingClubCode('999999')
+
+    renderWithQuery(<SpectatorLayout />)
+
+    await waitFor(() => {
+      expect(mockRedeemClubCode).toHaveBeenCalledWith('999999')
+    })
+    expect(screen.getByTestId('club-code-dialog')).toBeTruthy()
+    expect(store.getClientP2PState().clubFilter).toBeNull()
+    expect(store.getClientP2PState().pendingClubCode).toBeNull()
+  })
+
+  it('highlights players whose club field is preserved in the server response', () => {
+    // Simulate data already scoped by the host: authorized players keep their
+    // full name + club, redacted opponents arrive with club=null.
+    const scopedRound: RoundDto = {
+      roundNr: 2,
+      hasAllResults: false,
+      gameCount: 1,
+      games: [
+        {
+          boardNr: 1,
+          roundNr: 2,
+          whitePlayer: { id: 1, name: 'Anna Svensson', club: 'Skara SK', rating: 1800, lotNr: 1 },
+          blackPlayer: { id: 2, name: 'Erik', club: null, rating: 1750, lotNr: 2 },
+          resultType: 'WHITE_WIN',
+          whiteScore: 1,
+          blackScore: 0,
+          resultDisplay: '1-0',
+        },
+      ],
+    }
+    mockUseRound.mockReturnValue({ data: scopedRound })
     store.setShareMode('view')
     store.setClubFilter(['Skara SK'])
+
     renderWithQuery(<SpectatorLayout />)
-    // Club players should be highlighted
+
     const anna = screen.getByText('Anna Svensson')
     expect(anna.classList.contains('spectator-club-player')).toBe(true)
-    const maria = screen.getByText('Maria Lindberg')
-    expect(maria.classList.contains('spectator-club-player')).toBe(true)
-    // Opponents should NOT be highlighted
     const erik = screen.getByText('Erik')
     expect(erik.classList.contains('spectator-club-player')).toBe(false)
-    const karl = screen.getByText('Karl')
-    expect(karl.classList.contains('spectator-club-player')).toBe(false)
   })
 })

@@ -16,6 +16,7 @@ interface ClientP2PState {
   shareMode: 'full' | 'view' | null
   clubFilter: string[] | null
   roomCode: string | null
+  pendingClubCode: string | null
 }
 
 const INITIAL: ClientP2PState = {
@@ -31,6 +32,7 @@ const INITIAL: ClientP2PState = {
   shareMode: null,
   clubFilter: null,
   roomCode: null,
+  pendingClubCode: null,
 }
 
 let current: ClientP2PState = { ...INITIAL }
@@ -115,6 +117,10 @@ export function setClubFilter(clubs: string[] | null): void {
 
 export function setRoomCode(code: string): void {
   update({ roomCode: code })
+}
+
+export function setPendingClubCode(code: string | null): void {
+  update({ pendingClubCode: code })
 }
 
 export function resetClientStore(): void {

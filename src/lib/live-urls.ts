@@ -23,3 +23,9 @@ export function getViewUrl(roomCode: string, token: string): string {
   url.searchParams.set('token', token)
   return url.toString()
 }
+
+export function getViewUrlWithCode(roomCode: string, token: string, code: string): string {
+  const url = new URL(getViewUrl(roomCode, token))
+  url.searchParams.set('code', code)
+  return url.toString()
+}

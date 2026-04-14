@@ -24,7 +24,7 @@ import {
   resolveResultLabel,
   verifyChatMessage,
 } from '../../lib/chat'
-import { getKioskUrl, getShareUrl, getViewUrl } from '../../lib/live-urls'
+import { getKioskUrl, getShareUrl, getViewUrl, getViewUrlWithCode } from '../../lib/live-urls'
 import { playSound } from '../../lib/notification-sounds'
 import { queryClient } from '../../query-client'
 import { subscribeMutationBroadcast } from '../../services/mutation-broadcast'
@@ -33,13 +33,13 @@ import { type DiagnosticEntry, P2PService, type RelaySocketInfo } from '../../se
 import type { AuditLogEntry, ChatMessage, P2PPeer } from '../../types/p2p'
 import { ChatMessageItem } from '../ChatMessageItem'
 import { ConnectionDiagnostics } from '../ConnectionDiagnostics'
+import { Dialog } from '../dialogs/Dialog'
 import { EmptyState } from '../EmptyState'
 
 type LiveSubTab = 'delning' | 'vydelning' | 'logg' | 'chatt'
 
 interface Props {
   tournamentName: string
-  tournamentGroup: string
   tournamentId: number
   round: number | undefined
 }
@@ -89,7 +89,7 @@ function formatDuration(ms: number): string {
   return `${hours}h ${minutes % 60}m`
 }
 
-export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }: Props) {
+export function LiveTab({ tournamentName, tournamentId, round }: Props) {
   const online = useOnlineStatus()
   const serviceRef = useRef<P2PService | null>(null)
   const tournamentIdRef = useRef(tournamentId)
@@ -116,8 +116,12 @@ export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }
   const chatRateLimitRef = useRef(new Map<string, number>())
   const mutationUnsubRef = useRef<(() => void) | null>(null)
   const [viewToken, setViewToken] = useState('')
+  const [clubCodeSecret, setClubCodeSecret] = useState<string | null>(null)
   const tokenPermissionsRef = useRef(new Map<string, RpcPermissions>())
+  const allClubEntriesRef = useRef<string[]>([])
   const [selectedClubs, setSelectedClubs] = useState<Set<string>>(new Set())
+  const [shareClubDialog, setShareClubDialog] = useState<string | null>(null)
+  const allClubsCheckboxRef = useRef<HTMLInputElement | null>(null)
   const [showDiagnostics, setShowDiagnostics] = useState(false)
   const [diagnosticLog, setDiagnosticLog] = useState<DiagnosticEntry[]>([])
   const [relayStatus, setRelayStatus] = useState<RelaySocketInfo[]>([])
@@ -125,27 +129,26 @@ export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }
   const [diagInfo, setDiagInfo] = useState({ roomId: '', selfId: '', role: '', strategy: '' })
   const { scrollRef: chatScrollRef, bottomRef: chatBottomRef } = useChatAutoScroll(chatMessages)
   const { data: tournamentPlayersData } = useTournamentPlayers(tournamentId)
-  const clubs = useMemo(
-    () => [...new Set(tournamentPlayersData?.filter((p) => p.club).map((p) => p.club!))].sort(),
-    [tournamentPlayersData],
-  )
-  const hasClublessPlayers = useMemo(
-    () => tournamentPlayersData?.some((p) => !p.club) ?? false,
-    [tournamentPlayersData],
-  )
+  const clubPlayerCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    let clubless = 0
+    for (const p of tournamentPlayersData ?? []) {
+      if (p.club) counts.set(p.club, (counts.get(p.club) ?? 0) + 1)
+      else clubless++
+    }
+    return { counts, clubless }
+  }, [tournamentPlayersData])
+  const clubs = useMemo(() => [...clubPlayerCounts.counts.keys()].sort(), [clubPlayerCounts.counts])
+  const hasClublessPlayers = clubPlayerCounts.clubless > 0
   const allClubEntries = useMemo(() => {
     const entries = [...clubs]
     if (hasClublessPlayers) entries.push(CLUBLESS_KEY)
     return entries
   }, [clubs, hasClublessPlayers])
   const clubCode = useMemo(() => {
-    if (selectedClubs.size === 0) return ''
-    return generateClubCode(
-      [...selectedClubs],
-      allClubEntries,
-      `${tournamentName}/${tournamentGroup}`,
-    )
-  }, [selectedClubs, allClubEntries, tournamentName, tournamentGroup])
+    if (selectedClubs.size === 0 || !clubCodeSecret) return ''
+    return generateClubCode([...selectedClubs], allClubEntries, clubCodeSecret)
+  }, [selectedClubs, allClubEntries, clubCodeSecret])
 
   useDocumentTitle(unreadChat, `Live: ${tournamentName}`)
   useEffect(() => {
@@ -164,16 +167,30 @@ export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }
   useEffect(() => {
     chatMessagesRef.current = chatMessages
   }, [chatMessages])
+  useEffect(() => {
+    allClubEntriesRef.current = allClubEntries
+  }, [allClubEntries])
+  useEffect(() => {
+    const input = allClubsCheckboxRef.current
+    if (!input) return
+    const selectedCount =
+      clubs.filter((c) => selectedClubs.has(c)).length +
+      (hasClublessPlayers && selectedClubs.has(CLUBLESS_KEY) ? 1 : 0)
+    const totalCount = clubs.length + (hasClublessPlayers ? 1 : 0)
+    input.indeterminate = selectedCount > 0 && selectedCount < totalCount
+  }, [selectedClubs, clubs, hasClublessPlayers])
 
   const startHosting = useCallback((saved?: SavedSession) => {
     if (serviceRef.current) return // Prevent double-start
     const code = saved?.roomCode ?? generateRoomCode()
     const token = saved?.refereeToken ?? generateRefereeToken()
     const vToken = crypto.randomUUID()
+    const secret = crypto.randomUUID()
     saveSession(code, token)
     const service = new P2PService('organizer', token)
     serviceRef.current = service
     setP2PService(service)
+    setClubCodeSecret(secret)
 
     // Set up token → permissions mapping
     const tokenPerms = tokenPermissionsRef.current
@@ -262,6 +279,8 @@ export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }
         queryClient.invalidateQueries()
         service.broadcastDataChanged()
       },
+      clubCodeSecret: secret,
+      getAllClubEntries: () => allClubEntriesRef.current,
     })
 
     mutationUnsubRef.current = subscribeMutationBroadcast(queryClient, () =>
@@ -301,6 +320,7 @@ export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }
     setMutedPeers(new Set())
     mutedPeersRef.current = new Set()
     setViewToken('')
+    setClubCodeSecret(null)
     setSelectedClubs(new Set())
     setShowDiagnostics(false)
     setDiagnosticLog([])
@@ -565,6 +585,9 @@ export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }
                   </button>
                 </div>
               </div>
+            </div>
+
+            <div className="live-tab-peers">
               {clubs.length > 0 && (
                 <div className="live-tab-club-codes" data-testid="club-codes">
                   <h4>Klubbkoder</h4>
@@ -572,9 +595,10 @@ export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }
                     Välj klubbar att dela. Varje kombination ger en unik kod som klubbledaren anger
                     vid anslutning för att se sina spelares placeringar.
                   </p>
-                  <div className="live-tab-club-checkboxes">
-                    <label className="live-tab-club-checkbox">
+                  <div className="live-tab-club-tree">
+                    <label className="live-tab-club-checkbox live-tab-club-parent">
                       <input
+                        ref={allClubsCheckboxRef}
                         type="checkbox"
                         checked={
                           clubs.length > 0 &&
@@ -593,42 +617,75 @@ export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }
                           })
                         }}
                       />
-                      Alla klubbar
+                      Alla
+                      <span className="live-tab-club-count">
+                        ({tournamentPlayersData?.length ?? 0} st)
+                      </span>
                     </label>
-                    {clubs.map((club) => (
-                      <label key={club} className="live-tab-club-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={selectedClubs.has(club)}
-                          onChange={() => {
-                            setSelectedClubs((prev) => {
-                              const next = new Set(prev)
-                              if (next.has(club)) next.delete(club)
-                              else next.add(club)
-                              return next
-                            })
-                          }}
-                        />
-                        {club}
-                      </label>
-                    ))}
-                    {hasClublessPlayers && (
-                      <label className="live-tab-club-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={selectedClubs.has(CLUBLESS_KEY)}
-                          onChange={() => {
-                            setSelectedClubs((prev) => {
-                              const next = new Set(prev)
-                              if (next.has(CLUBLESS_KEY)) next.delete(CLUBLESS_KEY)
-                              else next.add(CLUBLESS_KEY)
-                              return next
-                            })
-                          }}
-                        />
-                        Klubblösa
-                      </label>
-                    )}
+                    <div className="live-tab-club-children" data-testid="club-picker-children">
+                      {clubs.map((club) => (
+                        <div key={club} className="live-tab-club-row">
+                          <label className="live-tab-club-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={selectedClubs.has(club)}
+                              onChange={() => {
+                                setSelectedClubs((prev) => {
+                                  const next = new Set(prev)
+                                  if (next.has(club)) next.delete(club)
+                                  else next.add(club)
+                                  return next
+                                })
+                              }}
+                            />
+                            {club}
+                            <span className="live-tab-club-count">
+                              ({clubPlayerCounts.counts.get(club) ?? 0} st)
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            className="btn btn-icon btn-small"
+                            data-testid={`share-club-btn-${club}`}
+                            title="Dela denna klubb"
+                            onClick={() => setShareClubDialog(club)}
+                          >
+                            ⛶
+                          </button>
+                        </div>
+                      ))}
+                      {hasClublessPlayers && (
+                        <div className="live-tab-club-row">
+                          <label className="live-tab-club-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={selectedClubs.has(CLUBLESS_KEY)}
+                              onChange={() => {
+                                setSelectedClubs((prev) => {
+                                  const next = new Set(prev)
+                                  if (next.has(CLUBLESS_KEY)) next.delete(CLUBLESS_KEY)
+                                  else next.add(CLUBLESS_KEY)
+                                  return next
+                                })
+                              }}
+                            />
+                            Klubblösa
+                            <span className="live-tab-club-count">
+                              ({clubPlayerCounts.clubless} st)
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            className="btn btn-icon btn-small"
+                            data-testid={`share-club-btn-${CLUBLESS_KEY}`}
+                            title="Dela klubblösa"
+                            onClick={() => setShareClubDialog(CLUBLESS_KEY)}
+                          >
+                            ⛶
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {clubCode && (
                     <div className="live-tab-club-code-display">
@@ -644,9 +701,6 @@ export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }
                   )}
                 </div>
               )}
-            </div>
-
-            <div className="live-tab-peers">
               <h4>
                 Anslutna ({peers.length})
                 {peers.length > 0 && (
@@ -901,6 +955,42 @@ export function LiveTab({ tournamentName, tournamentGroup, tournamentId, round }
           </div>
         </div>
       )}
+
+      <Dialog
+        title={
+          shareClubDialog === CLUBLESS_KEY ? 'Dela klubblösa' : `Dela ${shareClubDialog ?? ''}`
+        }
+        open={shareClubDialog !== null}
+        onClose={() => setShareClubDialog(null)}
+        width={360}
+      >
+        {shareClubDialog !== null &&
+          roomCode &&
+          viewToken &&
+          clubCodeSecret &&
+          (() => {
+            const code = generateClubCode(
+              [shareClubDialog],
+              allClubEntriesRef.current,
+              clubCodeSecret,
+            )
+            const url = getViewUrlWithCode(roomCode, viewToken, code)
+            return (
+              <div className="share-club-dialog-body" data-testid="share-club-dialog">
+                <div className="share-club-dialog-qr">
+                  <QRCodeSVG value={url} size={200} />
+                </div>
+                <input
+                  className="share-club-url-input"
+                  data-testid="share-club-url"
+                  readOnly
+                  value={url}
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+              </div>
+            )
+          })()}
+      </Dialog>
     </div>
   )
 }

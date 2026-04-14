@@ -1,8 +1,10 @@
+import { verifyClubCode } from '../domain/club-codes'
 import type { DataProvider } from './data-provider'
 import type { SetResultCommand } from './result-command'
 import { createCommandDeps, handleSetResult } from './result-command'
 import type { RpcRequest, RpcResponse } from './rpc'
 import { createRpcClient, dispatch } from './rpc'
+import { createViewScopedProvider } from './view-scoped-provider'
 
 interface RpcSender {
   sendRpcRequest(request: RpcRequest): void
@@ -29,13 +31,19 @@ const READ_METHODS = new Set(['list', 'get'])
 export type RpcPermissions = Partial<Record<string, boolean>>
 
 const peerPermissions = new Map<string, RpcPermissions>()
+const peerAuthorizedClubs = new Map<string, string[]>()
 
 export function setPeerPermissions(peerId: string, perms: RpcPermissions): void {
   peerPermissions.set(peerId, perms)
 }
 
+export function setPeerAuthorizedClubs(peerId: string, clubs: string[]): void {
+  peerAuthorizedClubs.set(peerId, clubs)
+}
+
 export function clearAllPeerPermissions(): void {
   peerPermissions.clear()
+  peerAuthorizedClubs.clear()
 }
 
 export function createFullPermissions(): RpcPermissions {
@@ -48,6 +56,7 @@ export function createFullPermissions(): RpcPermissions {
     'standings.get': true,
     'results.set': true,
     'commands.setResult': true,
+    'auth.redeemClubCode': true,
   }
 }
 
@@ -58,11 +67,24 @@ export function createViewPermissions(): RpcPermissions {
     'rounds.list': true,
     'rounds.get': true,
     'tournamentPlayers.list': true,
+    'auth.redeemClubCode': true,
   }
 }
 
 interface RpcServerOptions {
   onMutation?: () => void
+  clubCodeSecret?: string
+  getAllClubEntries?: () => string[]
+}
+
+function isViewRole(perms: RpcPermissions | undefined): boolean {
+  return perms !== undefined && perms['commands.setResult'] !== true
+}
+
+function getProviderForPeer(base: DataProvider, peerId: string): DataProvider {
+  const perms = peerPermissions.get(peerId)
+  if (!isViewRole(perms)) return base
+  return createViewScopedProvider(base, peerAuthorizedClubs.get(peerId) ?? [])
 }
 
 function isAllowed(method: string, peerId: string): boolean {
@@ -95,8 +117,24 @@ export function startP2pRpcServer(
         const outcome = await handleSetResult(req.args[0] as SetResultCommand, commandDeps)
         result = outcome
         isMutation = outcome.status === 'applied'
+      } else if (req.method === 'auth.redeemClubCode') {
+        const rawCode = String(req.args[0] ?? '')
+        const secret = options?.clubCodeSecret
+        const clubs = options?.getAllClubEntries?.()
+        if (!secret || !clubs) {
+          result = { status: 'error', reason: 'not-configured' }
+        } else {
+          const matched = verifyClubCode(rawCode, clubs, secret)
+          if (!matched) {
+            result = { status: 'error', reason: 'invalid-code' }
+          } else {
+            setPeerAuthorizedClubs(peerId, matched)
+            result = { status: 'ok', clubs: matched }
+          }
+        }
       } else {
-        result = await dispatch(provider, req.method, req.args)
+        const peerProvider = getProviderForPeer(provider, peerId)
+        result = await dispatch(peerProvider, req.method, req.args)
         const methodName = req.method.split('.')[1]
         isMutation = !READ_METHODS.has(methodName)
       }

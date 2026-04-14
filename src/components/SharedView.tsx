@@ -20,6 +20,7 @@ import {
   setAnnouncement,
   setKicked,
   setPeerCount,
+  setPendingClubCode,
   setRoomCode,
   setShareMode,
 } from '../stores/client-p2p-store'
@@ -50,11 +51,16 @@ interface SharedViewProps {
   roomCode: string
   token: string
   mode?: 'full' | 'view'
+  code?: string
 }
 
-export function SharedView({ roomCode, token, mode = 'full' }: SharedViewProps) {
+export function SharedView({ roomCode, token, mode = 'full', code }: SharedViewProps) {
   const navigate = useNavigate()
   const initialized = useRef(false)
+
+  useEffect(() => {
+    if (code) setPendingClubCode(code)
+  }, [code])
   const [connectionState, setConnectionState] = useState<P2PConnectionState>('disconnected')
   const [stage, setStage] = useState<ConnectionStage>('init')
   const [countdown, setCountdown] = useState(CONNECTION_TIMEOUT_S)

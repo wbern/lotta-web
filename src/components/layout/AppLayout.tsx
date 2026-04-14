@@ -379,7 +379,6 @@ export function AppLayout() {
         onTabChange={setTab}
         tournamentId={tournamentId}
         tournamentName={tournament?.name}
-        tournamentGroup={tournament?.group}
         round={activeRound}
         rounds={rounds || []}
         onBoardSelect={setSelectedBoard}

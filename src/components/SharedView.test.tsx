@@ -364,6 +364,18 @@ describe('SharedView', () => {
     expect(state.shareMode).toBe('view')
   })
 
+  it('stores the incoming code prop as pendingClubCode on mount', () => {
+    render(<SharedView roomCode="ABC123" token="tok-1" mode="view" code="123456" />)
+
+    expect(getClientP2PState().pendingClubCode).toBe('123456')
+  })
+
+  it('does not touch pendingClubCode when no code prop is provided', () => {
+    render(<SharedView roomCode="ABC123" token="tok-1" mode="view" />)
+
+    expect(getClientP2PState().pendingClubCode).toBeNull()
+  })
+
   it('resets client store on disconnect', () => {
     render(<SharedView roomCode="ABC123" token="tok-1" />)
 

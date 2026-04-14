@@ -1,6 +1,13 @@
 /* eslint local/no-class-locators: "off" -- structural traversal (.live-tab-*, .empty-state-title) */
 
-import { apiClient, createTournament, type PlayerInput, pairRound, waitForApi } from './api-helpers'
+import {
+  apiClient,
+  createTournament,
+  ensureClubs,
+  type PlayerInput,
+  pairRound,
+  waitForApi,
+} from './api-helpers'
 import { expect, test } from './fixtures'
 
 const PLAYERS: PlayerInput[] = [
@@ -8,6 +15,18 @@ const PLAYERS: PlayerInput[] = [
   { lastName: 'Svensson', firstName: 'Erik', ratingI: 1700 },
   { lastName: 'Johansson', firstName: 'Karin', ratingI: 1600 },
   { lastName: 'Karlsson', firstName: 'Lars', ratingI: 1500 },
+]
+
+const CLUB_TREE_CLUBS = [{ name: 'Skara SK' }, { name: 'Lidköping SS' }]
+
+// Mix of clubbed + clubless players, enough for pairing 3 rounds.
+const CLUB_TREE_PLAYERS: PlayerInput[] = [
+  { lastName: 'Svensson', firstName: 'Anna', ratingI: 1800 },
+  { lastName: 'Lindberg', firstName: 'Maria', ratingI: 1650 },
+  { lastName: 'Johansson', firstName: 'Erik', ratingI: 1750 },
+  { lastName: 'Nilsson', firstName: 'Karl', ratingI: 1700 },
+  { lastName: 'Persson', firstName: 'Nils', ratingI: 1400 },
+  { lastName: 'Olsson', firstName: 'Greta', ratingI: 1350 },
 ]
 
 async function setupTournament(page: import('@playwright/test').Page) {
@@ -193,5 +212,111 @@ test.describe('Live session persistence', () => {
     // Stop hosting
     await page.locator('button', { hasText: 'Stoppa Live' }).click()
     await expect(page.locator('button', { hasText: 'Starta Live' })).toBeVisible()
+  })
+})
+
+// ===========================================================================
+// 4. Club picker checkbox tree
+// ===========================================================================
+test.describe('Live club picker tree', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await waitForApi(page)
+    const $ = apiClient(page)
+
+    const clubIds = await ensureClubs($, CLUB_TREE_CLUBS)
+    // First 2 in Skara, next 2 in Lidköping, last 2 are clubless (clubIndex=0).
+    const players = CLUB_TREE_PLAYERS.map((p, i) => ({
+      ...p,
+      clubIndex: i < 2 ? clubIds[0] : i < 4 ? clubIds[1] : 0,
+    }))
+
+    const { tid } = await createTournament(
+      $,
+      { name: 'Club-tree-test', pairingSystem: 'Monrad', nrOfRounds: 3 },
+      players,
+    )
+    await pairRound($, tid)
+
+    await page.reload()
+    await waitForApi(page)
+
+    const tournamentSelect = page.getByTestId('tournament-selector').locator('select').first()
+    await tournamentSelect.locator('option', { hasText: 'Club-tree-test' }).waitFor({
+      state: 'attached',
+    })
+    await tournamentSelect.selectOption('Club-tree-test')
+    await expect(page.getByTestId('data-table')).toBeVisible()
+
+    await goToLiveTab(page)
+    await startHosting(page)
+
+    await page.getByTestId('club-codes').scrollIntoViewIfNeeded()
+  })
+
+  test('shows "Alla" parent with clubs and Klubblösa nested as children', async ({ page }) => {
+    await expect(page.getByRole('checkbox', { name: /^Alla/ })).toBeVisible()
+
+    const children = page.getByTestId('club-picker-children')
+    await expect(children.getByRole('checkbox', { name: /^Skara SK/ })).toBeVisible()
+    await expect(children.getByRole('checkbox', { name: /^Lidköping SS/ })).toBeVisible()
+    await expect(children.getByRole('checkbox', { name: /^Klubblösa/ })).toBeVisible()
+
+    // Parent is outside the children container
+    await expect(children.getByRole('checkbox', { name: /^Alla/ })).toHaveCount(0)
+  })
+
+  test('parent checkbox becomes indeterminate when some children are selected', async ({
+    page,
+  }) => {
+    const parent = page.getByRole('checkbox', { name: /^Alla/ })
+
+    // Initial state: nothing selected
+    await expect(parent).not.toBeChecked()
+    expect(await parent.evaluate((el: HTMLInputElement) => el.indeterminate)).toBe(false)
+
+    // Select one child → parent indeterminate
+    await page.getByRole('checkbox', { name: /^Skara SK/ }).check()
+    await expect(parent).not.toBeChecked()
+    expect(await parent.evaluate((el: HTMLInputElement) => el.indeterminate)).toBe(true)
+
+    // Select all children → parent checked, not indeterminate
+    await page.getByRole('checkbox', { name: /^Lidköping SS/ }).check()
+    await page.getByRole('checkbox', { name: /^Klubblösa/ }).check()
+    await expect(parent).toBeChecked()
+    expect(await parent.evaluate((el: HTMLInputElement) => el.indeterminate)).toBe(false)
+  })
+
+  test('toggling parent checks and unchecks all children', async ({ page }) => {
+    const parent = page.getByRole('checkbox', { name: /^Alla/ })
+    const skara = page.getByRole('checkbox', { name: /^Skara SK/ })
+    const lidkoping = page.getByRole('checkbox', { name: /^Lidköping SS/ })
+    const klubblosa = page.getByRole('checkbox', { name: /^Klubblösa/ })
+
+    await parent.check()
+    await expect(skara).toBeChecked()
+    await expect(lidkoping).toBeChecked()
+    await expect(klubblosa).toBeChecked()
+
+    await parent.uncheck()
+    await expect(skara).not.toBeChecked()
+    await expect(lidkoping).not.toBeChecked()
+    await expect(klubblosa).not.toBeChecked()
+  })
+
+  test('share button opens dialog with QR and pre-populated URL', async ({ page }) => {
+    await page.getByTestId('share-club-btn-Skara SK').click()
+
+    const dialog = page.getByTestId('share-club-dialog')
+    await expect(dialog).toBeVisible()
+
+    // QR code is rendered as an svg
+    await expect(dialog.locator('svg')).toBeVisible()
+
+    const urlInput = page.getByTestId('share-club-url')
+    const url = (await urlInput.inputValue()).trim()
+    expect(url).toContain('share=view')
+    expect(url).toContain('token=')
+    expect(url).toMatch(/[?&]code=\d{6}/)
   })
 })

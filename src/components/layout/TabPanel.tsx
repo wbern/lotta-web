@@ -16,7 +16,6 @@ interface Props {
   onTabChange: (tab: string) => void
   tournamentId: number | undefined
   tournamentName?: string
-  tournamentGroup?: string
   round: number | undefined
   rounds: RoundDto[]
   onBoardSelect?: (boardNr: number | undefined) => void
@@ -33,7 +32,6 @@ export function TabPanel({
   onTabChange,
   tournamentId,
   tournamentName,
-  tournamentGroup,
   round,
   rounds,
   onBoardSelect,
@@ -135,7 +133,6 @@ export function TabPanel({
             <div style={activeTab !== 'live' ? { display: 'none' } : undefined}>
               <LiveTab
                 tournamentName={tournamentName || ''}
-                tournamentGroup={tournamentGroup || ''}
                 tournamentId={tournamentId}
                 round={round}
               />

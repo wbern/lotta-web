@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { generateClubCode } from '../domain/club-codes'
 import type { DataProvider } from './data-provider'
 import {
   clearAllPeerPermissions,
   createFullPermissions,
   createP2pClientProvider,
   createViewPermissions,
+  setPeerAuthorizedClubs,
   setPeerPermissions,
   startP2pRpcServer,
 } from './p2p-data-provider'
@@ -448,6 +450,304 @@ describe('startP2pRpcServer', () => {
     expect(provider.tournaments.create).not.toHaveBeenCalled()
   })
 
+  it('filters rounds.get games to authorized clubs and redacts opponent names for view peers', async () => {
+    const service = createMockServerService()
+    const provider: DataProvider = {
+      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+      tournamentPlayers: {
+        list: vi.fn(),
+        add: vi.fn(),
+        addMany: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn(),
+        removeMany: vi.fn(),
+      },
+      rounds: {
+        list: vi.fn(),
+        get: vi.fn().mockResolvedValue({
+          roundNr: 1,
+          hasAllResults: false,
+          gameCount: 3,
+          games: [
+            {
+              boardNr: 1,
+              roundNr: 1,
+              whitePlayer: {
+                id: 1,
+                name: 'Linnea Jonsson',
+                club: 'Club A',
+                rating: 1500,
+                lotNr: 1,
+              },
+              blackPlayer: {
+                id: 2,
+                name: 'Anna Karlsson',
+                club: 'Club B',
+                rating: 1500,
+                lotNr: 2,
+              },
+              resultType: 'NO_RESULT' as const,
+              whiteScore: 0,
+              blackScore: 0,
+              resultDisplay: '',
+            },
+            {
+              boardNr: 2,
+              roundNr: 1,
+              whitePlayer: {
+                id: 3,
+                name: 'Olof Svensson',
+                club: 'Club C',
+                rating: 1500,
+                lotNr: 3,
+              },
+              blackPlayer: {
+                id: 4,
+                name: 'Per Olsson',
+                club: 'Club D',
+                rating: 1500,
+                lotNr: 4,
+              },
+              resultType: 'NO_RESULT' as const,
+              whiteScore: 0,
+              blackScore: 0,
+              resultDisplay: '',
+            },
+            {
+              boardNr: 3,
+              roundNr: 1,
+              whitePlayer: {
+                id: 5,
+                name: 'Eva Andersson',
+                club: 'Club A',
+                rating: 1500,
+                lotNr: 5,
+              },
+              blackPlayer: {
+                id: 6,
+                name: 'Sara Berg',
+                club: 'Club A',
+                rating: 1500,
+                lotNr: 6,
+              },
+              resultType: 'NO_RESULT' as const,
+              whiteScore: 0,
+              blackScore: 0,
+              resultDisplay: '',
+            },
+          ],
+        }),
+        pairNext: vi.fn(),
+        unpairLast: vi.fn(),
+      },
+      results: { set: vi.fn() },
+      standings: { get: vi.fn() },
+    }
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+    setPeerAuthorizedClubs('peer-1', ['Club A'])
+
+    service._simulateRequest({ id: 61, method: 'rounds.get', args: [1, 1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        {
+          id: 61,
+          result: {
+            roundNr: 1,
+            hasAllResults: false,
+            gameCount: 2,
+            games: [
+              {
+                boardNr: 1,
+                roundNr: 1,
+                whitePlayer: {
+                  id: 1,
+                  name: 'Linnea Jonsson',
+                  club: 'Club A',
+                  rating: 1500,
+                  lotNr: 1,
+                },
+                blackPlayer: {
+                  id: 2,
+                  name: 'Anna',
+                  club: null,
+                  rating: 1500,
+                  lotNr: 2,
+                },
+                resultType: 'NO_RESULT',
+                whiteScore: 0,
+                blackScore: 0,
+                resultDisplay: '',
+              },
+              {
+                boardNr: 3,
+                roundNr: 1,
+                whitePlayer: {
+                  id: 5,
+                  name: 'Eva Andersson',
+                  club: 'Club A',
+                  rating: 1500,
+                  lotNr: 5,
+                },
+                blackPlayer: {
+                  id: 6,
+                  name: 'Sara Berg',
+                  club: 'Club A',
+                  rating: 1500,
+                  lotNr: 6,
+                },
+                resultType: 'NO_RESULT',
+                whiteScore: 0,
+                blackScore: 0,
+                resultDisplay: '',
+              },
+            ],
+          },
+        },
+        'peer-1',
+      )
+    })
+  })
+
+  it('returns empty games for rounds.get to view peers with no club authorization', async () => {
+    const service = createMockServerService()
+    const provider: DataProvider = {
+      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+      tournamentPlayers: {
+        list: vi.fn(),
+        add: vi.fn(),
+        addMany: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn(),
+        removeMany: vi.fn(),
+      },
+      rounds: {
+        list: vi.fn(),
+        get: vi.fn().mockResolvedValue({
+          roundNr: 1,
+          hasAllResults: false,
+          gameCount: 2,
+          games: [
+            {
+              boardNr: 1,
+              roundNr: 1,
+              whitePlayer: {
+                id: 1,
+                name: 'Linnea Jonsson',
+                club: 'Club A',
+                rating: 1500,
+                lotNr: 1,
+              },
+              blackPlayer: {
+                id: 2,
+                name: 'Anna Jonsson',
+                club: 'Club B',
+                rating: 1500,
+                lotNr: 2,
+              },
+              resultType: 'NO_RESULT' as const,
+              whiteScore: 0,
+              blackScore: 0,
+              resultDisplay: '',
+            },
+          ],
+        }),
+        pairNext: vi.fn(),
+        unpairLast: vi.fn(),
+      },
+      results: { set: vi.fn() },
+      standings: { get: vi.fn() },
+    }
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    service._simulateRequest({ id: 60, method: 'rounds.get', args: [1, 1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        {
+          id: 60,
+          result: { roundNr: 1, hasAllResults: false, gameCount: 0, games: [] },
+        },
+        'peer-1',
+      )
+    })
+  })
+
+  it('filters tournamentPlayers.list to authorized clubs for view peers', async () => {
+    const service = createMockServerService()
+    const provider: DataProvider = {
+      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+      tournamentPlayers: {
+        list: vi.fn().mockResolvedValue([
+          { id: 1, firstName: 'Linnea', lastName: 'Jonsson', club: 'Club A' },
+          { id: 2, firstName: 'Anna', lastName: 'Jonsson', club: 'Club B' },
+          { id: 3, firstName: 'Eva', lastName: 'Andersson', club: 'Club A' },
+        ]),
+        add: vi.fn(),
+        addMany: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn(),
+        removeMany: vi.fn(),
+      },
+      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
+      results: { set: vi.fn() },
+      standings: { get: vi.fn() },
+    }
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+    setPeerAuthorizedClubs('peer-1', ['Club A'])
+
+    service._simulateRequest({ id: 52, method: 'tournamentPlayers.list', args: [1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        {
+          id: 52,
+          result: [
+            { id: 1, firstName: 'Linnea', lastName: 'Jonsson', club: 'Club A' },
+            { id: 3, firstName: 'Eva', lastName: 'Andersson', club: 'Club A' },
+          ],
+        },
+        'peer-1',
+      )
+    })
+  })
+
+  it('returns empty tournamentPlayers.list to view peers with no club authorization', async () => {
+    const service = createMockServerService()
+    const provider: DataProvider = {
+      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+      tournamentPlayers: {
+        list: vi.fn().mockResolvedValue([
+          { id: 1, firstName: 'Linnea', lastName: 'Jonsson', club: 'Club A' },
+          { id: 2, firstName: 'Anna', lastName: 'Jonsson', club: 'Club B' },
+        ]),
+        add: vi.fn(),
+        addMany: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn(),
+        removeMany: vi.fn(),
+      },
+      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
+      results: { set: vi.fn() },
+      standings: { get: vi.fn() },
+    }
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    service._simulateRequest({ id: 50, method: 'tournamentPlayers.list', args: [1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith({ id: 50, result: [] }, 'peer-1')
+    })
+  })
+
   it('rejects standings.get for peers with view-only permissions', async () => {
     const service = createMockServerService()
     const provider: DataProvider = {
@@ -591,5 +891,57 @@ describe('startP2pRpcServer', () => {
       )
     })
     expect(provider.results.set).not.toHaveBeenCalled()
+  })
+
+  it('auth.redeemClubCode authorizes the peer when code is valid', async () => {
+    const service = createMockServerService()
+    const provider: DataProvider = {
+      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+      tournamentPlayers: {
+        list: vi.fn().mockResolvedValue([
+          { id: 1, firstName: 'Linnea', lastName: 'Jonsson', club: 'Club A' },
+          { id: 2, firstName: 'Anna', lastName: 'Karlsson', club: 'Club B' },
+        ]),
+        add: vi.fn(),
+        addMany: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn(),
+        removeMany: vi.fn(),
+      },
+      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
+      results: { set: vi.fn() },
+      standings: { get: vi.fn() },
+    }
+
+    const allClubs = ['Club A', 'Club B']
+    const secret = 'host-session-secret-xyz'
+    const code = generateClubCode(['Club A'], allClubs, secret)
+
+    startP2pRpcServer(service, provider, {
+      clubCodeSecret: secret,
+      getAllClubEntries: () => allClubs,
+    })
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    service._simulateRequest({ id: 70, method: 'auth.redeemClubCode', args: [code] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        { id: 70, result: { status: 'ok', clubs: ['Club A'] } },
+        'peer-1',
+      )
+    })
+
+    // After redemption, the peer should see players filtered to Club A
+    service._simulateRequest({ id: 71, method: 'tournamentPlayers.list', args: [1] }, 'peer-1')
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        {
+          id: 71,
+          result: [{ id: 1, firstName: 'Linnea', lastName: 'Jonsson', club: 'Club A' }],
+        },
+        'peer-1',
+      )
+    })
   })
 })

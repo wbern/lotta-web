@@ -160,6 +160,7 @@ function RoomCodeEntry() {
           kiosk: undefined,
           share: undefined,
           v: undefined,
+          code: undefined,
         },
       })
     }

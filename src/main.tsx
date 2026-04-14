@@ -49,13 +49,14 @@ const liveRoute = createRoute({
     kiosk: search.kiosk === 'true' || search.kiosk === '1' || undefined,
     share: (search.share as string) || undefined,
     v: search.v != null ? String(search.v) : undefined,
+    code: (search.code as string) || undefined,
   }),
   beforeLoad: () => void prefetchTurnServers(),
   component: function LiveRoute() {
     const { roomCode } = liveRoute.useParams()
-    const { ref, token, kiosk, share, v } = liveRoute.useSearch()
+    const { ref, token, kiosk, share, v, code } = liveRoute.useSearch()
     if (share === 'view' && token) {
-      return <SharedView roomCode={roomCode} token={token} mode="view" />
+      return <SharedView roomCode={roomCode} token={token} mode="view" code={code} />
     }
     if (share === 'full' && token) {
       return <SharedView roomCode={roomCode} token={token} mode="full" />
