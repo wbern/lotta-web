@@ -267,3 +267,68 @@ test.describe('Live per-club share', () => {
     expect(code?.trim()).toMatch(/^\d{4}$/)
   })
 })
+
+// ===========================================================================
+// 5. Mobile scroll — sharing surfaces must scroll when content overflows
+// ===========================================================================
+test.describe('Live sharing mobile scroll', () => {
+  test('Delning sub-tab scroll root scrolls when content overflows on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 500 })
+    await page.addInitScript(() => {
+      localStorage.setItem('storage-warning-dismissed', '1')
+    })
+    await setupTournament(page)
+    await goToLiveTab(page)
+    await startHosting(page)
+
+    // Ensure share content has rendered so the container has real content
+    await expect(page.locator('.live-tab-share-qr')).toBeVisible()
+
+    const metrics = await page.locator('.live-tab-container').evaluate((el) => {
+      const before = el.scrollTop
+      el.scrollTop = 9999
+      const after = el.scrollTop
+      return {
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        before,
+        after,
+      }
+    })
+
+    // Content must overflow the viewport-bounded container
+    expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
+    // And the container must actually accept scrollTop changes
+    expect(metrics.after).toBeGreaterThan(metrics.before)
+  })
+
+  test('Domarstyrning sub-tab scroll root scrolls when content overflows on mobile', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 500 })
+    await page.addInitScript(() => {
+      localStorage.setItem('storage-warning-dismissed', '1')
+    })
+    await setupTournament(page)
+    await goToLiveTab(page)
+    await startHosting(page)
+
+    await page.locator('[role="tab"]', { hasText: 'Domarstyrning' }).click()
+    await expect(page.getByTestId('live-tab-grants-panel')).toBeVisible()
+
+    const metrics = await page.locator('.live-tab-container').evaluate((el) => {
+      const before = el.scrollTop
+      el.scrollTop = 9999
+      const after = el.scrollTop
+      return {
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        before,
+        after,
+      }
+    })
+
+    expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
+    expect(metrics.after).toBeGreaterThan(metrics.before)
+  })
+})

@@ -130,7 +130,7 @@ export function TabPanel({
             {activeTab === 'chess4-standings' && (
               <Chess4StandingsTab tournamentId={tournamentId} round={round} />
             )}
-            <div style={activeTab !== 'live' ? { display: 'none' } : undefined}>
+            <div style={activeTab !== 'live' ? { display: 'none' } : { height: '100%' }}>
               <LiveTab
                 tournamentName={tournamentName || ''}
                 tournamentId={tournamentId}
