@@ -855,7 +855,13 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
           <div className="live-tab-panels">
             <div className="live-tab-share" data-testid="live-tab-grants-panel">
               <h4>Domarstyrning</h4>
-              <div className="live-tab-grant-form">
+              <form
+                className="live-tab-grant-form"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  addGrant()
+                }}
+              >
                 <label className="live-tab-grant-label">
                   Namn
                   <input
@@ -889,15 +895,14 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                   </label>
                 </fieldset>
                 <button
-                  type="button"
+                  type="submit"
                   className="btn btn-primary"
                   data-testid="grant-submit"
                   disabled={!grantLabel.trim()}
-                  onClick={addGrant}
                 >
                   Lägg till
                 </button>
-              </div>
+              </form>
               {grants.length === 0 ? (
                 <p className="live-tab-empty">
                   Lägg till en åtkomst för att generera en QR-kod åt en domare.
@@ -941,6 +946,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                             data-testid={`grant-copy-${grant.id}`}
                             onClick={() => copyToClipboard(url, `grant-${grant.id}`)}
                             title="Kopiera länk"
+                            aria-label="Kopiera länk"
                           >
                             {copied === `grant-${grant.id}` ? '✓' : '📋'}
                           </button>

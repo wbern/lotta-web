@@ -621,6 +621,42 @@ describe('LiveTab', () => {
     expect(row.querySelector('[data-testid^="grant-copy-"]')).toBeTruthy()
   })
 
+  it('grant row copy button exposes an aria-label for screen readers', () => {
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+
+    fireEvent.change(screen.getByTestId('grant-label-input'), {
+      target: { value: 'Domare Lisa' },
+    })
+    fireEvent.click(screen.getByTestId('grant-submit'))
+
+    const row = screen
+      .getByTestId('live-tab-grants-panel')
+      .querySelector('[data-testid^="grant-row-"]') as HTMLElement
+    const copyBtn = row.querySelector('[data-testid^="grant-copy-"]')
+    expect(copyBtn?.getAttribute('aria-label')).toBe('Kopiera länk')
+  })
+
+  it('pressing Enter in the grant label input adds a grant', () => {
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+
+    const labelInput = screen.getByTestId('grant-label-input') as HTMLInputElement
+    fireEvent.change(labelInput, { target: { value: 'Enter Test' } })
+
+    const form = labelInput.closest('form')
+    expect(form).not.toBeNull()
+    fireEvent.submit(form as HTMLFormElement)
+
+    const panel = screen.getByTestId('live-tab-grants-panel')
+    const rows = panel.querySelectorAll('[data-testid^="grant-row-"]')
+    expect(rows.length).toBe(1)
+    expect(rows[0].textContent).toContain('Enter Test')
+    expect(labelInput.value).toBe('')
+  })
+
   it('synthesizes a single Domare grant from a legacy session payload without grants', () => {
     sessionStorage.setItem(
       'lotta-live-session',
