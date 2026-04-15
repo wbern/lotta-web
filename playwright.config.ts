@@ -3,17 +3,8 @@ import { defineConfig } from '@playwright/test'
 const p2pPort = 5174
 const p2pBaseURL = `https://localhost:${p2pPort}`
 
-const runningP2P = process.argv.some(
-  (a) =>
-    a.includes('p2p') ||
-    a.includes('vydelning') ||
-    a.includes('delning') ||
-    a.includes('club-code') ||
-    a.includes('tournament-lifecycle') ||
-    a.includes('reconnection') ||
-    a.includes('compat-warnings') ||
-    a.includes('browserstack'),
-)
+const hasBrowserStack = !!process.env.BROWSERSTACK_USERNAME
+const runningP2P = process.env.RUN_P2P_E2E === '1' || hasBrowserStack
 
 export default defineConfig({
   testDir: './e2e',
@@ -77,120 +68,128 @@ export default defineConfig({
     { name: 'live', testMatch: 'live.spec.ts' },
     { name: 'undo', testMatch: 'undo.spec.ts' },
     { name: 'fix-screenshots', testMatch: 'fix-screenshots.spec.ts' },
-    {
-      name: 'vydelning',
-      testMatch: 'vydelning.spec.ts',
-      use: {
-        baseURL: p2pBaseURL,
-        ignoreHTTPSErrors: true,
-        launchOptions: {
-          args: [
-            '--use-fake-ui-for-media-stream',
-            '--use-fake-device-for-media-stream',
-            '--disable-features=WebRtcHideLocalIpsWithMdns',
-            '--no-sandbox',
-          ],
-        },
-      },
-    },
-    {
-      name: 'club-code',
-      testMatch: 'club-code.spec.ts',
-      use: {
-        baseURL: p2pBaseURL,
-        ignoreHTTPSErrors: true,
-        launchOptions: {
-          args: [
-            '--use-fake-ui-for-media-stream',
-            '--use-fake-device-for-media-stream',
-            '--disable-features=WebRtcHideLocalIpsWithMdns',
-            '--no-sandbox',
-          ],
-        },
-      },
-    },
-    {
-      name: 'delning',
-      testMatch: 'delning.spec.ts',
-      use: {
-        baseURL: p2pBaseURL,
-        ignoreHTTPSErrors: true,
-        launchOptions: {
-          args: [
-            '--use-fake-ui-for-media-stream',
-            '--use-fake-device-for-media-stream',
-            '--disable-features=WebRtcHideLocalIpsWithMdns',
-            '--no-sandbox',
-          ],
-        },
-      },
-    },
-    {
-      name: 'p2p',
-      testMatch: 'p2p.spec.ts',
-      use: {
-        baseURL: p2pBaseURL,
-        ignoreHTTPSErrors: true,
-        launchOptions: {
-          args: [
-            '--use-fake-ui-for-media-stream',
-            '--use-fake-device-for-media-stream',
-            '--disable-features=WebRtcHideLocalIpsWithMdns',
-            '--no-sandbox',
-          ],
-        },
-      },
-    },
-    {
-      name: 'compat-warnings',
-      testMatch: 'compat-warnings.spec.ts',
-      use: {
-        baseURL: p2pBaseURL,
-        ignoreHTTPSErrors: true,
-        launchOptions: {
-          args: ['--no-sandbox'],
-        },
-      },
-    },
-    {
-      name: 'reconnection',
-      testMatch: 'reconnection.spec.ts',
-      use: {
-        baseURL: p2pBaseURL,
-        ignoreHTTPSErrors: true,
-        launchOptions: {
-          args: [
-            '--use-fake-ui-for-media-stream',
-            '--use-fake-device-for-media-stream',
-            '--disable-features=WebRtcHideLocalIpsWithMdns',
-            '--no-sandbox',
-          ],
-        },
-      },
-    },
-    {
-      name: 'tournament-lifecycle',
-      testMatch: 'tournament-lifecycle.spec.ts',
-      use: {
-        baseURL: p2pBaseURL,
-        ignoreHTTPSErrors: true,
-        launchOptions: {
-          args: [
-            '--use-fake-ui-for-media-stream',
-            '--use-fake-device-for-media-stream',
-            '--disable-features=WebRtcHideLocalIpsWithMdns',
-            '--no-sandbox',
-          ],
-        },
-      },
-    },
-    {
-      name: 'browserstack-p2p',
-      testMatch: 'browserstack-p2p.spec.ts',
-      use: {
-        baseURL: p2pBaseURL,
-        ignoreHTTPSErrors: true,
-      },
-    },
+    ...(runningP2P
+      ? [
+          {
+            name: 'vydelning',
+            testMatch: 'vydelning.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+              launchOptions: {
+                args: [
+                  '--use-fake-ui-for-media-stream',
+                  '--use-fake-device-for-media-stream',
+                  '--disable-features=WebRtcHideLocalIpsWithMdns',
+                  '--no-sandbox',
+                ],
+              },
+            },
+          },
+          {
+            name: 'club-code',
+            testMatch: 'club-code.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+              launchOptions: {
+                args: [
+                  '--use-fake-ui-for-media-stream',
+                  '--use-fake-device-for-media-stream',
+                  '--disable-features=WebRtcHideLocalIpsWithMdns',
+                  '--no-sandbox',
+                ],
+              },
+            },
+          },
+          {
+            name: 'delning',
+            testMatch: 'delning.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+              launchOptions: {
+                args: [
+                  '--use-fake-ui-for-media-stream',
+                  '--use-fake-device-for-media-stream',
+                  '--disable-features=WebRtcHideLocalIpsWithMdns',
+                  '--no-sandbox',
+                ],
+              },
+            },
+          },
+          {
+            name: 'p2p',
+            testMatch: 'p2p.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+              launchOptions: {
+                args: [
+                  '--use-fake-ui-for-media-stream',
+                  '--use-fake-device-for-media-stream',
+                  '--disable-features=WebRtcHideLocalIpsWithMdns',
+                  '--no-sandbox',
+                ],
+              },
+            },
+          },
+          {
+            name: 'compat-warnings',
+            testMatch: 'compat-warnings.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+              launchOptions: {
+                args: ['--no-sandbox'],
+              },
+            },
+          },
+          {
+            name: 'reconnection',
+            testMatch: 'reconnection.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+              launchOptions: {
+                args: [
+                  '--use-fake-ui-for-media-stream',
+                  '--use-fake-device-for-media-stream',
+                  '--disable-features=WebRtcHideLocalIpsWithMdns',
+                  '--no-sandbox',
+                ],
+              },
+            },
+          },
+          {
+            name: 'tournament-lifecycle',
+            testMatch: 'tournament-lifecycle.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+              launchOptions: {
+                args: [
+                  '--use-fake-ui-for-media-stream',
+                  '--use-fake-device-for-media-stream',
+                  '--disable-features=WebRtcHideLocalIpsWithMdns',
+                  '--no-sandbox',
+                ],
+              },
+            },
+          },
+        ]
+      : []),
+    ...(hasBrowserStack
+      ? [
+          {
+            name: 'browserstack-p2p',
+            testMatch: 'browserstack-p2p.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+            },
+          },
+        ]
+      : []),
   ],
 })

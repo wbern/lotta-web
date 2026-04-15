@@ -53,50 +53,59 @@ Pure functions with no DB dependency, tested independently:
 
 ## Tests
 
-Unit tests via Vitest. Tests use `fake-indexeddb` for persistence and create fresh in-memory SQLite databases per test.
+Unit tests via Vitest, **colocated** with source (`foo.ts` → `foo.test.ts`).
+Use `fake-indexeddb` for persistence; each test gets a fresh in-memory SQLite DB.
 
 ```bash
-pnpm test              # run all tests
+pnpm test              # run all unit tests
 pnpm test:watch        # watch mode
 ```
 
 ## E2E tests
 
+Playwright, **one project per spec file** (see `playwright.config.ts`). Split into tiers:
+
+- **Tier 1 — default** (21 projects): non-p2p, localhost-only. Runs on every push to `main` via CI.
+- **Tier 2 — p2p** (7 projects): needs MQTT broker + HTTPS + second dev server. Opt-in only. New p2p specs **must** be added inside the `runningP2P` conditional spread in `playwright.config.ts` — otherwise they leak into Tier 1 / CI.
+- **Tier 3 — browserstack**: real devices, paid. Only runs when `BROWSERSTACK_USERNAME` is set.
+
 ```bash
-pnpm test:e2e              # run tests
-pnpm test:e2e:video        # run tests + concat into showcase.mp4
+pnpm test:e2e              # Tier 1 (same as CI)
+pnpm test:e2e:p2p          # Tier 1 + Tier 2 — run before releases
+pnpm test:e2e:browserstack # real devices — NEVER run without explicit ask
+pnpm test:e2e:video        # Tier 1 + concat into showcase.mp4
 pnpm exec playwright show-report    # open HTML report with per-test videos
 ```
 
-## BrowserStack (real device testing)
+**BrowserStack**: credentials are stored in macOS Keychain and loaded via `~/.zshrc`. Each run costs real minutes from a limited budget. Edit `browserstack.yml` to change target devices.
 
-Runs E2E tests on real phones/tablets via BrowserStack Automate. Credentials are stored in macOS Keychain and loaded via `~/.zshrc`.
+## Deployment & CI
 
-```bash
-pnpm test:e2e:browserstack e2e/app.spec.ts --grep "loads and shows layout shell"
-pnpm test:e2e:browserstack e2e/browserstack-p2p.spec.ts
-```
+GitHub Actions workflow (`.github/workflows/deploy.yml`) runs on push to `main`:
 
-**NEVER run BrowserStack tests unless the user explicitly asks.** Each run costs real minutes from a limited budget. Edit `browserstack.yml` to change target devices.
+1. `build` job — `pnpm test` (unit) + `pnpm build`
+2. `test-e2e` job — `pnpm test:e2e` (Tier 1, in parallel with build)
+3. `deploy` job — gated on both, publishes to GitHub Pages
 
-## Deployment
+No backend required — the app is fully static. Tier 2/3 e2e tests are **not** run in CI.
 
-GitHub Actions workflow builds on push to `main` and deploys to GitHub Pages. No backend required — the app is fully static.
+The **pre-commit hook does NOT run any test suite** (only lint/typecheck/knip/jscpd). If you change e2e specs or code they cover, run `pnpm test:e2e` manually before pushing.
 
 ## Commit hooks & code quality
 
-Pre-commit and commit-msg hooks via Husky.
+Pre-commit and commit-msg hooks via Husky. Linting/formatting is **Biome** (not ESLint/Prettier).
 
 ```bash
-pnpm format              # Prettier: format all files
-pnpm format:check        # Prettier: check without writing
-pnpm lint                # ESLint
+pnpm format              # Biome: format all files
+pnpm format:check        # Biome: check without writing
+pnpm lint                # Biome: lint
+pnpm check               # Biome: lint + format with --write
 pnpm knip                # Dead code detection (unused files, exports, dependencies)
 pnpm jscpd               # Copy-paste detection
 pnpm secretlint '**/*'   # Secret scanning
 ```
 
-**Pre-commit hook** (`.husky/pre-commit`): lint-staged (ESLint + Prettier on staged src files) → secretlint → knip → jscpd → `tsc --noEmit`.
+**Pre-commit hook** (`.husky/pre-commit`): lint-staged (Biome on staged files) → secretlint → knip → jscpd → `tsc -b`. **No test runner.**
 
 **Commit-msg hook** (`.husky/commit-msg`): commitlint enforces [Conventional Commits](https://www.conventionalcommits.org/) format (`feat:`, `fix:`, `chore:`, etc.).
 
