@@ -2808,10 +2808,9 @@ button.btn-danger {
 
 .live-tab-grant-form {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-  padding: 12px;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -2822,7 +2821,6 @@ button.btn-danger {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1 1 200px;
   font-weight: 600;
   font-size: calc(var(--font-size-base) * 0.9);
   color: var(--color-text-muted);
@@ -2833,28 +2831,41 @@ button.btn-danger {
   color: var(--color-text);
 }
 
-.live-tab-grant-presets {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+.live-tab-grant-perms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
   border: none;
   padding: 0;
   margin: 0;
 }
 
-.live-tab-grant-presets legend {
+.live-tab-grant-perms legend {
   font-weight: 600;
   font-size: calc(var(--font-size-base) * 0.9);
   color: var(--color-text-muted);
-  padding: 0 6px 0 0;
-  float: left;
+  padding: 0;
+  margin-bottom: 6px;
 }
 
-.live-tab-grant-presets label {
+.live-tab-grant-perms label {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
+  font-weight: 400;
+  color: var(--color-text);
+}
+
+.live-tab-grant-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 520px) {
+  .live-tab-grant-perms {
+    grid-template-columns: 1fr;
+  }
 }
 
 .live-tab-grants-list {

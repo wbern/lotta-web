@@ -487,7 +487,7 @@ describe('LiveTab', () => {
     expect(panel.querySelectorAll('[data-testid^="grant-row-"]').length).toBe(0)
   })
 
-  it('renders the grant form with label input, preset radios, and submit button', () => {
+  it('renders the grant form with label input, permission checkboxes, and submit button', () => {
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
     fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
@@ -496,10 +496,19 @@ describe('LiveTab', () => {
     expect(labelInput).toBeTruthy()
     expect(labelInput.value).toBe('')
 
-    const fullRadio = screen.getByTestId('grant-preset-full') as HTMLInputElement
-    const viewRadio = screen.getByTestId('grant-preset-view') as HTMLInputElement
-    expect(fullRadio.type).toBe('radio')
-    expect(viewRadio.type).toBe('radio')
+    const reportResults = screen.getByTestId('grant-perm-report-results') as HTMLInputElement
+    const viewStandings = screen.getByTestId('grant-perm-view-standings') as HTMLInputElement
+    const pairNext = screen.getByTestId('grant-perm-pair-next') as HTMLInputElement
+    const unpairLast = screen.getByTestId('grant-perm-unpair-last') as HTMLInputElement
+    expect(reportResults.type).toBe('checkbox')
+    expect(viewStandings.type).toBe('checkbox')
+    expect(pairNext.type).toBe('checkbox')
+    expect(unpairLast.type).toBe('checkbox')
+    // Referee defaults: report + view on, round-control off
+    expect(reportResults.checked).toBe(true)
+    expect(viewStandings.checked).toBe(true)
+    expect(pairNext.checked).toBe(false)
+    expect(unpairLast.checked).toBe(false)
 
     const submitBtn = screen.getByTestId('grant-submit')
     expect(submitBtn.tagName.toLowerCase()).toBe('button')
@@ -512,7 +521,6 @@ describe('LiveTab', () => {
 
     const labelInput = screen.getByTestId('grant-label-input') as HTMLInputElement
     fireEvent.change(labelInput, { target: { value: 'Sofia — KSS' } })
-    fireEvent.click(screen.getByTestId('grant-preset-full'))
     fireEvent.click(screen.getByTestId('grant-submit'))
 
     const panel = screen.getByTestId('live-tab-grants-panel')
@@ -536,7 +544,6 @@ describe('LiveTab', () => {
     fireEvent.change(screen.getByTestId('grant-label-input'), {
       target: { value: 'Domare Sofia' },
     })
-    fireEvent.click(screen.getByTestId('grant-preset-full'))
     fireEvent.click(screen.getByTestId('grant-submit'))
 
     const row = screen
@@ -564,7 +571,6 @@ describe('LiveTab', () => {
     fireEvent.change(screen.getByTestId('grant-label-input'), {
       target: { value: 'Domare Sofia' },
     })
-    fireEvent.click(screen.getByTestId('grant-preset-full'))
     fireEvent.click(screen.getByTestId('grant-submit'))
 
     const row = screen
@@ -595,7 +601,6 @@ describe('LiveTab', () => {
     fireEvent.change(screen.getByTestId('grant-label-input'), {
       target: { value: 'Domare Sofia' },
     })
-    fireEvent.click(screen.getByTestId('grant-preset-full'))
     fireEvent.click(screen.getByTestId('grant-submit'))
 
     const row = screen
@@ -628,14 +633,12 @@ describe('LiveTab', () => {
     fireEvent.change(screen.getByTestId('grant-label-input'), {
       target: { value: 'Sofia' },
     })
-    fireEvent.click(screen.getByTestId('grant-preset-full'))
     fireEvent.click(screen.getByTestId('grant-submit'))
 
     // Grant 2 — must NOT be affected
     fireEvent.change(screen.getByTestId('grant-label-input'), {
       target: { value: 'Lisa' },
     })
-    fireEvent.click(screen.getByTestId('grant-preset-full'))
     fireEvent.click(screen.getByTestId('grant-submit'))
 
     const panel = screen.getByTestId('live-tab-grants-panel')
@@ -693,7 +696,6 @@ describe('LiveTab', () => {
     fireEvent.change(screen.getByTestId('grant-label-input'), {
       target: { value: 'Domare Anna' },
     })
-    fireEvent.click(screen.getByTestId('grant-preset-full'))
     fireEvent.click(screen.getByTestId('grant-submit'))
 
     const row = screen
@@ -783,7 +785,6 @@ describe('LiveTab', () => {
     fireEvent.change(screen.getByTestId('grant-label-input'), {
       target: { value: 'Domare Kalle' },
     })
-    fireEvent.click(screen.getByTestId('grant-preset-full'))
     fireEvent.click(screen.getByTestId('grant-submit'))
 
     // Capture token before remount
@@ -815,7 +816,6 @@ describe('LiveTab', () => {
     fireEvent.change(screen.getByTestId('grant-label-input'), {
       target: { value: 'Persisted Domare' },
     })
-    fireEvent.click(screen.getByTestId('grant-preset-full'))
     fireEvent.click(screen.getByTestId('grant-submit'))
 
     // Simulate a tab refresh by unmounting and remounting
@@ -832,6 +832,35 @@ describe('LiveTab', () => {
       .querySelectorAll('[data-testid^="grant-row-"]')
     expect(rows.length).toBe(1)
     expect(rows[0].textContent).toContain('Persisted Domare')
+  })
+
+  it('creates a grant with round-pairing permission when the checkbox is enabled', async () => {
+    const { setPeerPermissions } = await import('../../api/p2p-data-provider')
+    const mockSet = vi.mocked(setPeerPermissions)
+
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+
+    fireEvent.change(screen.getByTestId('grant-label-input'), {
+      target: { value: 'Huvuddomare' },
+    })
+    fireEvent.click(screen.getByTestId('grant-perm-pair-next'))
+    fireEvent.click(screen.getByTestId('grant-submit'))
+
+    const row = screen
+      .getByTestId('live-tab-grants-panel')
+      .querySelector('[data-testid^="grant-row-"]') as HTMLElement
+    const qr = row.querySelector('[data-testid="qr-code"]') as HTMLElement
+    const token = new URL(qr.textContent!).searchParams.get('token')!
+
+    mockSet.mockClear()
+    act(() => {
+      mockOnPeerToken?.('peer-huvud', token)
+    })
+
+    const perms = mockSet.mock.calls[0][1] as Record<string, boolean | undefined>
+    expect(perms['rounds.pairNext']).toBe(true)
   })
 
   it('shows Domarstyrning sub-tab when hosting and switching to it does not destroy session', () => {

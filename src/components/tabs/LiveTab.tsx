@@ -16,7 +16,7 @@ import { disconnectFromHost } from '../../api/p2p-session'
 import { generateClubCodeMap } from '../../domain/club-codes'
 import { buildClubCodesPdf } from '../../domain/club-codes-pdf'
 import { CLUBLESS_KEY } from '../../domain/club-filter'
-import { createGrant, type Grant, resolveGrantPermissions } from '../../domain/grants'
+import { createGrant, type Grant } from '../../domain/grants'
 import { useChatAutoScroll } from '../../hooks/useChatAutoScroll'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { setLiveStatus, useLiveStatus } from '../../hooks/useLiveStatus'
@@ -86,6 +86,30 @@ function generateRefereeToken(): string {
   return crypto.randomUUID()
 }
 
+interface GrantPermFlags {
+  reportResults: boolean
+  viewStandings: boolean
+  pairNext: boolean
+  unpairLast: boolean
+}
+
+const DEFAULT_GRANT_PERM_FLAGS: GrantPermFlags = {
+  reportResults: true,
+  viewStandings: true,
+  pairNext: false,
+  unpairLast: false,
+}
+
+function buildGrantPermissions(flags: GrantPermFlags): RpcPermissions {
+  return {
+    ...createViewPermissions(),
+    ...(flags.reportResults ? { 'results.set': true, 'commands.setResult': true } : {}),
+    ...(flags.viewStandings ? { 'standings.get': true } : {}),
+    ...(flags.pairNext ? { 'rounds.pairNext': true } : {}),
+    ...(flags.unpairLast ? { 'rounds.unpairLast': true } : {}),
+  }
+}
+
 function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000)
   if (seconds < 60) return `${seconds}s`
@@ -125,7 +149,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
   const [viewToken, setViewToken] = useState('')
   const [grants, setGrants] = useState<Grant[]>([])
   const [grantLabel, setGrantLabel] = useState('')
-  const [grantPreset, setGrantPreset] = useState<'full' | 'view'>('full')
+  const [grantPermFlags, setGrantPermFlags] = useState<GrantPermFlags>(DEFAULT_GRANT_PERM_FLAGS)
   const [clubCodeSecret, setClubCodeSecret] = useState<string | null>(null)
   const tokenPermissionsRef = useRef(new Map<string, RpcPermissions>())
   const peerTokensRef = useRef(new Map<string, string>())
@@ -195,7 +219,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
             {
               id: crypto.randomUUID(),
               label: 'Domare',
-              preset: 'full',
+              permissions: createFullPermissions(),
               token: saved.refereeToken,
               createdAt: Date.now(),
             },
@@ -214,7 +238,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     tokenPerms.set(token, createFullPermissions())
     tokenPerms.set(vToken, createViewPermissions())
     for (const grant of restoredGrants) {
-      tokenPerms.set(grant.token, resolveGrantPermissions(grant))
+      tokenPerms.set(grant.token, grant.permissions)
     }
 
     // When a peer presents a token, assign per-peer permissions
@@ -471,15 +495,16 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
   const addGrant = useCallback(() => {
     const trimmed = grantLabel.trim()
     if (!trimmed) return
-    const grant = createGrant({ label: trimmed, preset: grantPreset })
-    tokenPermissionsRef.current.set(grant.token, resolveGrantPermissions(grant))
+    const permissions = buildGrantPermissions(grantPermFlags)
+    const grant = createGrant({ label: trimmed, permissions })
+    tokenPermissionsRef.current.set(grant.token, grant.permissions)
     setGrants((prev) => {
       const next = [...prev, grant]
       persistGrants(next)
       return next
     })
     setGrantLabel('')
-  }, [grantLabel, grantPreset, persistGrants])
+  }, [grantLabel, grantPermFlags, persistGrants])
 
   const revokeGrant = useCallback(
     (id: string) => {
@@ -905,37 +930,75 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                     onChange={(e) => setGrantLabel(e.target.value)}
                   />
                 </label>
-                <fieldset className="live-tab-grant-presets">
-                  <legend>Typ</legend>
+                <fieldset className="live-tab-grant-perms">
+                  <legend>Rättigheter</legend>
                   <label>
                     <input
-                      type="radio"
-                      name="grant-preset"
-                      data-testid="grant-preset-full"
-                      checked={grantPreset === 'full'}
-                      onChange={() => setGrantPreset('full')}
+                      type="checkbox"
+                      data-testid="grant-perm-report-results"
+                      checked={grantPermFlags.reportResults}
+                      onChange={(e) =>
+                        setGrantPermFlags((prev) => ({
+                          ...prev,
+                          reportResults: e.target.checked,
+                        }))
+                      }
                     />
-                    Domare
+                    Rapportera resultat
                   </label>
                   <label>
                     <input
-                      type="radio"
-                      name="grant-preset"
-                      data-testid="grant-preset-view"
-                      checked={grantPreset === 'view'}
-                      onChange={() => setGrantPreset('view')}
+                      type="checkbox"
+                      data-testid="grant-perm-view-standings"
+                      checked={grantPermFlags.viewStandings}
+                      onChange={(e) =>
+                        setGrantPermFlags((prev) => ({
+                          ...prev,
+                          viewStandings: e.target.checked,
+                        }))
+                      }
                     />
-                    Avläsare
+                    Se ställning
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      data-testid="grant-perm-pair-next"
+                      checked={grantPermFlags.pairNext}
+                      onChange={(e) =>
+                        setGrantPermFlags((prev) => ({
+                          ...prev,
+                          pairNext: e.target.checked,
+                        }))
+                      }
+                    />
+                    Lotta nästa rond
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      data-testid="grant-perm-unpair-last"
+                      checked={grantPermFlags.unpairLast}
+                      onChange={(e) =>
+                        setGrantPermFlags((prev) => ({
+                          ...prev,
+                          unpairLast: e.target.checked,
+                        }))
+                      }
+                    />
+                    Ångra senaste lottning
                   </label>
                 </fieldset>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  data-testid="grant-submit"
-                  disabled={!grantLabel.trim()}
-                >
-                  Lägg till
-                </button>
+                <div className="live-tab-grant-form-actions">
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    data-testid="grant-submit"
+                    disabled={!grantLabel.trim()}
+                  >
+                    Lägg till
+                  </button>
+                </div>
               </form>
               {grants.length === 0 ? (
                 <p className="live-tab-empty">
@@ -944,10 +1007,10 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
               ) : (
                 <div className="live-tab-grants-list">
                   {grants.map((grant) => {
-                    const url =
-                      grant.preset === 'full'
-                        ? getShareUrl(roomCode, grant.token)
-                        : getViewUrl(roomCode, grant.token)
+                    const canReport = grant.permissions['results.set'] === true
+                    const url = canReport
+                      ? getShareUrl(roomCode, grant.token)
+                      : getViewUrl(roomCode, grant.token)
                     return (
                       <div
                         key={grant.id}
@@ -960,7 +1023,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                         <div className="live-tab-grant-meta">
                           <span className="live-tab-grant-row-label">{grant.label}</span>
                           <span className="live-tab-grant-row-preset">
-                            {grant.preset === 'full' ? 'Domare' : 'Avläsare'}
+                            {canReport ? 'Domare' : 'Avläsare'}
                           </span>
                         </div>
                         <div className="live-tab-grant-actions">
