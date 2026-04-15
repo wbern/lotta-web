@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { setActiveDataProvider } from '../api/active-provider'
 import { createP2pClientProvider } from '../api/p2p-data-provider'
+import { cleanupClientSession } from '../api/p2p-session'
 import { setLiveStatus } from '../hooks/useLiveStatus'
 import { isRateLimited, verifyChatMessage } from '../lib/chat'
 import { getCompatWarnings } from '../lib/device-compat'
@@ -16,7 +17,6 @@ import {
   deleteChatMessage,
   getClientP2PState,
   incrementUnread,
-  resetClientStore,
   setAnnouncement,
   setKicked,
   setPeerCount,
@@ -107,10 +107,7 @@ export function SharedView({ roomCode, token, mode = 'full', code }: SharedViewP
         setRoomCode(roomCode)
       }
       if (state === 'disconnected') {
-        setLiveStatus(null)
-        setActiveDataProvider(null)
-        clearP2PService()
-        resetClientStore()
+        cleanupClientSession()
       } else {
         setLiveStatus({
           state: state === 'host-offline' ? 'reconnecting' : state,

@@ -1,7 +1,6 @@
 import QRCode from 'qrcode'
 import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { setActiveDataProvider } from '../../api/active-provider'
 import { getLocalProvider } from '../../api/local-data-provider'
 import { handleResultSubmission, sendCurrentStateToPeer } from '../../api/p2p-broadcast'
 import type { RpcPermissions } from '../../api/p2p-data-provider'
@@ -13,6 +12,7 @@ import {
   setPeerPermissions,
   startP2pRpcServer,
 } from '../../api/p2p-data-provider'
+import { disconnectFromHost } from '../../api/p2p-session'
 import { generateClubCodeMap } from '../../domain/club-codes'
 import { buildClubCodesPdf } from '../../domain/club-codes-pdf'
 import { CLUBLESS_KEY } from '../../domain/club-filter'
@@ -33,9 +33,8 @@ import { getShareUrl, getViewUrl, getViewUrlWithCode } from '../../lib/live-urls
 import { playSound } from '../../lib/notification-sounds'
 import { queryClient } from '../../query-client'
 import { subscribeMutationBroadcast } from '../../services/mutation-broadcast'
-import { clearP2PService, getP2PService, setP2PService } from '../../services/p2p-provider'
+import { clearP2PService, setP2PService } from '../../services/p2p-provider'
 import { type DiagnosticEntry, P2PService, type RelaySocketInfo } from '../../services/p2p-service'
-import { resetClientStore } from '../../stores/client-p2p-store'
 import type { AuditLogEntry, ChatMessage, P2PPeer } from '../../types/p2p'
 import { ChatMessageItem } from '../ChatMessageItem'
 import { ConnectionDiagnostics } from '../ConnectionDiagnostics'
@@ -536,20 +535,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
               title="Ansluten till annan värd"
               description="Du tittar på en turnering som delas av en annan arrangör. Koppla från för att återgå till din egen turnering."
             />
-            <button
-              className="btn btn-danger"
-              onClick={() => {
-                try {
-                  getP2PService().leave()
-                } catch {
-                  // Service may already be gone
-                }
-                setActiveDataProvider(null)
-                clearP2PService()
-                resetClientStore()
-                setLiveStatus(null)
-              }}
-            >
+            <button className="btn btn-danger" onClick={disconnectFromHost}>
               Koppla från
             </button>
           </div>

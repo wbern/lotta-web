@@ -10,6 +10,7 @@ import type {
   ChatMessage,
   ResultSubmitMessage,
 } from '../../types/p2p'
+import type { LiveConnectionState, LiveRole } from '../layout/StatusBar'
 import { LiveTab } from './LiveTab'
 
 let mockStartHostingCalls: string[] = []
@@ -145,25 +146,16 @@ vi.mock('../../services/p2p-service', () => {
   }
 })
 
-const mockClientServiceLeave = vi.fn()
 vi.mock('../../services/p2p-provider', () => ({
   setP2PService: vi.fn(),
   clearP2PService: vi.fn(),
-  getP2PService: vi.fn(() => ({ leave: mockClientServiceLeave })),
+  getP2PService: vi.fn(),
 }))
 
-vi.mock('../../api/active-provider', () => ({
-  setActiveDataProvider: vi.fn(),
-  getActiveDataProvider: vi.fn(),
+vi.mock('../../api/p2p-session', () => ({
+  disconnectFromHost: vi.fn(),
+  cleanupClientSession: vi.fn(),
 }))
-
-vi.mock('../../stores/client-p2p-store', async () => {
-  const actual = await vi.importActual('../../stores/client-p2p-store')
-  return {
-    ...actual,
-    resetClientStore: vi.fn(),
-  }
-})
 
 vi.mock('../../api/p2p-broadcast', () => ({
   handleResultSubmission: vi.fn(),
@@ -181,8 +173,8 @@ vi.mock('../../api/p2p-data-provider', async () => {
 })
 
 let mockLiveStatusValue: {
-  state: string
-  role: string
+  state: LiveConnectionState
+  role: LiveRole
   peerCount: number
 } | null = null
 vi.mock('../../hooks/useLiveStatus', () => ({
@@ -1572,31 +1564,17 @@ describe('LiveTab', () => {
     expect(screen.getByText('Koppla från')).toBeTruthy()
   })
 
-  it('tears down client session when Koppla från is clicked', async () => {
-    const { setLiveStatus } = await import('../../hooks/useLiveStatus')
-    const { setActiveDataProvider } = await import('../../api/active-provider')
-    const { clearP2PService } = await import('../../services/p2p-provider')
-    const { resetClientStore } = await import('../../stores/client-p2p-store')
-    const mockSetLive = vi.mocked(setLiveStatus)
-    const mockSetProvider = vi.mocked(setActiveDataProvider)
-    const mockClear = vi.mocked(clearP2PService)
-    const mockReset = vi.mocked(resetClientStore)
-    mockSetLive.mockClear()
-    mockSetProvider.mockClear()
-    mockClear.mockClear()
-    mockReset.mockClear()
-    mockClientServiceLeave.mockClear()
+  it('disconnects from the host when Koppla från is clicked', async () => {
+    const { disconnectFromHost } = await import('../../api/p2p-session')
+    const mockDisconnect = vi.mocked(disconnectFromHost)
+    mockDisconnect.mockClear()
 
     mockLiveStatusValue = { state: 'connected', role: 'client', peerCount: 1 }
     renderLiveTab()
 
     fireEvent.click(screen.getByText('Koppla från'))
 
-    expect(mockClientServiceLeave).toHaveBeenCalled()
-    expect(mockSetLive).toHaveBeenCalledWith(null)
-    expect(mockSetProvider).toHaveBeenCalledWith(null)
-    expect(mockClear).toHaveBeenCalled()
-    expect(mockReset).toHaveBeenCalled()
+    expect(mockDisconnect).toHaveBeenCalled()
   })
 
   it('clears live status when hosting stops', async () => {
