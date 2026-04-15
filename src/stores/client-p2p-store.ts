@@ -15,6 +15,7 @@ interface ClientP2PState {
   showDiagnostics: boolean
   shareMode: 'full' | 'view' | null
   clubFilter: string[] | null
+  clubFilterEnabled: boolean | null
   roomCode: string | null
   pendingClubCode: string | null
 }
@@ -31,6 +32,7 @@ const INITIAL: ClientP2PState = {
   showDiagnostics: false,
   shareMode: null,
   clubFilter: null,
+  clubFilterEnabled: null,
   roomCode: null,
   pendingClubCode: null,
 }
@@ -94,6 +96,7 @@ export function setPeerCount(msg: PeerCountMessage): void {
   update({
     peerCount: msg,
     chatEnabled: msg.chatEnabled ?? current.chatEnabled,
+    clubFilterEnabled: msg.clubFilterEnabled ?? current.clubFilterEnabled,
   })
 }
 
@@ -113,6 +116,10 @@ export function setShareMode(mode: 'full' | 'view'): void {
 
 export function setClubFilter(clubs: string[] | null): void {
   update({ clubFilter: clubs })
+}
+
+export function setClubFilterEnabled(enabled: boolean | null): void {
+  update({ clubFilterEnabled: enabled })
 }
 
 export function setRoomCode(code: string): void {

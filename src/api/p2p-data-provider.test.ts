@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateClubCode } from '../domain/club-codes'
+import { generateClubCodeMap } from '../domain/club-codes'
 import type { DataProvider } from './data-provider'
 import {
   clearAllPeerPermissions,
@@ -915,7 +915,7 @@ describe('startP2pRpcServer', () => {
 
     const allClubs = ['Club A', 'Club B']
     const secret = 'host-session-secret-xyz'
-    const code = generateClubCode(['Club A'], allClubs, secret)
+    const code = generateClubCodeMap(allClubs, secret)['Club A']
 
     startP2pRpcServer(service, provider, {
       clubCodeSecret: secret,
@@ -940,6 +940,136 @@ describe('startP2pRpcServer', () => {
           id: 71,
           result: [{ id: 1, firstName: 'Linnea', lastName: 'Jonsson', club: 'Club A' }],
         },
+        'peer-1',
+      )
+    })
+  })
+
+  it('view-role peers see unfiltered data when clubFilterEnabled is false', async () => {
+    const service = createMockServerService()
+    const provider: DataProvider = {
+      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+      tournamentPlayers: {
+        list: vi.fn().mockResolvedValue([
+          { id: 1, firstName: 'Anna', lastName: 'S', club: 'Club A' },
+          { id: 2, firstName: 'Erik', lastName: 'J', club: 'Club B' },
+        ]),
+        add: vi.fn(),
+        addMany: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn(),
+        removeMany: vi.fn(),
+      },
+      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
+      results: { set: vi.fn() },
+      standings: { get: vi.fn() },
+    }
+
+    startP2pRpcServer(service, provider, { clubFilterEnabled: false })
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    service._simulateRequest({ id: 100, method: 'tournamentPlayers.list', args: [1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        {
+          id: 100,
+          result: [
+            { id: 1, firstName: 'Anna', lastName: 'S', club: 'Club A' },
+            { id: 2, firstName: 'Erik', lastName: 'J', club: 'Club B' },
+          ],
+        },
+        'peer-1',
+      )
+    })
+  })
+
+  it('auth.redeemClubCode accumulates clubs across multiple redemptions on the same peer', async () => {
+    const service = createMockServerService()
+    const provider: DataProvider = {
+      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+      tournamentPlayers: {
+        list: vi.fn(),
+        add: vi.fn(),
+        addMany: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn(),
+        removeMany: vi.fn(),
+      },
+      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
+      results: { set: vi.fn() },
+      standings: { get: vi.fn() },
+    }
+
+    const allClubs = ['Club A', 'Club B', 'Club C']
+    const secret = 'accum-secret'
+    const map = generateClubCodeMap(allClubs, secret)
+
+    startP2pRpcServer(service, provider, {
+      clubCodeSecret: secret,
+      getAllClubEntries: () => allClubs,
+    })
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    service._simulateRequest(
+      { id: 90, method: 'auth.redeemClubCode', args: [map['Club A']] },
+      'peer-1',
+    )
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        { id: 90, result: { status: 'ok', clubs: ['Club A'] } },
+        'peer-1',
+      )
+    })
+
+    service._simulateRequest(
+      { id: 91, method: 'auth.redeemClubCode', args: [map['Club C']] },
+      'peer-1',
+    )
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        { id: 91, result: { status: 'ok', clubs: ['Club A', 'Club C'] } },
+        'peer-1',
+      )
+    })
+  })
+
+  it('auth.redeemClubCode resolves a per-club code from the code map', async () => {
+    const service = createMockServerService()
+    const provider: DataProvider = {
+      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+      tournamentPlayers: {
+        list: vi.fn(),
+        add: vi.fn(),
+        addMany: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn(),
+        removeMany: vi.fn(),
+      },
+      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
+      results: { set: vi.fn() },
+      standings: { get: vi.fn() },
+    }
+
+    const allClubs = ['Club A', 'Club B', 'Club C']
+    const secret = 'map-secret'
+    const map = generateClubCodeMap(allClubs, secret)
+    const codeForClubB = map['Club B']
+
+    startP2pRpcServer(service, provider, {
+      clubCodeSecret: secret,
+      getAllClubEntries: () => allClubs,
+    })
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    service._simulateRequest(
+      { id: 80, method: 'auth.redeemClubCode', args: [codeForClubB] },
+      'peer-1',
+    )
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        { id: 80, result: { status: 'ok', clubs: ['Club B'] } },
         'peer-1',
       )
     })

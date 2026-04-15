@@ -2720,54 +2720,17 @@ button.btn-danger {
   line-height: 1.4;
 }
 
-.live-tab-club-tree {
-  margin-bottom: 10px;
-}
-
-.live-tab-club-parent {
-  font-weight: 600;
-}
-
-.live-tab-club-children {
+.live-tab-club-list {
   display: flex;
   flex-direction: column;
-  margin-top: 2px;
-  margin-left: 9px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .live-tab-club-row {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.live-tab-club-children .live-tab-club-row {
-  position: relative;
-  padding-left: 20px;
-}
-
-.live-tab-club-children .live-tab-club-row::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--color-border-light);
-}
-
-.live-tab-club-children .live-tab-club-row:last-child::before {
-  bottom: 50%;
-}
-
-.live-tab-club-children .live-tab-club-row::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 12px;
-  height: 2px;
-  background: var(--color-border-light);
 }
 
 .live-tab-club-row button.btn {
@@ -2778,41 +2741,72 @@ button.btn-danger {
   line-height: 1.1;
 }
 
-.live-tab-club-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--font-size-base);
-  cursor: pointer;
-  padding: 3px 0;
-  white-space: nowrap;
-}
-
-.live-tab-club-checkbox input[type="checkbox"] {
-  margin: 0;
+.live-tab-club-name {
+  font-weight: 600;
 }
 
 .live-tab-club-count {
   color: var(--color-text-muted);
   font-weight: 400;
   font-size: calc(var(--font-size-base) * 0.9);
-  margin-left: 2px;
 }
 
-.live-tab-club-code-display {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.live-tab-club-code-display code {
-  font-size: 18px;
+.live-tab-club-code {
+  margin-left: auto;
+  font-family: var(--font-family-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 16px;
   font-weight: 600;
-  letter-spacing: 1px;
-  padding: 6px 14px;
+  letter-spacing: 2px;
+  padding: 4px 12px;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: 6px;
+}
+
+.live-tab-club-codes-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Per-club share dialog (fullscreen "Dela <klubb>") */
+.share-club-dialog-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.share-club-dialog-qr {
+  padding: 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.share-club-dialog-hint {
+  margin: 6px 0 0;
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.share-club-dialog-code {
+  display: inline-block;
+  font-family: var(--font-family-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  padding: 8px 20px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.share-club-dialog-copy {
+  width: 100%;
+  margin-top: 4px;
 }
 
 /* About dialog version/commit metadata */

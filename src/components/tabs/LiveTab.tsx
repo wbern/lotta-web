@@ -1,3 +1,4 @@
+import QRCode from 'qrcode'
 import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getLocalProvider } from '../../api/local-data-provider'
@@ -10,7 +11,8 @@ import {
   setPeerPermissions,
   startP2pRpcServer,
 } from '../../api/p2p-data-provider'
-import { formatClubCode, generateClubCode } from '../../domain/club-codes'
+import { generateClubCodeMap } from '../../domain/club-codes'
+import { buildClubCodesPdf } from '../../domain/club-codes-pdf'
 import { CLUBLESS_KEY } from '../../domain/club-filter'
 import { useChatAutoScroll } from '../../hooks/useChatAutoScroll'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
@@ -119,9 +121,9 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
   const [clubCodeSecret, setClubCodeSecret] = useState<string | null>(null)
   const tokenPermissionsRef = useRef(new Map<string, RpcPermissions>())
   const allClubEntriesRef = useRef<string[]>([])
-  const [selectedClubs, setSelectedClubs] = useState<Set<string>>(new Set())
+  const [clubFilterEnabled, setClubFilterEnabled] = useState(false)
+  const clubFilterEnabledRef = useRef(false)
   const [shareClubDialog, setShareClubDialog] = useState<string | null>(null)
-  const allClubsCheckboxRef = useRef<HTMLInputElement | null>(null)
   const [showDiagnostics, setShowDiagnostics] = useState(false)
   const [diagnosticLog, setDiagnosticLog] = useState<DiagnosticEntry[]>([])
   const [relayStatus, setRelayStatus] = useState<RelaySocketInfo[]>([])
@@ -145,10 +147,10 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     if (hasClublessPlayers) entries.push(CLUBLESS_KEY)
     return entries
   }, [clubs, hasClublessPlayers])
-  const clubCode = useMemo(() => {
-    if (selectedClubs.size === 0 || !clubCodeSecret) return ''
-    return generateClubCode([...selectedClubs], allClubEntries, clubCodeSecret)
-  }, [selectedClubs, allClubEntries, clubCodeSecret])
+  const clubCodeMap = useMemo(() => {
+    if (!clubCodeSecret) return {}
+    return generateClubCodeMap(allClubEntries, clubCodeSecret)
+  }, [allClubEntries, clubCodeSecret])
 
   useDocumentTitle(unreadChat, `Live: ${tournamentName}`)
   useEffect(() => {
@@ -170,15 +172,6 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
   useEffect(() => {
     allClubEntriesRef.current = allClubEntries
   }, [allClubEntries])
-  useEffect(() => {
-    const input = allClubsCheckboxRef.current
-    if (!input) return
-    const selectedCount =
-      clubs.filter((c) => selectedClubs.has(c)).length +
-      (hasClublessPlayers && selectedClubs.has(CLUBLESS_KEY) ? 1 : 0)
-    const totalCount = clubs.length + (hasClublessPlayers ? 1 : 0)
-    input.indeterminate = selectedCount > 0 && selectedCount < totalCount
-  }, [selectedClubs, clubs, hasClublessPlayers])
 
   const startHosting = useCallback((saved?: SavedSession) => {
     if (serviceRef.current) return // Prevent double-start
@@ -243,6 +236,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
           viewers,
           referees: refs,
           chatEnabled: chatEnabledRef.current,
+          clubFilterEnabled: clubFilterEnabledRef.current,
         })
         setLiveStatus({ state: 'connected', role: 'host', peerCount: currentPeers.length })
       }
@@ -321,7 +315,8 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     mutedPeersRef.current = new Set()
     setViewToken('')
     setClubCodeSecret(null)
-    setSelectedClubs(new Set())
+    setClubFilterEnabled(false)
+    clubFilterEnabledRef.current = false
     setShowDiagnostics(false)
     setDiagnosticLog([])
     setRelayStatus([])
@@ -373,6 +368,49 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
       .catch(() => {
         // Clipboard API may fail in insecure contexts
       })
+  }, [])
+
+  const printMainQr = useCallback(async () => {
+    if (!roomCode || !viewToken) return
+    const url = getViewUrl(roomCode, viewToken)
+    const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 512 })
+    const doc = buildClubCodesPdf({
+      tournamentName,
+      entries: [{ label: tournamentName, code: roomCode, url, qrDataUrl }],
+    })
+    doc.save(`live-${tournamentName}.pdf`)
+  }, [roomCode, viewToken, tournamentName])
+
+  const printClubCodes = useCallback(async () => {
+    if (!roomCode || !viewToken) return
+    const entries = await Promise.all(
+      allClubEntries.map(async (entry) => {
+        const code = clubCodeMap[entry] ?? ''
+        const url = getViewUrlWithCode(roomCode, viewToken, code)
+        const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 512 })
+        const label = entry === CLUBLESS_KEY ? 'Klubblösa' : entry
+        return { label, code, url, qrDataUrl }
+      }),
+    )
+    const doc = buildClubCodesPdf({ tournamentName, entries })
+    doc.save(`klubbkoder-${tournamentName}.pdf`)
+  }, [allClubEntries, clubCodeMap, roomCode, viewToken, tournamentName])
+
+  const setClubFilterAndBroadcast = useCallback((enabled: boolean) => {
+    clubFilterEnabledRef.current = enabled
+    setClubFilterEnabled(enabled)
+    if (serviceRef.current) {
+      const currentPeers = serviceRef.current.getPeers()
+      const refs = currentPeers.filter((p) => p.role === 'referee').length
+      const viewers = currentPeers.filter((p) => p.role !== 'referee').length
+      serviceRef.current.broadcastPeerCount({
+        total: currentPeers.length + 1,
+        viewers,
+        referees: refs,
+        chatEnabled: chatEnabledRef.current,
+        clubFilterEnabled: enabled,
+      })
+    }
   }, [])
 
   const toggleChat = useCallback(() => {
@@ -542,13 +580,23 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
               <div className="live-tab-qr">
                 <QRCodeSVG value={viewUrl} size={180} />
                 <p className="live-tab-tournament-label">{tournamentName}</p>
-                <button
-                  className="btn btn-small live-tab-qr-expand"
-                  onClick={() => setQrFullscreen(viewUrl)}
-                  title="Visa i helskärm"
-                >
-                  ⛶
-                </button>
+                <div className="live-tab-qr-actions">
+                  <button
+                    className="btn btn-small"
+                    onClick={() => setQrFullscreen(viewUrl)}
+                    title="Visa i helskärm"
+                  >
+                    ⛶
+                  </button>
+                  <button
+                    className="btn btn-small"
+                    data-testid="print-main-qr"
+                    onClick={printMainQr}
+                    title="Ladda ner PDF"
+                  >
+                    Skriv ut
+                  </button>
+                </div>
               </div>
               <div className="live-tab-links">
                 <div className="live-tab-link-row">
@@ -588,117 +636,86 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
             </div>
 
             <div className="live-tab-peers">
-              {clubs.length > 0 && (
+              {clubs.length > 0 && !clubFilterEnabled && (
                 <div className="live-tab-club-codes" data-testid="club-codes">
                   <h4>Klubbkoder</h4>
                   <p>
-                    Välj klubbar att dela. Varje kombination ger en unik kod som klubbledaren anger
-                    vid anslutning för att se sina spelares placeringar.
+                    Aktivera klubbfilter för att ge varje klubb en egen kod. Åskådare som anger
+                    koden ser bara sin egen klubbs placeringar.
                   </p>
-                  <div className="live-tab-club-tree">
-                    <label className="live-tab-club-checkbox live-tab-club-parent">
-                      <input
-                        ref={allClubsCheckboxRef}
-                        type="checkbox"
-                        checked={
-                          clubs.length > 0 &&
-                          clubs.every((c) => selectedClubs.has(c)) &&
-                          (!hasClublessPlayers || selectedClubs.has(CLUBLESS_KEY))
-                        }
-                        onChange={() => {
-                          setSelectedClubs((prev) => {
-                            const allSelected =
-                              clubs.every((c) => prev.has(c)) &&
-                              (!hasClublessPlayers || prev.has(CLUBLESS_KEY))
-                            if (allSelected) return new Set<string>()
-                            const next = new Set(clubs)
-                            if (hasClublessPlayers) next.add(CLUBLESS_KEY)
-                            return next
-                          })
-                        }}
-                      />
-                      Alla
-                      <span className="live-tab-club-count">
-                        ({tournamentPlayersData?.length ?? 0} st)
-                      </span>
-                    </label>
-                    <div className="live-tab-club-children" data-testid="club-picker-children">
-                      {clubs.map((club) => (
-                        <div key={club} className="live-tab-club-row">
-                          <label className="live-tab-club-checkbox">
-                            <input
-                              type="checkbox"
-                              checked={selectedClubs.has(club)}
-                              onChange={() => {
-                                setSelectedClubs((prev) => {
-                                  const next = new Set(prev)
-                                  if (next.has(club)) next.delete(club)
-                                  else next.add(club)
-                                  return next
-                                })
-                              }}
-                            />
-                            {club}
-                            <span className="live-tab-club-count">
-                              ({clubPlayerCounts.counts.get(club) ?? 0} st)
-                            </span>
-                          </label>
-                          <button
-                            type="button"
-                            className="btn btn-icon btn-small"
-                            data-testid={`share-club-btn-${club}`}
-                            title="Dela denna klubb"
-                            onClick={() => setShareClubDialog(club)}
-                          >
-                            ⛶
-                          </button>
-                        </div>
-                      ))}
-                      {hasClublessPlayers && (
-                        <div className="live-tab-club-row">
-                          <label className="live-tab-club-checkbox">
-                            <input
-                              type="checkbox"
-                              checked={selectedClubs.has(CLUBLESS_KEY)}
-                              onChange={() => {
-                                setSelectedClubs((prev) => {
-                                  const next = new Set(prev)
-                                  if (next.has(CLUBLESS_KEY)) next.delete(CLUBLESS_KEY)
-                                  else next.add(CLUBLESS_KEY)
-                                  return next
-                                })
-                              }}
-                            />
-                            Klubblösa
-                            <span className="live-tab-club-count">
-                              ({clubPlayerCounts.clubless} st)
-                            </span>
-                          </label>
-                          <button
-                            type="button"
-                            className="btn btn-icon btn-small"
-                            data-testid={`share-club-btn-${CLUBLESS_KEY}`}
-                            title="Dela klubblösa"
-                            onClick={() => setShareClubDialog(CLUBLESS_KEY)}
-                          >
-                            ⛶
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setClubFilterAndBroadcast(true)}
+                  >
+                    Aktivera klubbfilter
+                  </button>
+                </div>
+              )}
+              {clubs.length > 0 && clubFilterEnabled && (
+                <div className="live-tab-club-codes" data-testid="club-codes">
+                  <h4>Klubbkoder</h4>
+                  <p>
+                    Varje klubb har en egen kod som klubbledaren anger vid anslutning för att se
+                    sina spelares placeringar.
+                  </p>
+                  <div className="live-tab-club-codes-actions">
+                    <button
+                      type="button"
+                      className="btn btn-small"
+                      onClick={() => setClubFilterAndBroadcast(false)}
+                    >
+                      Inaktivera klubbfilter
+                    </button>
+                    <button type="button" className="btn btn-small" onClick={printClubCodes}>
+                      Skriv ut klubbkoder
+                    </button>
                   </div>
-                  {clubCode && (
-                    <div className="live-tab-club-code-display">
-                      <code data-testid="club-code-value">{formatClubCode(clubCode)}</code>
-                      <button
-                        className="btn btn-small btn-icon"
-                        onClick={() => copyToClipboard(formatClubCode(clubCode), 'clubCode')}
-                        title="Kopiera"
-                      >
-                        {copied === 'clubCode' ? '✓' : '📋'}
-                      </button>
-                    </div>
-                  )}
+                  <div className="live-tab-club-list">
+                    {clubs.map((club) => (
+                      <div key={club} className="live-tab-club-row">
+                        <span className="live-tab-club-name">{club}</span>
+                        <span className="live-tab-club-count">
+                          ({clubPlayerCounts.counts.get(club) ?? 0} st)
+                        </span>
+                        <code className="live-tab-club-code" data-testid={`club-code-${club}`}>
+                          {clubCodeMap[club]}
+                        </code>
+                        <button
+                          type="button"
+                          className="btn btn-icon btn-small"
+                          data-testid={`share-club-btn-${club}`}
+                          title="Dela denna klubb"
+                          onClick={() => setShareClubDialog(club)}
+                        >
+                          ⛶
+                        </button>
+                      </div>
+                    ))}
+                    {hasClublessPlayers && (
+                      <div className="live-tab-club-row">
+                        <span className="live-tab-club-name">Klubblösa</span>
+                        <span className="live-tab-club-count">
+                          ({clubPlayerCounts.clubless} st)
+                        </span>
+                        <code
+                          className="live-tab-club-code"
+                          data-testid={`club-code-${CLUBLESS_KEY}`}
+                        >
+                          {clubCodeMap[CLUBLESS_KEY]}
+                        </code>
+                        <button
+                          type="button"
+                          className="btn btn-icon btn-small"
+                          data-testid={`share-club-btn-${CLUBLESS_KEY}`}
+                          title="Dela klubblösa"
+                          onClick={() => setShareClubDialog(CLUBLESS_KEY)}
+                        >
+                          ⛶
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
               <h4>
@@ -969,24 +986,29 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
           viewToken &&
           clubCodeSecret &&
           (() => {
-            const code = generateClubCode(
-              [shareClubDialog],
-              allClubEntriesRef.current,
-              clubCodeSecret,
-            )
+            const code = clubCodeMap[shareClubDialog] ?? ''
             const url = getViewUrlWithCode(roomCode, viewToken, code)
             return (
               <div className="share-club-dialog-body" data-testid="share-club-dialog">
                 <div className="share-club-dialog-qr">
-                  <QRCodeSVG value={url} size={200} />
+                  <QRCodeSVG value={url} size={220} />
                 </div>
-                <input
-                  className="share-club-url-input"
-                  data-testid="share-club-url"
-                  readOnly
-                  value={url}
-                  onFocus={(e) => e.currentTarget.select()}
-                />
+                <p className="share-club-dialog-hint" data-testid="share-club-dialog-hint">
+                  Om du blir ombedd att ange kod:
+                </p>
+                <code className="share-club-dialog-code" data-testid="share-club-dialog-code">
+                  {code}
+                </code>
+                <button
+                  type="button"
+                  className="btn share-club-dialog-copy"
+                  data-testid="share-club-dialog-copy"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(url)
+                  }}
+                >
+                  Kopiera länk
+                </button>
               </div>
             )
           })()}

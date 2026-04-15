@@ -7,13 +7,12 @@ import { useTournaments } from '../hooks/useTournaments'
 import { setClubFilter, setPendingClubCode, useClientP2PStore } from '../stores/client-p2p-store'
 import { Dialog } from './dialogs/Dialog'
 
-const CODE_LENGTH = 6
-const CODE_MIDPOINT = CODE_LENGTH / 2
+const CODE_LENGTH = 4
 
 export function SpectatorLayout() {
-  const { clubFilter, shareMode, pendingClubCode } = useClientP2PStore()
+  const { clubFilter, shareMode, pendingClubCode, clubFilterEnabled } = useClientP2PStore()
   const [codeInput, setCodeInput] = useState('')
-  const [showCodeDialog, setShowCodeDialog] = useState(true)
+  const [showCodeDialog, setShowCodeDialog] = useState(() => !clubFilter)
   const [redeemError, setRedeemError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const autoRedeemedRef = useRef(false)
@@ -44,15 +43,12 @@ export function SpectatorLayout() {
   const { data: roundData } = useRound(tournamentId, latestRoundNr)
 
   const isViewMode = shareMode === 'view'
-  const shouldShowDialog = showCodeDialog && isViewMode && !clubFilter
+  const filterActive = isViewMode && clubFilterEnabled !== false
+  const shouldShowDialog = showCodeDialog && filterActive
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH)
-    if (digits.length <= CODE_MIDPOINT) {
-      setCodeInput(digits)
-    } else {
-      setCodeInput(`${digits.slice(0, CODE_MIDPOINT)} ${digits.slice(CODE_MIDPOINT)}`)
-    }
+    setCodeInput(digits)
     if (redeemError) setRedeemError(null)
   }
 
@@ -70,7 +66,7 @@ export function SpectatorLayout() {
     }
   }
 
-  const games = isViewMode && !clubFilter ? [] : (roundData?.games ?? [])
+  const games = filterActive && !clubFilter ? [] : (roundData?.games ?? [])
 
   if (!tournament) {
     return (
@@ -88,15 +84,30 @@ export function SpectatorLayout() {
           {latestRoundNr != null && <span className="spectator-round">Rond {latestRoundNr}</span>}
         </div>
         {clubFilter && (
-          <span className="spectator-club-badge">
-            {clubFilter.map((c) => (c === CLUBLESS_KEY ? 'Klubblösa' : c)).join(', ')}
-          </span>
+          <div className="spectator-club-row">
+            <span className="spectator-club-badge">
+              {clubFilter.map((c) => (c === CLUBLESS_KEY ? 'Klubblösa' : c)).join(', ')}
+            </span>
+            {filterActive && (
+              <button
+                type="button"
+                className="btn btn-small spectator-add-more-btn"
+                onClick={() => {
+                  setCodeInput('')
+                  setRedeemError(null)
+                  setShowCodeDialog(true)
+                }}
+              >
+                Lägg till fler
+              </button>
+            )}
+          </div>
         )}
       </div>
 
       {games.length === 0 ? (
         <div className="spectator-empty">
-          {isViewMode && !clubFilter
+          {filterActive && !clubFilter
             ? 'Ange klubbkod för att se lottningar.'
             : latestRoundNr == null
               ? 'Ingen rond lottad \u00E4nnu.'
@@ -157,9 +168,10 @@ export function SpectatorLayout() {
             className="club-code-input"
             type="text"
             inputMode="numeric"
-            pattern="[0-9 ]*"
+            pattern="[0-9]*"
             autoComplete="off"
-            placeholder="### ###"
+            placeholder="####"
+            maxLength={CODE_LENGTH}
             value={codeInput}
             onChange={handleCodeChange}
             onKeyDown={(e) => {

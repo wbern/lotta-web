@@ -1,4 +1,4 @@
-import { verifyClubCode } from '../domain/club-codes'
+import { generateClubCodeMap } from '../domain/club-codes'
 import type { DataProvider } from './data-provider'
 import type { SetResultCommand } from './result-command'
 import { createCommandDeps, handleSetResult } from './result-command'
@@ -75,15 +75,21 @@ interface RpcServerOptions {
   onMutation?: () => void
   clubCodeSecret?: string
   getAllClubEntries?: () => string[]
+  clubFilterEnabled?: boolean
 }
 
 function isViewRole(perms: RpcPermissions | undefined): boolean {
   return perms !== undefined && perms['commands.setResult'] !== true
 }
 
-function getProviderForPeer(base: DataProvider, peerId: string): DataProvider {
+function getProviderForPeer(
+  base: DataProvider,
+  peerId: string,
+  clubFilterEnabled: boolean,
+): DataProvider {
   const perms = peerPermissions.get(peerId)
   if (!isViewRole(perms)) return base
+  if (!clubFilterEnabled) return base
   return createViewScopedProvider(base, peerAuthorizedClubs.get(peerId) ?? [])
 }
 
@@ -118,22 +124,28 @@ export function startP2pRpcServer(
         result = outcome
         isMutation = outcome.status === 'applied'
       } else if (req.method === 'auth.redeemClubCode') {
-        const rawCode = String(req.args[0] ?? '')
+        const rawCode = String(req.args[0] ?? '').replace(/[-\s]/g, '')
         const secret = options?.clubCodeSecret
         const clubs = options?.getAllClubEntries?.()
         if (!secret || !clubs) {
           result = { status: 'error', reason: 'not-configured' }
         } else {
-          const matched = verifyClubCode(rawCode, clubs, secret)
+          const map = generateClubCodeMap(clubs, secret)
+          const matchedClub = Object.entries(map).find(([, c]) => c === rawCode)?.[0]
+          const matched = matchedClub ? [matchedClub] : null
           if (!matched) {
             result = { status: 'error', reason: 'invalid-code' }
           } else {
-            setPeerAuthorizedClubs(peerId, matched)
-            result = { status: 'ok', clubs: matched }
+            const existing = peerAuthorizedClubs.get(peerId) ?? []
+            const mergedSet = new Set([...existing, ...matched])
+            const merged = [...mergedSet].sort()
+            setPeerAuthorizedClubs(peerId, merged)
+            result = { status: 'ok', clubs: merged }
           }
         }
       } else {
-        const peerProvider = getProviderForPeer(provider, peerId)
+        const clubFilterEnabled = options?.clubFilterEnabled ?? true
+        const peerProvider = getProviderForPeer(provider, peerId, clubFilterEnabled)
         result = await dispatch(peerProvider, req.method, req.args)
         const methodName = req.method.split('.')[1]
         isMutation = !READ_METHODS.has(methodName)

@@ -60,6 +60,7 @@ export type PeerCountMessage = {
   viewers: number
   referees: number
   chatEnabled?: boolean
+  clubFilterEnabled?: boolean
 }
 
 export type AnnouncementMessage = {

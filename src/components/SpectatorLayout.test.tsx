@@ -319,7 +319,7 @@ describe('SpectatorLayout', () => {
     renderWithQuery(<SpectatorLayout />)
 
     expect(screen.getByTestId('club-code-dialog')).toBeTruthy()
-    expect(screen.getByPlaceholderText('### ###')).toBeTruthy()
+    expect(screen.getByPlaceholderText('####')).toBeTruthy()
   })
 
   it('shows empty state in view mode before club code is redeemed', () => {
@@ -339,42 +339,14 @@ describe('SpectatorLayout', () => {
 
     renderWithQuery(<SpectatorLayout />)
 
-    const input = screen.getByPlaceholderText('### ###')
-    fireEvent.change(input, { target: { value: '123456' } })
+    const input = screen.getByPlaceholderText('####')
+    fireEvent.change(input, { target: { value: '1234' } })
     fireEvent.click(screen.getByTestId('club-code-submit'))
 
     await waitFor(() => {
       expect(store.getClientP2PState().clubFilter).toEqual(['Skara SK'])
     })
-    expect(mockRedeemClubCode).toHaveBeenCalledWith('123456')
-  })
-
-  it('auto-inserts a space separator as the user types digits', () => {
-    store.setShareMode('view')
-    store.setRoomCode('TESTRC')
-
-    renderWithQuery(<SpectatorLayout />)
-
-    const input = screen.getByPlaceholderText('### ###') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '123456' } })
-
-    expect(input.value).toBe('123 456')
-  })
-
-  it('strips the space separator before sending the code', async () => {
-    mockRedeemClubCode.mockResolvedValue({ status: 'ok', clubs: ['Skara SK'] })
-    store.setShareMode('view')
-    store.setRoomCode('TESTRC')
-
-    renderWithQuery(<SpectatorLayout />)
-
-    const input = screen.getByPlaceholderText('### ###')
-    fireEvent.change(input, { target: { value: '123 456' } })
-    fireEvent.click(screen.getByTestId('club-code-submit'))
-
-    await waitFor(() => {
-      expect(mockRedeemClubCode).toHaveBeenCalledWith('123456')
-    })
+    expect(mockRedeemClubCode).toHaveBeenCalledWith('1234')
   })
 
   it('does not set club filter when dialog is dismissed', () => {
@@ -396,8 +368,8 @@ describe('SpectatorLayout', () => {
 
     renderWithQuery(<SpectatorLayout />)
 
-    const input = screen.getByPlaceholderText('### ###')
-    fireEvent.change(input, { target: { value: '999999' } })
+    const input = screen.getByPlaceholderText('####')
+    fireEvent.change(input, { target: { value: '9999' } })
     fireEvent.click(screen.getByTestId('club-code-submit'))
 
     await waitFor(() => {
@@ -426,8 +398,8 @@ describe('SpectatorLayout', () => {
 
     renderWithQuery(<SpectatorLayout />)
 
-    const input = screen.getByPlaceholderText('### ###')
-    fireEvent.change(input, { target: { value: '456789' } })
+    const input = screen.getByPlaceholderText('####')
+    fireEvent.change(input, { target: { value: '4567' } })
     fireEvent.click(screen.getByTestId('club-code-submit'))
 
     await waitFor(() => {
@@ -446,16 +418,27 @@ describe('SpectatorLayout', () => {
     expect(screen.queryByTestId('club-code-dialog')).toBeNull()
   })
 
+  it('bypasses dialog and shows full pairings when organizer has filter disabled', () => {
+    store.setShareMode('view')
+    store.setRoomCode('TESTRC')
+    store.setClubFilterEnabled(false)
+
+    renderWithQuery(<SpectatorLayout />)
+
+    expect(screen.queryByTestId('club-code-dialog')).toBeNull()
+    expect(screen.getByTestId('spectator-pairings')).toBeTruthy()
+  })
+
   it('auto-redeems pendingClubCode from store and hides the dialog', async () => {
     mockRedeemClubCode.mockResolvedValue({ status: 'ok', clubs: ['Skara SK'] })
     store.setShareMode('view')
     store.setRoomCode('TESTRC')
-    store.setPendingClubCode('123456')
+    store.setPendingClubCode('1234')
 
     renderWithQuery(<SpectatorLayout />)
 
     await waitFor(() => {
-      expect(mockRedeemClubCode).toHaveBeenCalledWith('123456')
+      expect(mockRedeemClubCode).toHaveBeenCalledWith('1234')
     })
     await waitFor(() => {
       expect(store.getClientP2PState().clubFilter).toEqual(['Skara SK'])
@@ -468,16 +451,51 @@ describe('SpectatorLayout', () => {
     mockRedeemClubCode.mockResolvedValue({ status: 'error', reason: 'invalid' })
     store.setShareMode('view')
     store.setRoomCode('TESTRC')
-    store.setPendingClubCode('999999')
+    store.setPendingClubCode('9999')
 
     renderWithQuery(<SpectatorLayout />)
 
     await waitFor(() => {
-      expect(mockRedeemClubCode).toHaveBeenCalledWith('999999')
+      expect(mockRedeemClubCode).toHaveBeenCalledWith('9999')
     })
     expect(screen.getByTestId('club-code-dialog')).toBeTruthy()
     expect(store.getClientP2PState().clubFilter).toBeNull()
     expect(store.getClientP2PState().pendingClubCode).toBeNull()
+  })
+
+  it('lets the spectator add a second code via "Lägg till fler"', async () => {
+    mockRedeemClubCode
+      .mockResolvedValueOnce({ status: 'ok', clubs: ['Skara SK'] })
+      .mockResolvedValueOnce({ status: 'ok', clubs: ['Skara SK', 'Lidköping SS'] })
+    store.setShareMode('view')
+    store.setRoomCode('TESTRC')
+
+    renderWithQuery(<SpectatorLayout />)
+
+    // First code
+    fireEvent.change(screen.getByPlaceholderText('####'), {
+      target: { value: '1234' },
+    })
+    fireEvent.click(screen.getByTestId('club-code-submit'))
+
+    await waitFor(() => {
+      expect(store.getClientP2PState().clubFilter).toEqual(['Skara SK'])
+    })
+    expect(screen.queryByTestId('club-code-dialog')).toBeNull()
+
+    // "Lägg till fler" appears, click to reopen
+    fireEvent.click(screen.getByRole('button', { name: /Lägg till fler/i }))
+    expect(screen.getByTestId('club-code-dialog')).toBeTruthy()
+
+    // Second code — server returns the merged list
+    fireEvent.change(screen.getByPlaceholderText('####'), {
+      target: { value: '7890' },
+    })
+    fireEvent.click(screen.getByTestId('club-code-submit'))
+
+    await waitFor(() => {
+      expect(store.getClientP2PState().clubFilter).toEqual(['Skara SK', 'Lidköping SS'])
+    })
   })
 
   it('highlights players whose club field is preserved in the server response', () => {

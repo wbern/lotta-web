@@ -139,6 +139,18 @@ describe('client-p2p-store', () => {
 
       expect(getClientP2PState().chatEnabled).toBe(true)
     })
+
+    it('applies clubFilterEnabled from the peer count message', () => {
+      const msg: PeerCountMessage = {
+        total: 1,
+        viewers: 1,
+        referees: 0,
+        clubFilterEnabled: false,
+      }
+      setPeerCount(msg)
+
+      expect(getClientP2PState().clubFilterEnabled).toBe(false)
+    })
   })
 
   describe('diagnostics', () => {

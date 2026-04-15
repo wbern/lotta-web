@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateClubCode } from '../../domain/club-codes'
+import { generateClubCodeMap } from '../../domain/club-codes'
 import type {
   AuditLogEntry,
   ChatDeleteMessage,
@@ -25,6 +25,31 @@ let mockOnChatMessage: ((msg: ChatMessage, peerId: string) => void) | null = nul
 let mockBroadcastChatMessageCalls: ChatMessage[] = []
 let mockSendChatToPeerCalls: { msg: ChatMessage; peerId: string }[] = []
 let mockBroadcastChatDeleteCalls: ChatDeleteMessage[] = []
+let mockBroadcastPeerCountCalls: unknown[] = []
+
+interface PdfSaveCall {
+  filename: string
+  entries: { label: string; code: string; url: string; qrDataUrl: string }[]
+  tournamentName: string
+}
+let mockPdfSaveCalls: PdfSaveCall[] = []
+
+vi.mock('../../domain/club-codes-pdf', () => ({
+  buildClubCodesPdf: (opts: Omit<PdfSaveCall, 'filename'>) => ({
+    save: (filename: string) =>
+      mockPdfSaveCalls.push({
+        filename,
+        entries: opts.entries,
+        tournamentName: opts.tournamentName,
+      }),
+  }),
+}))
+
+vi.mock('qrcode', () => ({
+  default: {
+    toDataURL: async (_text: string) => 'data:image/png;base64,AAAA',
+  },
+}))
 
 vi.mock('../../services/p2p-service', () => {
   return {
@@ -95,7 +120,9 @@ vi.mock('../../services/p2p-service', () => {
         return mockOnChatMessage
       }
 
-      broadcastPeerCount() {}
+      broadcastPeerCount(msg: unknown) {
+        mockBroadcastPeerCountCalls.push(msg)
+      }
       broadcastAnnouncement() {}
       broadcastChatMessage(msg: ChatMessage) {
         mockBroadcastChatMessageCalls.push(msg)
@@ -197,6 +224,8 @@ describe('LiveTab', () => {
     mockBroadcastChatMessageCalls = []
     mockSendChatToPeerCalls = []
     mockBroadcastChatDeleteCalls = []
+    mockBroadcastPeerCountCalls = []
+    mockPdfSaveCalls = []
     mockConnectionState = 'disconnected'
     mockPeers = []
     mockRoomId = null
@@ -904,105 +933,43 @@ describe('LiveTab', () => {
     expect(url.pathname).toContain('/live/')
   })
 
-  it('shows club checkboxes with generated access codes when hosting', () => {
+  it('hides club codes until the organizer enables club filtering', () => {
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
 
-    const skaraCheckbox = screen.getByLabelText('Skara SK', { exact: false })
-    const lidkopingCheckbox = screen.getByLabelText('Lidköping SS', { exact: false })
+    // Opt-in by default — no codes visible
+    expect(screen.queryByTestId('club-code-Skara SK')).toBeNull()
 
-    expect(skaraCheckbox).toBeTruthy()
-    expect(lidkopingCheckbox).toBeTruthy()
+    // Organizer enables club filter
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
+
+    // Codes appear for every club and clubless
+    expect(screen.getByTestId('club-code-Skara SK').textContent).toMatch(/^\d{4}$/)
+    expect(screen.getByTestId('club-code-Lidköping SS').textContent).toMatch(/^\d{4}$/)
+    expect(screen.getByTestId('club-code-__CLUBLESS__').textContent).toMatch(/^\d{4}$/)
   })
 
-  it('generates a code when a club checkbox is checked', () => {
+  it('shows player count next to each club row', () => {
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
 
-    // No code shown initially
-    expect(screen.queryByTestId('club-code-value')).toBeNull()
+    const skaraRow = screen.getByTestId('club-code-Skara SK').closest('.live-tab-club-row')
+    const lidkopingRow = screen.getByTestId('club-code-Lidköping SS').closest('.live-tab-club-row')
+    const klubblosaRow = screen.getByTestId('club-code-__CLUBLESS__').closest('.live-tab-club-row')
 
-    // Check a club
-    fireEvent.click(screen.getByLabelText('Skara SK', { exact: false }))
-
-    // Code should appear
-    const codeEl = screen.getByTestId('club-code-value')
-    expect(codeEl.textContent).toMatch(/^\d{3} \d{3}$/)
-  })
-
-  it('shows a Clubless checkbox when there are players without clubs', () => {
-    renderLiveTab()
-    fireEvent.click(screen.getByText('Starta Live'))
-
-    const clublessCheckbox = screen.getByLabelText('Klubblösa', { exact: false })
-    expect(clublessCheckbox).toBeTruthy()
-
-    // Check it and verify a code appears
-    fireEvent.click(clublessCheckbox)
-    expect(screen.getByTestId('club-code-value')).toBeTruthy()
-  })
-
-  it('shows an "Alla" parent checkbox that selects all clubs and clubless', () => {
-    renderLiveTab()
-    fireEvent.click(screen.getByText('Starta Live'))
-
-    // Check the "Alla" parent
-    fireEvent.click(screen.getByLabelText('Alla', { exact: false }))
-
-    // Both individual clubs and clubless should now be checked
-    expect((screen.getByLabelText('Skara SK', { exact: false }) as HTMLInputElement).checked).toBe(
-      true,
-    )
-    expect(
-      (screen.getByLabelText('Lidköping SS', { exact: false }) as HTMLInputElement).checked,
-    ).toBe(true)
-    expect((screen.getByLabelText('Klubblösa', { exact: false }) as HTMLInputElement).checked).toBe(
-      true,
-    )
-
-    // A code should be generated
-    expect(screen.getByTestId('club-code-value')).toBeTruthy()
-  })
-
-  it('nests club leaves inside a child container while keeping the parent outside', () => {
-    renderLiveTab()
-    fireEvent.click(screen.getByText('Starta Live'))
-
-    const children = screen.getByTestId('club-picker-children')
-    expect(children.contains(screen.getByLabelText('Skara SK', { exact: false }))).toBe(true)
-    expect(children.contains(screen.getByLabelText('Lidköping SS', { exact: false }))).toBe(true)
-    expect(children.contains(screen.getByLabelText('Klubblösa', { exact: false }))).toBe(true)
-    expect(children.contains(screen.getByLabelText('Alla', { exact: false }))).toBe(false)
-  })
-
-  it('shows total player count next to the "Alla" parent label', () => {
-    renderLiveTab()
-    fireEvent.click(screen.getByText('Starta Live'))
-
-    const allaLabel = screen.getByLabelText('Alla', { exact: false }).closest('label')
-    // 2 Skara + 2 Lidköping + 1 clubless = 5
-    expect(allaLabel?.textContent).toContain('5 st')
-  })
-
-  it('shows player count next to each club name', () => {
-    renderLiveTab()
-    fireEvent.click(screen.getByText('Starta Live'))
-
-    const skaraLabel = screen.getByLabelText('Skara SK', { exact: false }).closest('label')
-    const lidkopingLabel = screen.getByLabelText('Lidköping SS', { exact: false }).closest('label')
-    const klubblosaLabel = screen.getByLabelText('Klubblösa', { exact: false }).closest('label')
-
-    expect(skaraLabel?.textContent).toContain('2 st')
-    expect(lidkopingLabel?.textContent).toContain('2 st')
-    expect(klubblosaLabel?.textContent).toContain('1 st')
+    expect(skaraRow?.textContent).toContain('2 st')
+    expect(lidkopingRow?.textContent).toContain('2 st')
+    expect(klubblosaRow?.textContent).toContain('1 st')
   })
 
   it('renders player count in a dedicated muted element so it can be styled', () => {
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
 
-    const skaraLabel = screen.getByLabelText('Skara SK', { exact: false }).closest('label')
-    const count = skaraLabel?.querySelector('.live-tab-club-count')
+    const skaraRow = screen.getByTestId('club-code-Skara SK').closest('.live-tab-club-row')
+    const count = skaraRow?.querySelector('.live-tab-club-count')
     expect(count).toBeTruthy()
     expect(count?.textContent).toBe('(2 st)')
   })
@@ -1010,6 +977,7 @@ describe('LiveTab', () => {
   it('renders a share button next to each club row', () => {
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
 
     expect(screen.getByTestId('share-club-btn-Skara SK')).toBeTruthy()
     expect(screen.getByTestId('share-club-btn-Lidköping SS')).toBeTruthy()
@@ -1019,6 +987,7 @@ describe('LiveTab', () => {
   it('opens a share dialog when the share button is clicked', () => {
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
 
     expect(screen.queryByTestId('share-club-dialog')).toBeNull()
     fireEvent.click(screen.getByTestId('share-club-btn-Skara SK'))
@@ -1028,90 +997,130 @@ describe('LiveTab', () => {
   it('opens a share dialog when the Klubblösa share button is clicked', () => {
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
 
     expect(screen.queryByTestId('share-club-dialog')).toBeNull()
     fireEvent.click(screen.getByTestId('share-club-btn-__CLUBLESS__'))
     expect(screen.getByTestId('share-club-dialog')).toBeTruthy()
   })
 
-  it('share dialog contains a QR code and a URL with the club code', () => {
+  it('share dialog contains a QR code and a URL with a 4-digit club code', () => {
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
     fireEvent.click(screen.getByTestId('share-club-btn-Skara SK'))
 
     const dialog = screen.getByTestId('share-club-dialog')
-    // QR inside the dialog (mocked QRCodeSVG renders data-testid="qr-code")
-    expect(dialog.querySelector('[data-testid="qr-code"]')).toBeTruthy()
-
-    // URL input inside the dialog with a code= param
-    const urlInput = screen.getByTestId('share-club-url') as HTMLInputElement
-    expect(urlInput).toBeTruthy()
-    expect(urlInput.value).toContain('share=view')
-    expect(urlInput.value).toContain('token=')
-    expect(urlInput.value).toMatch(/[?&]code=\d{6}/)
+    const qr = dialog.querySelector('[data-testid="qr-code"]')
+    expect(qr).toBeTruthy()
+    const url = new URL(qr!.textContent!)
+    expect(url.searchParams.get('share')).toBe('view')
+    expect(url.searchParams.get('token')).toBeTruthy()
+    expect(url.searchParams.get('code')).toMatch(/^\d{4}$/)
   })
 
-  it('marks the parent checkbox as indeterminate when some but not all children are selected', () => {
+  it('share dialog displays the 4-digit club code prominently with helper text and a copy link button', () => {
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
+    fireEvent.click(screen.getByTestId('share-club-btn-Skara SK'))
+
+    const dialog = screen.getByTestId('share-club-dialog')
+
+    // Prominent code element — rendered as a semantic <code> tag so it reads as a code block
+    const codeEl = dialog.querySelector('[data-testid="share-club-dialog-code"]')
+    expect(codeEl).toBeTruthy()
+    expect(codeEl!.tagName.toLowerCase()).toBe('code')
+    expect(codeEl!.textContent).toMatch(/^\d{4}$/)
+
+    // Helper text above the code explains when it's needed (the QR embeds the code,
+    // but manual-entry users need to know where to type it)
+    const helper = dialog.querySelector('[data-testid="share-club-dialog-hint"]')
+    expect(helper).toBeTruthy()
+    expect(helper!.textContent).toMatch(/ombedd|fråga|prompt|kod/i)
+
+    // Copy-link button replaces the raw URL input — cleaner visual
+    const copyBtn = dialog.querySelector('[data-testid="share-club-dialog-copy"]')
+    expect(copyBtn).toBeTruthy()
+    expect(copyBtn!.tagName.toLowerCase()).toBe('button')
+  })
+
+  it('broadcasts clubFilterEnabled=false on start and flips to true when organizer enables it', () => {
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
 
-    const parent = screen.getByLabelText('Alla', { exact: false }) as HTMLInputElement
-    expect(parent.indeterminate).toBe(false)
-    expect(parent.checked).toBe(false)
+    // Trigger a peer-count broadcast with no opt-in yet
+    mockBroadcastPeerCountCalls = []
+    act(() => {
+      mockOnPeersChange?.()
+    })
+    expect(mockBroadcastPeerCountCalls.at(-1)).toMatchObject({ clubFilterEnabled: false })
 
-    fireEvent.click(screen.getByLabelText('Skara SK', { exact: false }))
-    expect(parent.indeterminate).toBe(true)
-    expect(parent.checked).toBe(false)
-
-    // Select the remaining two children → parent becomes fully checked, no longer indeterminate
-    fireEvent.click(screen.getByLabelText('Lidköping SS', { exact: false }))
-    fireEvent.click(screen.getByLabelText('Klubblösa', { exact: false }))
-    expect(parent.indeterminate).toBe(false)
-    expect(parent.checked).toBe(true)
+    // Organizer enables opt-in — should re-broadcast with the new value
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
+    expect(mockBroadcastPeerCountCalls.at(-1)).toMatchObject({ clubFilterEnabled: true })
   })
 
-  it('shows no code when no clubs are selected', () => {
-    renderLiveTab()
+  it('downloads a PDF of the main viewer QR when its print button is clicked', async () => {
+    renderLiveTab({ tournamentName: 'Main Cup' })
     fireEvent.click(screen.getByText('Starta Live'))
 
-    // No clubs checked — no code should appear
-    expect(screen.queryByTestId('club-code-value')).toBeNull()
+    fireEvent.click(screen.getByTestId('print-main-qr'))
 
-    // Check and uncheck a club — code should disappear again
-    fireEvent.click(screen.getByLabelText('Skara SK', { exact: false }))
-    expect(screen.getByTestId('club-code-value')).toBeTruthy()
-
-    fireEvent.click(screen.getByLabelText('Skara SK', { exact: false }))
-    expect(screen.queryByTestId('club-code-value')).toBeNull()
+    await waitFor(() => {
+      expect(mockPdfSaveCalls.length).toBe(1)
+    })
+    const call = mockPdfSaveCalls[0]
+    expect(call.filename).toMatch(/\.pdf$/i)
+    expect(call.tournamentName).toBe('Main Cup')
+    expect(call.entries.length).toBe(1)
+    const entry = call.entries[0]
+    expect(entry.qrDataUrl).toMatch(/^data:image\//)
+    // The main sheet carries the 6-char room code as the manual-entry fallback
+    expect(entry.code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/)
+    // URL is the viewer share URL
+    expect(entry.url).toContain('/live/')
   })
 
-  it('generates different codes for different club selections', () => {
-    renderLiveTab()
+  it('downloads a PDF of club codes when "Skriv ut klubbkoder" is clicked', async () => {
+    renderLiveTab({ tournamentName: 'Test Cup' })
     fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
 
-    // Check only Skara SK
-    fireEvent.click(screen.getByLabelText('Skara SK', { exact: false }))
-    const code1 = screen.getByTestId('club-code-value').textContent!
+    fireEvent.click(screen.getByRole('button', { name: /Skriv ut klubbkoder/i }))
 
-    // Uncheck Skara, check Lidköping
-    fireEvent.click(screen.getByLabelText('Skara SK', { exact: false }))
-    fireEvent.click(screen.getByLabelText('Lidköping SS', { exact: false }))
-    const code2 = screen.getByTestId('club-code-value').textContent!
-
-    expect(code1).not.toBe(code2)
+    await waitFor(() => {
+      expect(mockPdfSaveCalls.length).toBe(1)
+    })
+    const { filename, entries } = mockPdfSaveCalls[0]
+    expect(filename).toMatch(/\.pdf$/i)
+    expect(filename.toLowerCase()).toContain('klubbkod')
+    // One entry per club + clubless
+    const labels = entries.map((e) => e.label)
+    expect(labels).toContain('Skara SK')
+    expect(labels).toContain('Lidköping SS')
+    expect(labels).toContain('Klubblösa')
+    // Each entry carries a pre-rendered QR data URL
+    for (const entry of entries) {
+      expect(entry.qrDataUrl).toMatch(/^data:image\//)
+    }
+    // Each entry carries its 4-digit club code
+    const skaraCode = screen.getByTestId('club-code-Skara SK').textContent!
+    const skaraEntry = entries.find((e) => e.label === 'Skara SK')
+    expect(skaraEntry?.code).toBe(skaraCode)
   })
 
-  it('does not derive club code from publicly known tournament metadata', () => {
+  it('does not derive club codes from publicly known tournament metadata', () => {
     const allClubs = ['Lidköping SS', 'Skara SK', '__CLUBLESS__']
-    const insecureCode = generateClubCode(['Skara SK'], allClubs, 'Test/')
+    const insecureMap = generateClubCodeMap(allClubs, 'Test/')
 
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
-    fireEvent.click(screen.getByLabelText('Skara SK', { exact: false }))
+    fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
 
-    const displayedCode = screen.getByTestId('club-code-value').textContent!.replace(/\s/g, '')
-    expect(displayedCode).not.toBe(insecureCode)
-    expect(displayedCode).toMatch(/^\d{6}$/)
+    const displayedCode = screen.getByTestId('club-code-Skara SK').textContent!
+    expect(displayedCode).not.toBe(insecureMap['Skara SK'])
+    expect(displayedCode).toMatch(/^\d{4}$/)
   })
 
   it('starts RPC server when hosting begins', async () => {
