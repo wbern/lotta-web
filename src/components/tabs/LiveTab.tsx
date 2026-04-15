@@ -1,6 +1,7 @@
 import QRCode from 'qrcode'
 import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { setActiveDataProvider } from '../../api/active-provider'
 import { getLocalProvider } from '../../api/local-data-provider'
 import { handleResultSubmission, sendCurrentStateToPeer } from '../../api/p2p-broadcast'
 import type { RpcPermissions } from '../../api/p2p-data-provider'
@@ -18,7 +19,7 @@ import { CLUBLESS_KEY } from '../../domain/club-filter'
 import { createGrant, type Grant, resolveGrantPermissions } from '../../domain/grants'
 import { useChatAutoScroll } from '../../hooks/useChatAutoScroll'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
-import { setLiveStatus } from '../../hooks/useLiveStatus'
+import { setLiveStatus, useLiveStatus } from '../../hooks/useLiveStatus'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { useTournamentPlayers } from '../../hooks/useTournamentPlayers'
 import {
@@ -32,8 +33,9 @@ import { getShareUrl, getViewUrl, getViewUrlWithCode } from '../../lib/live-urls
 import { playSound } from '../../lib/notification-sounds'
 import { queryClient } from '../../query-client'
 import { subscribeMutationBroadcast } from '../../services/mutation-broadcast'
-import { clearP2PService, setP2PService } from '../../services/p2p-provider'
+import { clearP2PService, getP2PService, setP2PService } from '../../services/p2p-provider'
 import { type DiagnosticEntry, P2PService, type RelaySocketInfo } from '../../services/p2p-service'
+import { resetClientStore } from '../../stores/client-p2p-store'
 import type { AuditLogEntry, ChatMessage, P2PPeer } from '../../types/p2p'
 import { ChatMessageItem } from '../ChatMessageItem'
 import { ConnectionDiagnostics } from '../ConnectionDiagnostics'
@@ -96,6 +98,8 @@ function formatDuration(ms: number): string {
 
 export function LiveTab({ tournamentName, tournamentId, round }: Props) {
   const online = useOnlineStatus()
+  const liveStatus = useLiveStatus()
+  const isClient = liveStatus?.role === 'client'
   const serviceRef = useRef<P2PService | null>(null)
   const tournamentIdRef = useRef(tournamentId)
   const roundRef = useRef(round)
@@ -523,6 +527,35 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
   const savedSession = getSavedSession()
 
   if (!isHosting) {
+    if (isClient) {
+      return (
+        <div className="live-tab-container">
+          <div className="live-tab-intro">
+            <EmptyState
+              icon="broadcast"
+              title="Ansluten till annan värd"
+              description="Du tittar på en turnering som delas av en annan arrangör. Koppla från för att återgå till din egen turnering."
+            />
+            <button
+              className="btn btn-danger"
+              onClick={() => {
+                try {
+                  getP2PService().leave()
+                } catch {
+                  // Service may already be gone
+                }
+                setActiveDataProvider(null)
+                clearP2PService()
+                resetClientStore()
+                setLiveStatus(null)
+              }}
+            >
+              Koppla från
+            </button>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="live-tab-container">
         <div className="live-tab-intro">
