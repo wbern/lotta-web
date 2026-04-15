@@ -53,6 +53,7 @@ const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 interface SavedSession {
   roomCode: string
   refereeToken: string
+  grants?: Grant[]
 }
 
 function getSavedSession(): SavedSession | null {
@@ -65,8 +66,8 @@ function getSavedSession(): SavedSession | null {
   }
 }
 
-function saveSession(roomCode: string, refereeToken: string): void {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ roomCode, refereeToken }))
+function saveSession(roomCode: string, refereeToken: string, grants: Grant[]): void {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ roomCode, refereeToken, grants }))
 }
 
 function clearSession(): void {
@@ -183,7 +184,21 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     const token = saved?.refereeToken ?? generateRefereeToken()
     const vToken = crypto.randomUUID()
     const secret = crypto.randomUUID()
-    saveSession(code, token)
+    const restoredGrants: Grant[] =
+      saved?.grants ??
+      (saved?.refereeToken
+        ? [
+            {
+              id: crypto.randomUUID(),
+              label: 'Domare',
+              preset: 'full',
+              token: saved.refereeToken,
+              createdAt: Date.now(),
+            },
+          ]
+        : [])
+    saveSession(code, token, restoredGrants)
+    setGrants(restoredGrants)
     const service = new P2PService('organizer', token)
     serviceRef.current = service
     setP2PService(service)
@@ -194,6 +209,9 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     tokenPerms.clear()
     tokenPerms.set(token, createFullPermissions())
     tokenPerms.set(vToken, createViewPermissions())
+    for (const grant of restoredGrants) {
+      tokenPerms.set(grant.token, resolveGrantPermissions(grant))
+    }
 
     // When a peer presents a token, assign per-peer permissions
     service.onPeerToken = (peerId: string, peerToken: string) => {
@@ -318,6 +336,8 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     setMutedPeers(new Set())
     mutedPeersRef.current = new Set()
     setViewToken('')
+    setGrants([])
+    setGrantLabel('')
     setClubCodeSecret(null)
     setClubFilterEnabled(false)
     clubFilterEnabledRef.current = false
@@ -436,22 +456,37 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     })
   }, [])
 
+  const persistGrants = useCallback((nextGrants: Grant[]) => {
+    const existing = getSavedSession()
+    if (!existing) return
+    saveSession(existing.roomCode, existing.refereeToken, nextGrants)
+  }, [])
+
   const addGrant = useCallback(() => {
     const trimmed = grantLabel.trim()
     if (!trimmed) return
     const grant = createGrant({ label: trimmed, preset: grantPreset })
     tokenPermissionsRef.current.set(grant.token, resolveGrantPermissions(grant))
-    setGrants((prev) => [...prev, grant])
-    setGrantLabel('')
-  }, [grantLabel, grantPreset])
-
-  const revokeGrant = useCallback((id: string) => {
     setGrants((prev) => {
-      const target = prev.find((g) => g.id === id)
-      if (target) tokenPermissionsRef.current.delete(target.token)
-      return prev.filter((g) => g.id !== id)
+      const next = [...prev, grant]
+      persistGrants(next)
+      return next
     })
-  }, [])
+    setGrantLabel('')
+  }, [grantLabel, grantPreset, persistGrants])
+
+  const revokeGrant = useCallback(
+    (id: string) => {
+      setGrants((prev) => {
+        const target = prev.find((g) => g.id === id)
+        if (target) tokenPermissionsRef.current.delete(target.token)
+        const next = prev.filter((g) => g.id !== id)
+        persistGrants(next)
+        return next
+      })
+    },
+    [persistGrants],
+  )
 
   const sendChatMessage = useCallback(() => {
     const text = chatInput.trim()

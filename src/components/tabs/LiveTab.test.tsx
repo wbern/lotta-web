@@ -621,6 +621,92 @@ describe('LiveTab', () => {
     expect(row.querySelector('[data-testid^="grant-copy-"]')).toBeTruthy()
   })
 
+  it('synthesizes a single Domare grant from a legacy session payload without grants', () => {
+    sessionStorage.setItem(
+      'lotta-live-session',
+      JSON.stringify({ roomCode: 'LEGACY', refereeToken: 'legacy-token-abc' }),
+    )
+
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Återuppta Live'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+
+    const rows = screen
+      .getByTestId('live-tab-grants-panel')
+      .querySelectorAll('[data-testid^="grant-row-"]')
+    expect(rows.length).toBe(1)
+    expect(rows[0].textContent).toContain('Domare')
+
+    // The synthesized grant must carry the legacy referee token so existing
+    // QR codes still resolve to the same session
+    const qr = rows[0].querySelector('[data-testid="qr-code"]') as HTMLElement
+    expect(new URL(qr.textContent!).searchParams.get('token')).toBe('legacy-token-abc')
+  })
+
+  it('repopulates peer authorization for restored grants after resuming', async () => {
+    const { setPeerPermissions, createFullPermissions } = await import(
+      '../../api/p2p-data-provider'
+    )
+    const mockSet = vi.mocked(setPeerPermissions)
+
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+
+    fireEvent.change(screen.getByTestId('grant-label-input'), {
+      target: { value: 'Domare Kalle' },
+    })
+    fireEvent.click(screen.getByTestId('grant-preset-full'))
+    fireEvent.click(screen.getByTestId('grant-submit'))
+
+    // Capture token before remount
+    const qrBefore = screen
+      .getByTestId('live-tab-grants-panel')
+      .querySelector('[data-testid="qr-code"]') as HTMLElement
+    const token = new URL(qrBefore.textContent!).searchParams.get('token')!
+
+    cleanup()
+    mockConnectionState = 'disconnected'
+    mockRoomId = null
+
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Återuppta Live'))
+
+    mockSet.mockClear()
+    act(() => {
+      mockOnPeerToken?.('peer-after-restore', token)
+    })
+
+    expect(mockSet).toHaveBeenCalledWith('peer-after-restore', createFullPermissions())
+  })
+
+  it('restores saved grants from sessionStorage when resuming a live session', () => {
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+
+    fireEvent.change(screen.getByTestId('grant-label-input'), {
+      target: { value: 'Persisted Domare' },
+    })
+    fireEvent.click(screen.getByTestId('grant-preset-full'))
+    fireEvent.click(screen.getByTestId('grant-submit'))
+
+    // Simulate a tab refresh by unmounting and remounting
+    cleanup()
+    mockConnectionState = 'disconnected'
+    mockRoomId = null
+
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Återuppta Live'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+
+    const rows = screen
+      .getByTestId('live-tab-grants-panel')
+      .querySelectorAll('[data-testid^="grant-row-"]')
+    expect(rows.length).toBe(1)
+    expect(rows[0].textContent).toContain('Persisted Domare')
+  })
+
   it('shows Domarstyrning sub-tab when hosting and switching to it does not destroy session', () => {
     renderLiveTab()
     fireEvent.click(screen.getByText('Starta Live'))
