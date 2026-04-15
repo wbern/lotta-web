@@ -2,7 +2,30 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { seedFakePlayers } from '../../api/seed-players'
 import { addTournamentPlayers } from '../../api/tournament-players'
+import { generateRandomName } from '../../domain/random-name'
+import { useCreateTournament, useTournaments } from '../../hooks/useTournaments'
+import type { CreateTournamentRequest } from '../../types/api'
 import { Dialog } from './Dialog'
+
+const randomTournamentDefaults: Omit<CreateTournamentRequest, 'name' | 'group'> = {
+  pairingSystem: 'Nordisk Schweizer',
+  initialPairing: 'Rating',
+  nrOfRounds: 9,
+  barredPairing: false,
+  compensateWeakPlayerPP: false,
+  pointsPerGame: 1,
+  chess4: false,
+  ratingChoice: 'ELO',
+  showELO: true,
+  showGroup: false,
+  federation: 'SWE',
+  selectedTiebreaks: [],
+  resultsPage: 'lottning.htm',
+  standingsPage: 'stallning.htm',
+  playerListPage: 'spelare.htm',
+  roundForRoundPage: 'korstabell.htm',
+  clubStandingsPage: 'klubbstallning.htm',
+}
 
 interface Props {
   open: boolean
@@ -16,6 +39,9 @@ export function SeedPlayersDialog({ open, onClose, tournamentId }: Props) {
   const [autoAdd, setAutoAdd] = useState(true)
   const [createClubs, setCreateClubs] = useState(false)
   const [clubCount, setClubCount] = useState(5)
+  const [target, setTarget] = useState<string>('')
+  const { data: tournaments } = useTournaments()
+  const createTournament = useCreateTournament()
   const queryClient = useQueryClient()
 
   const handleSeed = async () => {
@@ -28,8 +54,32 @@ export function SeedPlayersDialog({ open, onClose, tournamentId }: Props) {
       if (clubs.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['clubs'] })
       }
+      let targetId: number | undefined
+      if (target === 'random') {
+        const created = await createTournament.mutateAsync({
+          name: generateRandomName({ includeYear: true }),
+          group: 'Grupp A',
+          ...randomTournamentDefaults,
+        })
+        targetId = created.id
+        queryClient.invalidateQueries({ queryKey: ['tournaments'] })
+      } else if (target) {
+        targetId = Number(target)
+      }
       let addedToTournament = false
-      if (autoAdd && tournamentId != null) {
+      if (targetId != null) {
+        try {
+          await addTournamentPlayers(targetId, players)
+          queryClient.invalidateQueries({ queryKey: ['tournaments', targetId, 'players'] })
+          queryClient.invalidateQueries({ queryKey: ['tournaments', targetId] })
+          addedToTournament = true
+        } catch {
+          alert(
+            `${players.length} testspelare tillagda i spelarpoolen, men kunde inte lägga till dem i turneringen.`,
+          )
+          return
+        }
+      } else if (autoAdd && tournamentId != null) {
         try {
           await addTournamentPlayers(tournamentId, players)
           queryClient.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'players'] })
@@ -107,6 +157,22 @@ export function SeedPlayersDialog({ open, onClose, tournamentId }: Props) {
             />
           </label>
         )}
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          Lägg till i turnering:
+          <select
+            data-testid="seed-target-select"
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+          >
+            <option value="">Ingen turnering (endast spelarpool)</option>
+            {(tournaments ?? []).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} / {t.group}
+              </option>
+            ))}
+            <option value="random">Skapa ny slumpmässig turnering</option>
+          </select>
+        </label>
         {tournamentId != null && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
