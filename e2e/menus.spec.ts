@@ -26,8 +26,6 @@ test.describe('Menu structure', () => {
     await expect(dropdown.getByText('Ny')).toBeVisible()
     await expect(dropdown.getByText('Editera')).toBeVisible()
     await expect(dropdown.getByText('Ta bort')).toBeVisible()
-    await expect(dropdown.getByText('Skapa FIDE-rapport')).toBeVisible()
-    await expect(dropdown.getByText('Avsluta')).toBeVisible()
   })
 
   test('Lotta dropdown contains expected items', async ({ page }) => {

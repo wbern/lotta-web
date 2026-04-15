@@ -107,10 +107,6 @@ export function MenuBar({
             <button onClick={() => action(onDeleteTournament)} disabled={!hasTournament}>
               Ta bort
             </button>
-            <div className="menu-separator" />
-            <button disabled title="Stäng webbläsarfliken för att avsluta">
-              Avsluta
-            </button>
           </div>
         )}
       </div>
