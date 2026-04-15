@@ -94,8 +94,7 @@ test.describe('Live tab', () => {
     await startHosting(page)
 
     await expect(page.locator('h4', { hasText: 'Dela med åskådare' })).toBeVisible()
-    await expect(page.locator('.live-tab-qr')).toBeVisible()
-    await expect(page.locator('.live-tab-link-label', { hasText: 'Rumskod:' })).toBeVisible()
+    await expect(page.locator('.live-tab-share-qr')).toBeVisible()
     await expect(page.locator('.live-tab-link-label', { hasText: 'Länk:' })).toBeVisible()
   })
 
@@ -124,27 +123,26 @@ test.describe('Live sub-tabs', () => {
     await startHosting(page)
   })
 
-  test('shows Delning and Dela vy sub-tabs when hosting', async ({ page }) => {
+  test('shows Delning and Domarstyrning sub-tabs when hosting', async ({ page }) => {
     const delning = page.locator('[role="tab"]', { hasText: 'Delning' })
-    const delaVy = page.locator('[role="tab"]', { hasText: 'Dela vy' })
+    const domarstyrning = page.locator('[role="tab"]', { hasText: 'Domarstyrning' })
 
     await expect(delning).toBeVisible()
-    await expect(delaVy).toBeVisible()
+    await expect(domarstyrning).toBeVisible()
     await expect(delning).toHaveAttribute('aria-selected', 'true')
   })
 
-  test('switching to Dela vy sub-tab shows share link and QR', async ({ page }) => {
-    await page.locator('[role="tab"]', { hasText: 'Dela vy' }).click()
+  test('switching to Domarstyrning sub-tab shows grants panel', async ({ page }) => {
+    await page.locator('[role="tab"]', { hasText: 'Domarstyrning' }).click()
 
-    await expect(page.locator('h4', { hasText: 'Dela vy' })).toBeVisible()
-    await expect(page.locator('.live-tab-link-label', { hasText: 'Delningslänk:' })).toBeVisible()
-    await expect(page.locator('.live-tab-qr')).toBeVisible()
+    await expect(page.locator('h4', { hasText: 'Domarstyrning' })).toBeVisible()
+    await expect(page.getByTestId('live-tab-grants-panel')).toBeVisible()
   })
 
   test('switching between sub-tabs preserves hosting session', async ({ page }) => {
-    // Go to Dela vy
-    await page.locator('[role="tab"]', { hasText: 'Dela vy' }).click()
-    await expect(page.locator('h4', { hasText: 'Dela vy' })).toBeVisible()
+    // Go to Domarstyrning
+    await page.locator('[role="tab"]', { hasText: 'Domarstyrning' }).click()
+    await expect(page.locator('h4', { hasText: 'Domarstyrning' })).toBeVisible()
 
     // Back to Delning
     await page.locator('[role="tab"]', { hasText: 'Delning' }).click()
@@ -216,9 +214,9 @@ test.describe('Live session persistence', () => {
 })
 
 // ===========================================================================
-// 4. Club picker checkbox tree
+// 4. Per-club share dialog
 // ===========================================================================
-test.describe('Live club picker tree', () => {
+test.describe('Live per-club share', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
     await waitForApi(page)
@@ -254,57 +252,9 @@ test.describe('Live club picker tree', () => {
     await page.getByTestId('club-codes').scrollIntoViewIfNeeded()
   })
 
-  test('shows "Alla" parent with clubs and Klubblösa nested as children', async ({ page }) => {
-    await expect(page.getByRole('checkbox', { name: /^Alla/ })).toBeVisible()
+  test('share button opens dialog with QR and club code', async ({ page }) => {
+    await page.locator('button', { hasText: 'Aktivera klubbfilter' }).click()
 
-    const children = page.getByTestId('club-picker-children')
-    await expect(children.getByRole('checkbox', { name: /^Skara SK/ })).toBeVisible()
-    await expect(children.getByRole('checkbox', { name: /^Lidköping SS/ })).toBeVisible()
-    await expect(children.getByRole('checkbox', { name: /^Klubblösa/ })).toBeVisible()
-
-    // Parent is outside the children container
-    await expect(children.getByRole('checkbox', { name: /^Alla/ })).toHaveCount(0)
-  })
-
-  test('parent checkbox becomes indeterminate when some children are selected', async ({
-    page,
-  }) => {
-    const parent = page.getByRole('checkbox', { name: /^Alla/ })
-
-    // Initial state: nothing selected
-    await expect(parent).not.toBeChecked()
-    expect(await parent.evaluate((el: HTMLInputElement) => el.indeterminate)).toBe(false)
-
-    // Select one child → parent indeterminate
-    await page.getByRole('checkbox', { name: /^Skara SK/ }).check()
-    await expect(parent).not.toBeChecked()
-    expect(await parent.evaluate((el: HTMLInputElement) => el.indeterminate)).toBe(true)
-
-    // Select all children → parent checked, not indeterminate
-    await page.getByRole('checkbox', { name: /^Lidköping SS/ }).check()
-    await page.getByRole('checkbox', { name: /^Klubblösa/ }).check()
-    await expect(parent).toBeChecked()
-    expect(await parent.evaluate((el: HTMLInputElement) => el.indeterminate)).toBe(false)
-  })
-
-  test('toggling parent checks and unchecks all children', async ({ page }) => {
-    const parent = page.getByRole('checkbox', { name: /^Alla/ })
-    const skara = page.getByRole('checkbox', { name: /^Skara SK/ })
-    const lidkoping = page.getByRole('checkbox', { name: /^Lidköping SS/ })
-    const klubblosa = page.getByRole('checkbox', { name: /^Klubblösa/ })
-
-    await parent.check()
-    await expect(skara).toBeChecked()
-    await expect(lidkoping).toBeChecked()
-    await expect(klubblosa).toBeChecked()
-
-    await parent.uncheck()
-    await expect(skara).not.toBeChecked()
-    await expect(lidkoping).not.toBeChecked()
-    await expect(klubblosa).not.toBeChecked()
-  })
-
-  test('share button opens dialog with QR and pre-populated URL', async ({ page }) => {
     await page.getByTestId('share-club-btn-Skara SK').click()
 
     const dialog = page.getByTestId('share-club-dialog')
@@ -313,10 +263,7 @@ test.describe('Live club picker tree', () => {
     // QR code is rendered as an svg
     await expect(dialog.locator('svg')).toBeVisible()
 
-    const urlInput = page.getByTestId('share-club-url')
-    const url = (await urlInput.inputValue()).trim()
-    expect(url).toContain('share=view')
-    expect(url).toContain('token=')
-    expect(url).toMatch(/[?&]code=\d{6}/)
+    const code = await page.getByTestId('share-club-dialog-code').textContent()
+    expect(code?.trim()).toMatch(/^\d{4}$/)
   })
 })
