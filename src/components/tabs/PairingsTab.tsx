@@ -2,7 +2,13 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ResultConflictError } from '../../api/result-command'
 import { deleteGame, deleteGames } from '../../api/results'
-import { calculateScores, formatResultLabel } from '../../domain/scoring'
+import {
+  calculateScores,
+  formatResultLabel,
+  getResultKeybinds,
+  type KeybindSlot,
+  type ResultKeybinds,
+} from '../../domain/scoring'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useRound } from '../../hooks/useRounds'
 import { useShiftSelect } from '../../hooks/useShiftSelect'
@@ -29,6 +35,14 @@ function resultTypeFromScores(ws: number, bs: number): ResultType {
   if (bs > ws) return 'BLACK_WIN'
   if (ws > 0) return 'DRAW'
   return 'NO_RESULT'
+}
+
+function matchKeybindSlot(key: string, keybinds: ResultKeybinds): KeybindSlot | null {
+  const normalized = key === ' ' ? 'Space' : key.toUpperCase()
+  for (const slot of ['whiteWin', 'draw', 'blackWin', 'noResult'] as const) {
+    if (keybinds[slot].includes(normalized)) return slot
+  }
+  return null
 }
 
 export function PairingsTab({
@@ -120,7 +134,17 @@ export function PairingsTab({
     }
   }, [selectedBoards, tournamentId, roundNr, queryClient])
 
-  const scoringConfig = useMemo(() => ({ pointsPerGame, chess4 }), [pointsPerGame, chess4])
+  // Effective scoring config for keybinds and score calculation. Non-chess4
+  // tournaments with ppg=1 respect maxPointsImmediately as an opt-in to the
+  // legacy "scale up scores" behavior, but Schackfyran (chess4) and multi-point
+  // presets like Skollags-DM (ppg=2) always use their declared ppg so that
+  // pressing `3` or `2` matches the on-screen result labels.
+  const effectivePpg = chess4 || pointsPerGame > 1 || maxPointsImmediately ? pointsPerGame : 1
+  const scoringConfig = useMemo(
+    () => ({ pointsPerGame: effectivePpg, chess4 }),
+    [effectivePpg, chess4],
+  )
+  const keybinds = useMemo(() => getResultKeybinds(scoringConfig), [scoringConfig])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -129,10 +153,10 @@ export function PairingsTab({
       // Don't handle shortcuts when a dialog input is focused
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return
 
-      const key = e.key.toLowerCase()
+      const key = e.key
 
       // Delete works with any selection size
-      if (key === 'delete' || key === 'backspace') {
+      if (key === 'Delete' || key === 'Backspace') {
         e.preventDefault()
         deleteSelectedBoards()
         return
@@ -141,88 +165,33 @@ export function PairingsTab({
       // Result keys only apply with exactly one board selected
       if (singleSelected == null) return
 
-      let whiteScore: number | undefined
-      let blackScore: number | undefined
-      let resultType: ResultType | null = null
+      const slot = matchKeybindSlot(key, keybinds)
+      if (!slot) return
 
-      if (chess4) {
-        // Chess4: semantic keys map to result types, numeric keys set white's score
-        // Valid scores: 1-3 (BLACK_WIN), 2-2 (DRAW), 3-1 (WHITE_WIN)
-        if (key === 'v' || key === '3') {
-          const scores = calculateScores('WHITE_WIN', scoringConfig)
-          whiteScore = scores.whiteScore
-          blackScore = scores.blackScore
-          resultType = 'WHITE_WIN'
-        } else if (key === 'r' || key === 'ö' || key === '2') {
-          const scores = calculateScores('DRAW', scoringConfig)
-          whiteScore = scores.whiteScore
-          blackScore = scores.blackScore
-          resultType = 'DRAW'
-        } else if (key === 'f' || key === '1') {
-          const scores = calculateScores('BLACK_WIN', scoringConfig)
-          whiteScore = scores.whiteScore
-          blackScore = scores.blackScore
-          resultType = 'BLACK_WIN'
-        } else if (key === '0') {
-          // '0' clears the result in chess4 mode
-          resultType = 'NO_RESULT'
-          whiteScore = 0
-          blackScore = 0
-        } else if (key === ' ') {
-          e.preventDefault()
-          resultType = 'NO_RESULT'
-          whiteScore = 0
-          blackScore = 0
-        }
-      } else {
-        // Normal chess: effective ppg is 1 when maxPointsImmediately is off
-        const ppg = maxPointsImmediately ? pointsPerGame : 1
-        const effectiveConfig = { pointsPerGame: ppg, chess4: false }
-        const numKey = Number(key)
+      if (key === ' ') e.preventDefault()
 
-        if (key === 'f') {
-          const scores = calculateScores('BLACK_WIN', effectiveConfig)
-          whiteScore = scores.whiteScore
-          blackScore = scores.blackScore
-          resultType = 'BLACK_WIN'
-        } else if (key === 'r' || key === 'ö') {
-          const scores = calculateScores('DRAW', effectiveConfig)
-          whiteScore = scores.whiteScore
-          blackScore = scores.blackScore
-          resultType = 'DRAW'
-        } else if (key === 'v') {
-          const scores = calculateScores('WHITE_WIN', effectiveConfig)
-          whiteScore = scores.whiteScore
-          blackScore = scores.blackScore
-          resultType = 'WHITE_WIN'
-        } else if (key >= '0' && key <= '5' && numKey <= ppg) {
-          whiteScore = numKey
-          blackScore = ppg - numKey
-          resultType = resultTypeFromScores(whiteScore, blackScore)
-        } else if (key === ' ') {
-          e.preventDefault()
-          resultType = 'NO_RESULT'
-          whiteScore = 0
-          blackScore = 0
-        }
-      }
+      const resultType: ResultType =
+        slot === 'whiteWin'
+          ? 'WHITE_WIN'
+          : slot === 'draw'
+            ? 'DRAW'
+            : slot === 'blackWin'
+              ? 'BLACK_WIN'
+              : 'NO_RESULT'
+      const { whiteScore, blackScore } = calculateScores(resultType, scoringConfig)
 
-      if (resultType) {
-        setResult(singleSelected, resultType, whiteScore, blackScore)
-        // Auto-advance when result is a completed game
-        const effectivePpg = chess4 || maxPointsImmediately ? pointsPerGame : 1
-        const isFinished =
-          whiteScore != null && blackScore != null && whiteScore + blackScore === effectivePpg
-        if (isFinished) {
-          const idx = games.findIndex((g) => g.boardNr === singleSelected)
-          if (idx >= 0 && idx < games.length - 1) {
-            const nextBoardNr = games[idx + 1].boardNr
-            selectBoard(nextBoardNr)
-            const nextRow = document.querySelector<HTMLElement>(
-              `tr[data-board-nr="${nextBoardNr}"]`,
-            )
-            nextRow?.focus()
-          }
+      setResult(singleSelected, resultType, whiteScore, blackScore)
+      // Auto-advance when result is a completed game
+      const isFinished = whiteScore + blackScore === effectivePpg
+      if (isFinished) {
+        const idx = games.findIndex((g) => g.boardNr === singleSelected)
+        if (idx >= 0 && idx < games.length - 1) {
+          const nextBoardNr = games[idx + 1].boardNr
+          selectBoard(nextBoardNr)
+          const nextRow = document.querySelector<HTMLElement>(
+            `tr[data-board-nr="${nextBoardNr}"]`,
+          )
+          nextRow?.focus()
         }
       }
     }
@@ -236,10 +205,9 @@ export function PairingsTab({
     setResult,
     selectBoard,
     deleteSelectedBoards,
-    pointsPerGame,
-    maxPointsImmediately,
-    chess4,
+    effectivePpg,
     scoringConfig,
+    keybinds,
   ])
 
   const handleDoubleClick = (game: GameDto) => {
@@ -352,6 +320,7 @@ export function PairingsTab({
         <ContextMenuPopup
           x={contextMenu.state.x}
           y={contextMenu.state.y}
+          keybinds={keybinds}
           onSelect={(resultType) => {
             const scores = calculateScores(resultType, scoringConfig)
             setResult(contextMenu.state!.boardNr, resultType, scores.whiteScore, scores.blackScore)
@@ -376,11 +345,13 @@ export function PairingsTab({
 function ContextMenuPopup({
   x,
   y,
+  keybinds,
   onSelect,
   onEditScore,
 }: {
   x: number
   y: number
+  keybinds: ResultKeybinds
   onSelect: (type: ResultType) => void
   onEditScore: () => void
   onClose: () => void
@@ -388,30 +359,31 @@ function ContextMenuPopup({
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0
   const flipUp = viewportHeight > 0 && y > viewportHeight / 2
   const positionStyle = flipUp ? { left: x, bottom: viewportHeight - y } : { left: x, top: y }
+  const renderHint = (slot: KeybindSlot) => keybinds[slot].join(' / ')
   return (
     <div className="context-menu" style={positionStyle}>
       <button onClick={() => onSelect('NO_RESULT')}>
         {sv.contextMenu.notPlayed}
         <span className="context-menu-shortcut" data-testid="shortcut-no-result">
-          Space
+          {renderHint('noResult')}
         </span>
       </button>
       <button onClick={() => onSelect('WHITE_WIN')}>
         {sv.contextMenu.whiteWin}
         <span className="context-menu-shortcut" data-testid="shortcut-white-win">
-          V
+          {renderHint('whiteWin')}
         </span>
       </button>
       <button onClick={() => onSelect('DRAW')}>
         {sv.contextMenu.draw}
         <span className="context-menu-shortcut" data-testid="shortcut-draw">
-          R
+          {renderHint('draw')}
         </span>
       </button>
       <button onClick={() => onSelect('BLACK_WIN')}>
         {sv.contextMenu.blackWin}
         <span className="context-menu-shortcut" data-testid="shortcut-black-win">
-          F
+          {renderHint('blackWin')}
         </span>
       </button>
       <div className="context-submenu">

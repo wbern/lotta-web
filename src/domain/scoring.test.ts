@@ -5,6 +5,7 @@ import {
   formatScore,
   getActualScores,
   getPairingScore,
+  getResultKeybinds,
   isPlayed,
   isToBePlayed,
 } from './scoring.ts'
@@ -253,6 +254,39 @@ describe('formatResultLabel', () => {
     expect(formatResultLabel('POSTPONED')).toBe('uppskj')
     expect(formatResultLabel('CANCELLED')).toBe('inställd')
     expect(formatResultLabel('NO_RESULT')).toBe('')
+  })
+})
+
+describe('getResultKeybinds', () => {
+  it('standard 1-½-0: numeric 1=win, 0=loss, no numeric draw (½ not typeable)', () => {
+    const k = getResultKeybinds({ chess4: false, pointsPerGame: 1 })
+    expect(k.whiteWin).toEqual(['V', '1'])
+    expect(k.draw).toEqual(['R', 'Ö'])
+    expect(k.blackWin).toEqual(['F', '0'])
+    expect(k.noResult).toEqual(['Space'])
+  })
+
+  it('Schackfyran 3-2-1: numeric keys match score labels, 0 clears', () => {
+    const k = getResultKeybinds({ chess4: true, pointsPerGame: 4 })
+    expect(k.whiteWin).toEqual(['V', '3'])
+    expect(k.draw).toEqual(['R', 'Ö', '2'])
+    expect(k.blackWin).toEqual(['F', '1'])
+    expect(k.noResult).toEqual(['Space', '0'])
+  })
+
+  it('Skollags-DM 2-1-0: numeric 2=win, 1=draw, 0=loss', () => {
+    const k = getResultKeybinds({ chess4: false, pointsPerGame: 2 })
+    expect(k.whiteWin).toEqual(['V', '2'])
+    expect(k.draw).toEqual(['R', 'Ö', '1'])
+    expect(k.blackWin).toEqual(['F', '0'])
+    expect(k.noResult).toEqual(['Space'])
+  })
+
+  it('custom odd ppg=3: no numeric draw (fractional)', () => {
+    const k = getResultKeybinds({ chess4: false, pointsPerGame: 3 })
+    expect(k.whiteWin).toEqual(['V', '3'])
+    expect(k.draw).toEqual(['R', 'Ö'])
+    expect(k.blackWin).toEqual(['F', '0'])
   })
 })
 

@@ -217,21 +217,51 @@ describe('PairingsTab keyboard score entry', () => {
     mockMutate.mockClear()
   })
 
-  it('ignores numeric keys that exceed effective pointsPerGame when maxPointsImmediately is off', () => {
+  it('ignores numeric keys outside the scoring system (key 5 with ppg=4)', () => {
     renderTab({ pointsPerGame: 4, maxPointsImmediately: false })
 
     // Select board 2 (no result yet)
     const row = screen.getByText('White B').closest('tr')!
     fireEvent.click(row)
 
-    // Press '3' — effective ppg is 1 (maxPointsImmediately off), so 3 > 1 should be ignored
-    fireEvent.keyDown(document, { key: '3' })
+    // Press '5' — ppg=4, so 5 is out of range and should be ignored
+    fireEvent.keyDown(document, { key: '5' })
 
     expect(mockMutate).not.toHaveBeenCalled()
   })
 
-  it('accepts numeric key 3 as white score 3, black score 1 when maxPointsImmediately is on with ppg=4', () => {
-    renderTab({ pointsPerGame: 4, maxPointsImmediately: true })
+  it('accepts numeric keys matching pointsPerGame even with maxPointsImmediately off (Skollags-DM)', () => {
+    // Skollags-DM default: ppg=2, maxPointsImmediately=false.
+    // Keybinds must match the visible 2-0/1-1/0-2 labels.
+    renderTab({ pointsPerGame: 2, maxPointsImmediately: false })
+
+    const row = screen.getByText('White B').closest('tr')!
+    fireEvent.click(row)
+
+    fireEvent.keyDown(document, { key: '2' })
+
+    expect(mockMutate).toHaveBeenCalledWith({
+      boardNr: 2,
+      req: { resultType: 'WHITE_WIN', whiteScore: 2, blackScore: 0, expectedPrior: 'NO_RESULT' },
+    })
+  })
+
+  it('accepts numeric key 1 as draw with maxPointsImmediately off (Skollags-DM)', () => {
+    renderTab({ pointsPerGame: 2, maxPointsImmediately: false })
+
+    const row = screen.getByText('White B').closest('tr')!
+    fireEvent.click(row)
+
+    fireEvent.keyDown(document, { key: '1' })
+
+    expect(mockMutate).toHaveBeenCalledWith({
+      boardNr: 2,
+      req: { resultType: 'DRAW', whiteScore: 1, blackScore: 1, expectedPrior: 'NO_RESULT' },
+    })
+  })
+
+  it('accepts numeric key 3 as white win (3-1) in Schackfyran (chess4, ppg=4)', () => {
+    renderTab({ pointsPerGame: 4, chess4: true })
 
     const row = screen.getByText('White B').closest('tr')!
     fireEvent.click(row)
@@ -244,8 +274,8 @@ describe('PairingsTab keyboard score entry', () => {
     })
   })
 
-  it('accepts numeric key 2 as draw (2-2) when maxPointsImmediately is on with ppg=4', () => {
-    renderTab({ pointsPerGame: 4, maxPointsImmediately: true })
+  it('accepts numeric key 2 as draw (2-2) in Schackfyran (chess4, ppg=4)', () => {
+    renderTab({ pointsPerGame: 4, chess4: true })
 
     const row = screen.getByText('White B').closest('tr')!
     fireEvent.click(row)
@@ -255,6 +285,20 @@ describe('PairingsTab keyboard score entry', () => {
     expect(mockMutate).toHaveBeenCalledWith({
       boardNr: 2,
       req: { resultType: 'DRAW', whiteScore: 2, blackScore: 2, expectedPrior: 'NO_RESULT' },
+    })
+  })
+
+  it('accepts numeric key 0 as clear (NO_RESULT) in Schackfyran', () => {
+    renderTab({ pointsPerGame: 4, chess4: true })
+
+    const row = screen.getByText('White B').closest('tr')!
+    fireEvent.click(row)
+
+    fireEvent.keyDown(document, { key: '0' })
+
+    expect(mockMutate).toHaveBeenCalledWith({
+      boardNr: 2,
+      req: { resultType: 'NO_RESULT', whiteScore: 0, blackScore: 0, expectedPrior: 'NO_RESULT' },
     })
   })
 
@@ -311,7 +355,10 @@ describe('PairingsTab keyboard score entry', () => {
     })
   })
 
-  it('semantic keys use ppg=1 scale when maxPointsImmediately is off', () => {
+  it('semantic keys use pointsPerGame scale even when maxPointsImmediately is off (ppg>1)', () => {
+    // When ppg > 1 the tournament is opting into a multi-point scoring system,
+    // so V / R / F must produce scaled scores that match the displayed labels
+    // regardless of the maxPointsImmediately setting.
     renderTab({ pointsPerGame: 4, maxPointsImmediately: false })
 
     const row = screen.getByText('White B').closest('tr')!
@@ -321,7 +368,7 @@ describe('PairingsTab keyboard score entry', () => {
 
     expect(mockMutate).toHaveBeenCalledWith({
       boardNr: 2,
-      req: { resultType: 'WHITE_WIN', whiteScore: 1, blackScore: 0, expectedPrior: 'NO_RESULT' },
+      req: { resultType: 'WHITE_WIN', whiteScore: 4, blackScore: 0, expectedPrior: 'NO_RESULT' },
     })
   })
 })
@@ -329,18 +376,41 @@ describe('PairingsTab keyboard score entry', () => {
 describe('ContextMenuPopup keyboard hints', () => {
   afterEach(() => cleanup())
 
-  it('shows shortcut hints next to result menu items', () => {
+  it('shows shortcut hints next to result menu items (standard 1-½-0)', () => {
     renderTab()
 
-    // Right-click on a result cell to open context menu
     const resultCell = screen.getByTestId('result-dropdown-2')
     fireEvent.contextMenu(resultCell)
 
-    // Menu items should display keyboard shortcut hints
+    // Standard scoring: V/1 for white, R/Ö for draw (no numeric — ½ isn't typeable),
+    // F/0 for black, Space for no-result.
     expect(screen.getByTestId('shortcut-no-result').textContent).toBe('Space')
-    expect(screen.getByTestId('shortcut-white-win').textContent).toBe('V')
-    expect(screen.getByTestId('shortcut-draw').textContent).toBe('R')
-    expect(screen.getByTestId('shortcut-black-win').textContent).toBe('F')
+    expect(screen.getByTestId('shortcut-white-win').textContent).toBe('V / 1')
+    expect(screen.getByTestId('shortcut-draw').textContent).toBe('R / Ö')
+    expect(screen.getByTestId('shortcut-black-win').textContent).toBe('F / 0')
+  })
+
+  it('shows numeric shortcut hints adapted to Schackfyran (chess4)', () => {
+    renderTab({ chess4: true, pointsPerGame: 4 })
+
+    const resultCell = screen.getByTestId('result-dropdown-2')
+    fireEvent.contextMenu(resultCell)
+
+    expect(screen.getByTestId('shortcut-no-result').textContent).toBe('Space / 0')
+    expect(screen.getByTestId('shortcut-white-win').textContent).toBe('V / 3')
+    expect(screen.getByTestId('shortcut-draw').textContent).toBe('R / Ö / 2')
+    expect(screen.getByTestId('shortcut-black-win').textContent).toBe('F / 1')
+  })
+
+  it('shows numeric shortcut hints adapted to Skollags-DM (ppg=2)', () => {
+    renderTab({ pointsPerGame: 2, maxPointsImmediately: false })
+
+    const resultCell = screen.getByTestId('result-dropdown-2')
+    fireEvent.contextMenu(resultCell)
+
+    expect(screen.getByTestId('shortcut-white-win').textContent).toBe('V / 2')
+    expect(screen.getByTestId('shortcut-draw').textContent).toBe('R / Ö / 1')
+    expect(screen.getByTestId('shortcut-black-win').textContent).toBe('F / 0')
   })
 })
 

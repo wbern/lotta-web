@@ -140,3 +140,57 @@ export function formatScore(score: number): string {
   if (hasHalf) result += '½'
   return result
 }
+
+export type KeybindSlot = 'whiteWin' | 'draw' | 'blackWin' | 'noResult'
+
+export interface ResultKeybinds {
+  whiteWin: string[]
+  draw: string[]
+  blackWin: string[]
+  noResult: string[]
+}
+
+/**
+ * Returns the keyboard shortcuts that produce each result, derived from the
+ * tournament's scoring config. Used both by the keyboard handler and the
+ * context menu hints so the displayed shortcut always matches what the key
+ * actually does.
+ *
+ * Numeric keys map to the white player's score in the winning/drawing result,
+ * so they line up with the visible button labels (Schackfyran `3` → 3-1,
+ * Skollags-DM `2` → 2-0, etc.). Semantic keys (V/R/F) always work.
+ */
+export function getResultKeybinds(config: {
+  chess4: boolean
+  pointsPerGame: number
+}): ResultKeybinds {
+  const keys: ResultKeybinds = {
+    whiteWin: ['V'],
+    draw: ['R', 'Ö'],
+    blackWin: ['F'],
+    noResult: ['Space'],
+  }
+
+  const ppg = config.pointsPerGame
+  if (config.chess4) {
+    const white = calculateScores('WHITE_WIN', config).whiteScore
+    const black = calculateScores('BLACK_WIN', config).whiteScore
+    const drawScore = ppg / 2
+    keys.whiteWin.push(String(white))
+    keys.draw.push(String(drawScore))
+    keys.blackWin.push(String(black))
+    keys.noResult.push('0')
+    return keys
+  }
+
+  if (ppg >= 2) {
+    keys.whiteWin.push(String(ppg))
+    keys.blackWin.push('0')
+    if (ppg % 2 === 0) keys.draw.push(String(ppg / 2))
+  } else {
+    keys.whiteWin.push('1')
+    keys.blackWin.push('0')
+  }
+
+  return keys
+}
