@@ -2634,7 +2634,7 @@ button.btn-danger {
   text-align: center;
 }
 
-.link-button {
+.changelog-show-older-link {
   background: none;
   border: none;
   padding: 0;
@@ -2644,7 +2644,8 @@ button.btn-danger {
   font: inherit;
 }
 
-.link-button:hover {
+.changelog-show-older-link:hover,
+.changelog-show-older-link:focus-visible {
   color: var(--color-primary-hover);
 }
 

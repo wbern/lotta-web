@@ -29,11 +29,10 @@ test.describe('Vad är nytt dialog', () => {
     await expect(page.getByTestId('dialog-title').filter({ hasText: 'Vad är nytt' })).toBeVisible()
     await expect(page.getByTestId('changelog-group').first()).toBeVisible()
 
-    const initialCount = await page.getByTestId('changelog-group').count()
     const expandLink = page.getByRole('button', { name: 'Visa tidigare versioner' })
     await expect(expandLink).toBeVisible()
+    const initialCount = await page.getByTestId('changelog-group').count()
     await expandLink.click()
-    await page.waitForTimeout(300)
 
     await expect
       .poll(() => page.getByTestId('changelog-group').count())

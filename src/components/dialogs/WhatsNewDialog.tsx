@@ -89,7 +89,11 @@ export function WhatsNewDialog({ open, onClose }: Props) {
       )}
       {hasOlder && !showOlder && (
         <p className="changelog-show-older">
-          <button type="button" className="link-button" onClick={() => setShowOlder(true)}>
+          <button
+            type="button"
+            className="changelog-show-older-link"
+            onClick={() => setShowOlder(true)}
+          >
             Visa tidigare versioner
           </button>
         </p>

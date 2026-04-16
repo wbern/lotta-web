@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChangelogEntry } from '../../domain/changelog'
 
 const mockEntries: ChangelogEntry[] = [
@@ -38,6 +38,7 @@ vi.stubGlobal('__COMMIT_DATE__', '2026-04-14 00:00:00 +0000')
 import { WhatsNewDialog } from './WhatsNewDialog'
 
 afterEach(cleanup)
+afterAll(() => vi.unstubAllGlobals())
 
 describe('WhatsNewDialog version filtering', () => {
   it('hides entries older than or equal to the current version by default', async () => {
