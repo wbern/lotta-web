@@ -7,6 +7,8 @@ import {
   RouterProvider,
 } from '@tanstack/react-router'
 import ReactDOM from 'react-dom/client'
+import { setPairingExecutor } from './api/pairing-executor-provider'
+import { WorkerPairingExecutor } from './api/pairing-worker-executor'
 import { setDatabaseService } from './api/service-provider'
 import { LivePage } from './components/LivePage'
 import { AppLayout } from './components/layout/AppLayout'
@@ -97,6 +99,8 @@ declare module '@tanstack/react-router' {
 async function main() {
   const service = await DatabaseService.create()
   setDatabaseService(service)
+
+  setPairingExecutor(new WorkerPairingExecutor())
 
   const undoManager = await UndoManager.create()
   setUndoManager(undoManager)

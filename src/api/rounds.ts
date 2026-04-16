@@ -2,14 +2,20 @@ import type { PairingPlayerInfo } from '../domain/pairing'
 import { preparePairing } from '../domain/pairing'
 import { pairBergerRound } from '../domain/pairing-berger'
 import type { MonradGameHistory, MonradPlayerInfo } from '../domain/pairing-monrad'
-import { pairMonrad } from '../domain/pairing-monrad'
 import type { NordicPlayerInfo } from '../domain/pairing-nordic'
-import { pairNordic } from '../domain/pairing-nordic'
+import {
+  type PairingRequest,
+  PairingTimeoutError,
+  runPairingWithDeadline,
+} from '../domain/pairing-runner'
 import { getPlayerRating } from '../domain/ratings'
 import type { RoundDto } from '../types/api'
 import { getActiveDataProvider } from './active-provider'
 import { broadcastAfterPairing } from './p2p-broadcast'
+import { getPairingExecutor } from './pairing-executor-provider'
 import { getDatabaseService, withSave } from './service-provider'
+
+const PAIRING_TIMEOUT_MS = 10_000
 
 export async function listRounds(tournamentId: number): Promise<RoundDto[]> {
   const p = getActiveDataProvider()
@@ -74,137 +80,157 @@ function sortByScoreAndLotNr(players: PairingPlayerInfo[]): void {
 export async function pairNextRound(tournamentId: number): Promise<RoundDto> {
   const p = getActiveDataProvider()
   if (p) return p.rounds.pairNext(tournamentId)
-  const result = await withSave(
-    () => {
-      const db = getDatabaseService()
-      const tournament = db.tournaments.get(tournamentId)
-      if (!tournament) throw new Error(`Tournament ${tournamentId} not found`)
 
-      const players = db.tournamentPlayers.list(tournamentId)
-      const rounds = db.games.listRounds(tournamentId)
-      const roundsPlayed = rounds.length
-      const nextRoundNr = roundsPlayed + 1
+  const db = getDatabaseService()
+  const tournament = db.tournaments.get(tournamentId)
+  if (!tournament) throw new Error(`Tournament ${tournamentId} not found`)
 
-      // Check if all results are entered for all existing rounds
-      const allResultsEntered = rounds.every((r) => r.hasAllResults)
+  const players = db.tournamentPlayers.list(tournamentId)
+  const rounds = db.games.listRounds(tournamentId)
+  const roundsPlayed = rounds.length
+  const nextRoundNr = roundsPlayed + 1
 
-      const pairingPlayers: PairingPlayerInfo[] = players.map((p) => ({
-        id: p.id,
-        rating: getPlayerRating(p, tournament.ratingChoice),
-        withdrawnFromRound: p.withdrawnFromRound,
-        lotNr: p.lotNr,
-      }))
+  const allResultsEntered = rounds.every((r) => r.hasAllResults)
 
-      if (tournament.pairingSystem === 'Berger') {
-        return pairBerger(tournamentId, tournament, pairingPlayers, roundsPlayed)
-      }
+  const pairingPlayers: PairingPlayerInfo[] = players.map((p) => ({
+    id: p.id,
+    rating: getPlayerRating(p, tournament.ratingChoice),
+    withdrawnFromRound: p.withdrawnFromRound,
+    lotNr: p.lotNr,
+  }))
 
-      const activePlayers = preparePairing({
-        nrOfRounds: tournament.nrOfRounds,
-        roundsPlayed,
-        nextRoundNr,
-        initialPairing: tournament.initialPairing,
-        allResultsEntered,
-        players: pairingPlayers,
-      })
+  // Berger is a deterministic round-robin; keep the legacy synchronous path.
+  if (tournament.pairingSystem === 'Berger') {
+    const result = await withSave(
+      () => pairBerger(tournamentId, tournament, pairingPlayers, roundsPlayed),
+      'Lotta rond',
+      (r) => `Rond ${r.roundNr}`,
+    )
+    void broadcastAfterPairing(tournamentId, result.roundNr).catch((e) =>
+      console.warn('P2P broadcast failed after pairing:', e),
+    )
+    return result
+  }
 
-      // Monrad round 2+: restore lot numbers from the previous round's game
-      // records rather than re-assigning by rating. NordicSchweizer always
-      // re-initializes (rating-based) regardless of round.
-      if (roundsPlayed > 0 && tournament.pairingSystem === 'Monrad') {
-        // Sort by rating first to establish a stable base order (rating desc).
-        activePlayers.sort((a, b) => b.rating - a.rating)
-        restoreLotNrsFromRound(activePlayers, rounds[rounds.length - 1])
-      } else {
-        assignLotNumbers(activePlayers, tournament.initialPairing)
-      }
+  const activePlayers = preparePairing({
+    nrOfRounds: tournament.nrOfRounds,
+    roundsPlayed,
+    nextRoundNr,
+    initialPairing: tournament.initialPairing,
+    allResultsEntered,
+    players: pairingPlayers,
+  })
 
-      // Sort by score (desc) then lotNr (asc). Then reassign sequential
-      // lot numbers for the pairing algorithm.
-      const playerScores = buildPlayerScores(activePlayers, rounds)
-      activePlayers.sort((a, b) => {
-        const scoreA = playerScores.get(a.id) ?? 0
-        const scoreB = playerScores.get(b.id) ?? 0
-        if (scoreA !== scoreB) return scoreB - scoreA
-        return a.lotNr - b.lotNr
-      })
+  // Monrad round 2+: restore lot numbers from the previous round's game
+  // records rather than re-assigning by rating. NordicSchweizer always
+  // re-initializes (rating-based) regardless of round.
+  if (roundsPlayed > 0 && tournament.pairingSystem === 'Monrad') {
+    activePlayers.sort((a, b) => b.rating - a.rating)
+    restoreLotNrsFromRound(activePlayers, rounds[rounds.length - 1])
+  } else {
+    assignLotNumbers(activePlayers, tournament.initialPairing)
+  }
+
+  const playerScores = buildPlayerScores(activePlayers, rounds)
+  activePlayers.sort((a, b) => {
+    const scoreA = playerScores.get(a.id) ?? 0
+    const scoreB = playerScores.get(b.id) ?? 0
+    if (scoreA !== scoreB) return scoreB - scoreA
+    return a.lotNr - b.lotNr
+  })
+  for (let i = 0; i < activePlayers.length; i++) {
+    activePlayers[i].lotNr = i + 1
+  }
+
+  // Capture lotNrs for DB storage BEFORE bye removal: stored lotNrs
+  // must reflect the pre-removal state so subsequent rounds can restore
+  // the correct order.
+  const lotNrMap = new Map<number, number>()
+  for (const p of activePlayers) {
+    lotNrMap.set(p.id, p.lotNr)
+  }
+
+  let bye: PairingPlayerInfo | null = null
+  if (activePlayers.length % 2 === 1) {
+    bye = findByePlayer(activePlayers, rounds)
+    if (bye) {
+      const idx = activePlayers.indexOf(bye)
+      activePlayers.splice(idx, 1)
       for (let i = 0; i < activePlayers.length; i++) {
         activePlayers[i].lotNr = i + 1
       }
+    }
+  }
 
-      // Capture lotNrs for DB storage BEFORE bye removal: stored lotNrs
-      // must reflect the pre-removal state so subsequent rounds can restore
-      // the correct order.
-      const lotNrMap = new Map<number, number>()
-      for (const p of activePlayers) {
-        lotNrMap.set(p.id, p.lotNr)
+  const history = buildGameHistory(rounds)
+  const isNordic =
+    tournament.pairingSystem === 'Nordisk Schweizer' ||
+    tournament.pairingSystem === 'Nordic Schweizer'
+
+  const req: PairingRequest = isNordic
+    ? {
+        kind: 'nordic',
+        args: {
+          players: activePlayers.map<NordicPlayerInfo>((p) => ({
+            id: p.id,
+            lotNr: p.lotNr,
+            clubId: players.find((pl) => pl.id === p.id)?.clubIndex ?? 0,
+            score: playerScores.get(p.id) ?? 0,
+          })),
+          history,
+          barredPairing: tournament.barredPairing,
+          roundsPlayed,
+        },
+      }
+    : {
+        kind: 'monrad',
+        args: {
+          players: activePlayers.map<MonradPlayerInfo>((p) => ({
+            id: p.id,
+            lotNr: p.lotNr,
+            clubId: players.find((pl) => pl.id === p.id)?.clubIndex ?? 0,
+          })),
+          history,
+          barredPairing: tournament.barredPairing,
+        },
       }
 
-      // Pick bye from end of score+lotNr-sorted list, skipping players who
-      // already had a bye.
-      let bye: PairingPlayerInfo | null = null
-      if (activePlayers.length % 2 === 1) {
-        bye = findByePlayer(activePlayers, rounds)
-        if (bye) {
-          const idx = activePlayers.indexOf(bye)
-          activePlayers.splice(idx, 1)
-          // Reassign sequential lot numbers after bye removal so algorithms
-          // see clean 1..N numbering.
-          for (let i = 0; i < activePlayers.length; i++) {
-            activePlayers[i].lotNr = i + 1
-          }
-        }
-      }
+  let games: { whitePlayerId: number | null; blackPlayerId: number | null }[] | null
+  try {
+    const result = await runPairingWithDeadline(getPairingExecutor(), req, PAIRING_TIMEOUT_MS)
+    games = result.games
+  } catch (err) {
+    if (err instanceof PairingTimeoutError) {
+      throw new Error(
+        'Det gick inte att lotta rundan i tid. Försök igen eller kontakta support om problemet kvarstår.',
+      )
+    }
+    throw err
+  }
 
-      // Build game history
-      const history = buildGameHistory(rounds)
+  if (!games) {
+    throw new Error('Kan inte lotta. Inga giltiga lottningar finns.')
+  }
 
-      let games: { whitePlayerId: number | null; blackPlayerId: number | null }[] | null
+  const allGames = [...games]
+  if (bye) {
+    allGames.push({ whitePlayerId: bye.id, blackPlayerId: null })
+  }
 
-      if (
-        tournament.pairingSystem === 'Nordisk Schweizer' ||
-        tournament.pairingSystem === 'Nordic Schweizer'
-      ) {
-        const nordicPlayers: NordicPlayerInfo[] = activePlayers.map((p) => ({
-          id: p.id,
-          lotNr: p.lotNr,
-          clubId: players.find((pl) => pl.id === p.id)?.clubIndex ?? 0,
-          score: playerScores.get(p.id) ?? 0,
-        }))
-        games = pairNordic(nordicPlayers, history, tournament.barredPairing, roundsPlayed)
-      } else {
-        const monradPlayers: MonradPlayerInfo[] = activePlayers.map((p) => ({
-          id: p.id,
-          lotNr: p.lotNr,
-          clubId: players.find((pl) => pl.id === p.id)?.clubIndex ?? 0,
-        }))
-        games = pairMonrad(monradPlayers, history, tournament.barredPairing)
-      }
-
-      if (!games) {
-        throw new Error('Kan inte lotta. Inga giltiga lottningar finns.')
-      }
-
-      // Add bye game
-      const allGames = [...games]
-      if (bye) {
-        allGames.push({ whitePlayerId: bye.id, blackPlayerId: null })
-      }
-
+  const result = await withSave(
+    () => {
       insertGames(tournamentId, nextRoundNr, allGames, lotNrMap)
-
-      // Auto-set bye game result to WHITE_WIN_WO
       if (bye) {
         db.games.setResult(tournamentId, nextRoundNr, allGames.length, {
           resultType: 'WHITE_WIN_WO',
         })
       }
-
       return db.games.getRound(tournamentId, nextRoundNr)!
     },
     'Lotta rond',
     (r) => `Rond ${r.roundNr}`,
   )
+
   void broadcastAfterPairing(tournamentId, result.roundNr).catch((e) =>
     console.warn('P2P broadcast failed after pairing:', e),
   )
