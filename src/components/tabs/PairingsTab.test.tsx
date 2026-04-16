@@ -468,6 +468,49 @@ describe('ContextMenuPopup sends correct scores for ppg>1', () => {
   })
 })
 
+describe('PairingsTab keyboard focus restriction', () => {
+  afterEach(() => {
+    cleanup()
+    mockMutate.mockClear()
+  })
+
+  it('ignores result-entry keys when focus is outside a pairings row', () => {
+    renderTab()
+    const rowB = screen.getByText('White B').closest('tr') as HTMLTableRowElement
+
+    fireEvent.click(rowB)
+    expect(document.activeElement).toBe(rowB)
+
+    rowB.blur()
+    expect(document.activeElement).not.toBe(rowB)
+
+    fireEvent.keyDown(document, { key: 'v' })
+
+    expect(mockMutate).not.toHaveBeenCalled()
+  })
+
+  it('handles result keys on the row that auto-advanced after a finished result', () => {
+    renderTab()
+    const rowA = screen.getByText('White A').closest('tr') as HTMLTableRowElement
+    const rowB = screen.getByText('White B').closest('tr') as HTMLTableRowElement
+
+    fireEvent.click(rowA)
+    expect(document.activeElement).toBe(rowA)
+
+    fireEvent.keyDown(document, { key: 'v' })
+    expect(rowB.className).toContain('selected')
+    expect(document.activeElement).toBe(rowB)
+
+    mockMutate.mockClear()
+    fireEvent.keyDown(document, { key: 'v' })
+
+    expect(mockMutate).toHaveBeenCalledWith({
+      boardNr: 2,
+      req: { resultType: 'WHITE_WIN', whiteScore: 1, blackScore: 0, expectedPrior: 'NO_RESULT' },
+    })
+  })
+})
+
 describe('PairingsTab conflict notification', () => {
   afterEach(() => {
     cleanup()

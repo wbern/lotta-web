@@ -150,8 +150,9 @@ export function PairingsTab({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (selectedBoards.size === 0 || !roundNr) return
-      // Don't handle shortcuts when a dialog input is focused
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return
+      // Only handle shortcuts when a pairings row has focus
+      const active = document.activeElement
+      if (!(active instanceof HTMLElement) || !active.matches('tr[data-board-nr]')) return
 
       const key = e.key
 
