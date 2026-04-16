@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   type ChangelogEntry,
+  type ChangelogType,
   fetchChangelog,
   groupByDate,
   groupByType,
@@ -10,6 +11,12 @@ import { Dialog } from './Dialog'
 interface Props {
   open: boolean
   onClose: () => void
+}
+
+const GROUP_ICONS: Record<ChangelogType, string> = {
+  feat: '✨',
+  fix: '🐛',
+  perf: '⚡',
 }
 
 export function WhatsNewDialog({ open, onClose }: Props) {
@@ -50,12 +57,13 @@ export function WhatsNewDialog({ open, onClose }: Props) {
             <section key={day.date} className="changelog-day">
               <h3>{day.date}</h3>
               {groupByType(day.entries).map((group) => (
-                <div
-                  key={group.type}
-                  className={`changelog-group changelog-group--${group.type}`}
-                  data-testid="changelog-group"
-                >
-                  <h4>{group.label}</h4>
+                <div key={group.type} className="changelog-group" data-testid="changelog-group">
+                  <h4>
+                    <span className="changelog-group-icon" aria-hidden="true">
+                      {GROUP_ICONS[group.type]}
+                    </span>
+                    {group.label}
+                  </h4>
                   <ul>
                     {group.entries.map((entry) => (
                       <li key={entry.sha}>
