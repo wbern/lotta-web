@@ -62,14 +62,46 @@ export const NS_8P_BASE: Snapshot = {
     ],
   ],
   standings: [
-    { place: 1, name: 'Thor Ödinson', score: 7 },
-    { place: 2, name: 'Loki Läufeyson', score: 6 },
-    { place: 3, name: 'Björn Järnsida', score: 5 },
-    { place: 4, name: 'Odin Åskväder', score: 4 },
-    { place: 5, name: 'Frej Stormöga', score: 3 },
-    { place: 6, name: 'Tyr Svärdhand', score: 2 },
-    { place: 7, name: 'Freja Stjärnljus', score: 1 },
-    { place: 8, name: 'Sigrid Nattskärm', score: 0 },
+    {
+      place: 1,
+      name: 'Thor Ödinson',
+      score: 7,
+    },
+    {
+      place: 2,
+      name: 'Loki Läufeyson',
+      score: 6,
+    },
+    {
+      place: 3,
+      name: 'Björn Järnsida',
+      score: 5,
+    },
+    {
+      place: 4,
+      name: 'Odin Åskväder',
+      score: 4,
+    },
+    {
+      place: 5,
+      name: 'Frej Stormöga',
+      score: 3,
+    },
+    {
+      place: 6,
+      name: 'Tyr Svärdhand',
+      score: 2,
+    },
+    {
+      place: 7,
+      name: 'Freja Stjärnljus',
+      score: 1,
+    },
+    {
+      place: 8,
+      name: 'Sigrid Nattskärm',
+      score: 0,
+    },
   ],
 }
 
@@ -89,9 +121,21 @@ export const MONRAD_8P_BASE: Snapshot = {
     ],
     [
       ['Frej Stormöga', 'Thor Ödinson'],
-      ['Björn Järnsida', 'Loki Läufeyson'],
-      ['Freja Stjärnljus', 'Tyr Svärdhand'],
+      ['Freja Stjärnljus', 'Björn Järnsida'],
+      ['Tyr Svärdhand', 'Loki Läufeyson'],
       ['Sigrid Nattskärm', 'Odin Åskväder'],
+    ],
+    [
+      ['Thor Ödinson', 'Freja Stjärnljus'],
+      ['Björn Järnsida', 'Frej Stormöga'],
+      ['Loki Läufeyson', 'Sigrid Nattskärm'],
+      ['Odin Åskväder', 'Tyr Svärdhand'],
+    ],
+    [
+      ['Thor Ödinson', 'Odin Åskväder'],
+      ['Loki Läufeyson', 'Björn Järnsida'],
+      ['Frej Stormöga', 'Sigrid Nattskärm'],
+      ['Tyr Svärdhand', 'Freja Stjärnljus'],
     ],
     [
       ['Thor Ödinson', 'Tyr Svärdhand'],
@@ -100,33 +144,53 @@ export const MONRAD_8P_BASE: Snapshot = {
       ['Freja Stjärnljus', 'Odin Åskväder'],
     ],
     [
-      ['Thor Ödinson', 'Odin Åskväder'],
-      ['Tyr Svärdhand', 'Loki Läufeyson'],
-      ['Freja Stjärnljus', 'Björn Järnsida'],
-      ['Frej Stormöga', 'Sigrid Nattskärm'],
-    ],
-    [
-      ['Thor Ödinson', 'Freja Stjärnljus'],
-      ['Loki Läufeyson', 'Sigrid Nattskärm'],
-      ['Frej Stormöga', 'Björn Järnsida'],
-      ['Tyr Svärdhand', 'Odin Åskväder'],
-    ],
-    [
       ['Sigrid Nattskärm', 'Thor Ödinson'],
-      ['Loki Läufeyson', 'Freja Stjärnljus'],
+      ['Freja Stjärnljus', 'Loki Läufeyson'],
       ['Tyr Svärdhand', 'Björn Järnsida'],
       ['Odin Åskväder', 'Frej Stormöga'],
     ],
   ],
   standings: [
-    { place: 1, name: 'Thor Ödinson', score: 7 },
-    { place: 2, name: 'Loki Läufeyson', score: 6 },
-    { place: 3, name: 'Björn Järnsida', score: 5 },
-    { place: 4, name: 'Odin Åskväder', score: 4 },
-    { place: 5, name: 'Frej Stormöga', score: 3 },
-    { place: 6, name: 'Tyr Svärdhand', score: 2 },
-    { place: 7, name: 'Freja Stjärnljus', score: 1 },
-    { place: 8, name: 'Sigrid Nattskärm', score: 0 },
+    {
+      place: 1,
+      name: 'Thor Ödinson',
+      score: 7,
+    },
+    {
+      place: 2,
+      name: 'Loki Läufeyson',
+      score: 6,
+    },
+    {
+      place: 3,
+      name: 'Björn Järnsida',
+      score: 5,
+    },
+    {
+      place: 4,
+      name: 'Odin Åskväder',
+      score: 4,
+    },
+    {
+      place: 5,
+      name: 'Frej Stormöga',
+      score: 3,
+    },
+    {
+      place: 6,
+      name: 'Tyr Svärdhand',
+      score: 2,
+    },
+    {
+      place: 7,
+      name: 'Freja Stjärnljus',
+      score: 1,
+    },
+    {
+      place: 8,
+      name: 'Sigrid Nattskärm',
+      score: 0,
+    },
   ],
 }
 
@@ -176,14 +240,46 @@ export const BERGER_8P_BASE: Snapshot = {
     ],
   ],
   standings: [
-    { place: 1, name: 'Thor Ödinson', score: 7 },
-    { place: 2, name: 'Loki Läufeyson', score: 6 },
-    { place: 3, name: 'Björn Järnsida', score: 5 },
-    { place: 4, name: 'Odin Åskväder', score: 4 },
-    { place: 5, name: 'Frej Stormöga', score: 3 },
-    { place: 6, name: 'Tyr Svärdhand', score: 2 },
-    { place: 7, name: 'Freja Stjärnljus', score: 1 },
-    { place: 8, name: 'Sigrid Nattskärm', score: 0 },
+    {
+      place: 1,
+      name: 'Thor Ödinson',
+      score: 7,
+    },
+    {
+      place: 2,
+      name: 'Loki Läufeyson',
+      score: 6,
+    },
+    {
+      place: 3,
+      name: 'Björn Järnsida',
+      score: 5,
+    },
+    {
+      place: 4,
+      name: 'Odin Åskväder',
+      score: 4,
+    },
+    {
+      place: 5,
+      name: 'Frej Stormöga',
+      score: 3,
+    },
+    {
+      place: 6,
+      name: 'Tyr Svärdhand',
+      score: 2,
+    },
+    {
+      place: 7,
+      name: 'Freja Stjärnljus',
+      score: 1,
+    },
+    {
+      place: 8,
+      name: 'Sigrid Nattskärm',
+      score: 0,
+    },
   ],
 }
 
@@ -229,13 +325,41 @@ export const NS_7P_ODD: Snapshot = {
     ],
   ],
   standings: [
-    { place: 1, name: 'Thor Ödinson', score: 6 },
-    { place: 2, name: 'Loki Läufeyson', score: 5 },
-    { place: 3, name: 'Björn Järnsida', score: 4 },
-    { place: 4, name: 'Odin Åskväder', score: 3 },
-    { place: 4, name: 'Frej Stormöga', score: 3 },
-    { place: 6, name: 'Tyr Svärdhand', score: 2 },
-    { place: 7, name: 'Freja Stjärnljus', score: 1 },
+    {
+      place: 1,
+      name: 'Thor Ödinson',
+      score: 6,
+    },
+    {
+      place: 2,
+      name: 'Loki Läufeyson',
+      score: 5,
+    },
+    {
+      place: 3,
+      name: 'Björn Järnsida',
+      score: 4,
+    },
+    {
+      place: 4,
+      name: 'Frej Stormöga',
+      score: 3,
+    },
+    {
+      place: 4,
+      name: 'Odin Åskväder',
+      score: 3,
+    },
+    {
+      place: 6,
+      name: 'Tyr Svärdhand',
+      score: 2,
+    },
+    {
+      place: 7,
+      name: 'Freja Stjärnljus',
+      score: 1,
+    },
   ],
 }
 
@@ -248,16 +372,22 @@ export const MONRAD_7P_ODD: Snapshot = {
       ['Freja Stjärnljus', '(bye)'],
     ],
     [
-      ['Thor Ödinson', 'Freja Stjärnljus'],
-      ['Frej Stormöga', 'Björn Järnsida'],
+      ['Björn Järnsida', 'Thor Ödinson'],
+      ['Frej Stormöga', 'Freja Stjärnljus'],
       ['Odin Åskväder', 'Loki Läufeyson'],
       ['Tyr Svärdhand', '(bye)'],
     ],
     [
-      ['Björn Järnsida', 'Thor Ödinson'],
+      ['Thor Ödinson', 'Frej Stormöga'],
+      ['Freja Stjärnljus', 'Björn Järnsida'],
       ['Loki Läufeyson', 'Tyr Svärdhand'],
-      ['Freja Stjärnljus', 'Frej Stormöga'],
       ['Odin Åskväder', '(bye)'],
+    ],
+    [
+      ['Thor Ödinson', 'Freja Stjärnljus'],
+      ['Björn Järnsida', 'Frej Stormöga'],
+      ['Tyr Svärdhand', 'Odin Åskväder'],
+      ['Loki Läufeyson', '(bye)'],
     ],
     [
       ['Thor Ödinson', 'Odin Åskväder'],
@@ -266,26 +396,48 @@ export const MONRAD_7P_ODD: Snapshot = {
       ['Frej Stormöga', '(bye)'],
     ],
     [
-      ['Frej Stormöga', 'Thor Ödinson'],
-      ['Loki Läufeyson', 'Freja Stjärnljus'],
-      ['Tyr Svärdhand', 'Odin Åskväder'],
+      ['Tyr Svärdhand', 'Thor Ödinson'],
+      ['Frej Stormöga', 'Loki Läufeyson'],
+      ['Freja Stjärnljus', 'Odin Åskväder'],
       ['Björn Järnsida', '(bye)'],
-    ],
-    [
-      ['Thor Ödinson', 'Tyr Svärdhand'],
-      ['Freja Stjärnljus', 'Björn Järnsida'],
-      ['Odin Åskväder', 'Frej Stormöga'],
-      ['Loki Läufeyson', '(bye)'],
     ],
   ],
   standings: [
-    { place: 1, name: 'Thor Ödinson', score: 6 },
-    { place: 2, name: 'Loki Läufeyson', score: 5 },
-    { place: 3, name: 'Björn Järnsida', score: 4 },
-    { place: 4, name: 'Odin Åskväder', score: 3 },
-    { place: 4, name: 'Frej Stormöga', score: 3 },
-    { place: 6, name: 'Tyr Svärdhand', score: 2 },
-    { place: 7, name: 'Freja Stjärnljus', score: 1 },
+    {
+      place: 1,
+      name: 'Thor Ödinson',
+      score: 6,
+    },
+    {
+      place: 2,
+      name: 'Loki Läufeyson',
+      score: 5,
+    },
+    {
+      place: 3,
+      name: 'Björn Järnsida',
+      score: 4,
+    },
+    {
+      place: 4,
+      name: 'Frej Stormöga',
+      score: 3,
+    },
+    {
+      place: 4,
+      name: 'Odin Åskväder',
+      score: 3,
+    },
+    {
+      place: 6,
+      name: 'Tyr Svärdhand',
+      score: 2,
+    },
+    {
+      place: 7,
+      name: 'Freja Stjärnljus',
+      score: 1,
+    },
   ],
 }
 
@@ -335,13 +487,41 @@ export const BERGER_7P_ODD: Snapshot = {
     ],
   ],
   standings: [
-    { place: 1, name: 'Thor Ödinson', score: 7 },
-    { place: 2, name: 'Loki Läufeyson', score: 6 },
-    { place: 3, name: 'Björn Järnsida', score: 5 },
-    { place: 4, name: 'Odin Åskväder', score: 4 },
-    { place: 5, name: 'Frej Stormöga', score: 3 },
-    { place: 6, name: 'Tyr Svärdhand', score: 2 },
-    { place: 7, name: 'Freja Stjärnljus', score: 1 },
+    {
+      place: 1,
+      name: 'Thor Ödinson',
+      score: 7,
+    },
+    {
+      place: 2,
+      name: 'Loki Läufeyson',
+      score: 6,
+    },
+    {
+      place: 3,
+      name: 'Björn Järnsida',
+      score: 5,
+    },
+    {
+      place: 4,
+      name: 'Odin Åskväder',
+      score: 4,
+    },
+    {
+      place: 5,
+      name: 'Frej Stormöga',
+      score: 2,
+    },
+    {
+      place: 6,
+      name: 'Tyr Svärdhand',
+      score: 1,
+    },
+    {
+      place: 7,
+      name: 'Freja Stjärnljus',
+      score: 0,
+    },
   ],
 }
 
@@ -371,14 +551,46 @@ export const NS_8P_DRAWS: Snapshot = {
     ],
   ],
   standings: [
-    { place: 1, name: 'Thor Ödinson', score: 1.5 },
-    { place: 1, name: 'Loki Läufeyson', score: 1.5 },
-    { place: 1, name: 'Björn Järnsida', score: 1.5 },
-    { place: 1, name: 'Odin Åskväder', score: 1.5 },
-    { place: 1, name: 'Frej Stormöga', score: 1.5 },
-    { place: 1, name: 'Tyr Svärdhand', score: 1.5 },
-    { place: 1, name: 'Freja Stjärnljus', score: 1.5 },
-    { place: 1, name: 'Sigrid Nattskärm', score: 1.5 },
+    {
+      place: 1,
+      name: 'Björn Järnsida',
+      score: 1.5,
+    },
+    {
+      place: 1,
+      name: 'Loki Läufeyson',
+      score: 1.5,
+    },
+    {
+      place: 1,
+      name: 'Sigrid Nattskärm',
+      score: 1.5,
+    },
+    {
+      place: 1,
+      name: 'Freja Stjärnljus',
+      score: 1.5,
+    },
+    {
+      place: 1,
+      name: 'Frej Stormöga',
+      score: 1.5,
+    },
+    {
+      place: 1,
+      name: 'Tyr Svärdhand',
+      score: 1.5,
+    },
+    {
+      place: 1,
+      name: 'Odin Åskväder',
+      score: 1.5,
+    },
+    {
+      place: 1,
+      name: 'Thor Ödinson',
+      score: 1.5,
+    },
   ],
 }
 
@@ -428,14 +640,46 @@ export const MONRAD_8P_DRAWS: Snapshot = {
     ],
   ],
   standings: [
-    { place: 1, name: 'Thor Ödinson', score: 3.5 },
-    { place: 1, name: 'Loki Läufeyson', score: 3.5 },
-    { place: 1, name: 'Björn Järnsida', score: 3.5 },
-    { place: 1, name: 'Odin Åskväder', score: 3.5 },
-    { place: 1, name: 'Frej Stormöga', score: 3.5 },
-    { place: 1, name: 'Tyr Svärdhand', score: 3.5 },
-    { place: 1, name: 'Freja Stjärnljus', score: 3.5 },
-    { place: 1, name: 'Sigrid Nattskärm', score: 3.5 },
+    {
+      place: 1,
+      name: 'Björn Järnsida',
+      score: 3.5,
+    },
+    {
+      place: 1,
+      name: 'Loki Läufeyson',
+      score: 3.5,
+    },
+    {
+      place: 1,
+      name: 'Sigrid Nattskärm',
+      score: 3.5,
+    },
+    {
+      place: 1,
+      name: 'Freja Stjärnljus',
+      score: 3.5,
+    },
+    {
+      place: 1,
+      name: 'Frej Stormöga',
+      score: 3.5,
+    },
+    {
+      place: 1,
+      name: 'Tyr Svärdhand',
+      score: 3.5,
+    },
+    {
+      place: 1,
+      name: 'Odin Åskväder',
+      score: 3.5,
+    },
+    {
+      place: 1,
+      name: 'Thor Ödinson',
+      score: 3.5,
+    },
   ],
 }
 
@@ -466,14 +710,46 @@ export const NS_8P_WITHDRAW: Snapshot = {
     ],
   ],
   standings: [
-    { place: 1, name: 'Thor Ödinson', score: 3 },
-    { place: 2, name: 'Loki Läufeyson', score: 2 },
-    { place: 2, name: 'Björn Järnsida', score: 2 },
-    { place: 2, name: 'Odin Åskväder', score: 2 },
-    { place: 5, name: 'Frej Stormöga', score: 1 },
-    { place: 5, name: 'Tyr Svärdhand', score: 1 },
-    { place: 5, name: 'Freja Stjärnljus', score: 1 },
-    { place: 8, name: 'Sigrid Nattskärm (utgått r3)', score: 0 },
+    {
+      place: 1,
+      name: 'Thor Ödinson',
+      score: 3,
+    },
+    {
+      place: 2,
+      name: 'Björn Järnsida',
+      score: 2,
+    },
+    {
+      place: 2,
+      name: 'Loki Läufeyson',
+      score: 2,
+    },
+    {
+      place: 2,
+      name: 'Odin Åskväder',
+      score: 2,
+    },
+    {
+      place: 5,
+      name: 'Freja Stjärnljus',
+      score: 1,
+    },
+    {
+      place: 5,
+      name: 'Frej Stormöga',
+      score: 1,
+    },
+    {
+      place: 5,
+      name: 'Tyr Svärdhand',
+      score: 1,
+    },
+    {
+      place: 8,
+      name: 'Sigrid Nattskärm',
+      score: 0,
+    },
   ],
 }
 
@@ -493,25 +769,57 @@ export const MONRAD_8P_WITHDRAW: Snapshot = {
     ],
     [
       ['Frej Stormöga', 'Thor Ödinson'],
-      ['Björn Järnsida', 'Loki Läufeyson'],
-      ['Freja Stjärnljus', 'Tyr Svärdhand'],
+      ['Freja Stjärnljus', 'Björn Järnsida'],
+      ['Tyr Svärdhand', 'Loki Läufeyson'],
       ['Odin Åskväder', '(bye)'],
     ],
     [
-      ['Thor Ödinson', 'Odin Åskväder'],
-      ['Frej Stormöga', 'Loki Läufeyson'],
-      ['Tyr Svärdhand', 'Björn Järnsida'],
-      ['Freja Stjärnljus', '(bye)'],
+      ['Thor Ödinson', 'Freja Stjärnljus'],
+      ['Frej Stormöga', 'Odin Åskväder'],
+      ['Loki Läufeyson', 'Björn Järnsida'],
+      ['Tyr Svärdhand', '(bye)'],
     ],
   ],
   standings: [
-    { place: 1, name: 'Thor Ödinson', score: 4 },
-    { place: 2, name: 'Loki Läufeyson', score: 3 },
-    { place: 3, name: 'Björn Järnsida', score: 2 },
-    { place: 3, name: 'Frej Stormöga', score: 2 },
-    { place: 3, name: 'Tyr Svärdhand', score: 2 },
-    { place: 3, name: 'Freja Stjärnljus', score: 2 },
-    { place: 7, name: 'Odin Åskväder', score: 1 },
-    { place: 8, name: 'Sigrid Nattskärm (utgått r3)', score: 0 },
+    {
+      place: 1,
+      name: 'Thor Ödinson',
+      score: 4,
+    },
+    {
+      place: 2,
+      name: 'Loki Läufeyson',
+      score: 3,
+    },
+    {
+      place: 3,
+      name: 'Björn Järnsida',
+      score: 2,
+    },
+    {
+      place: 3,
+      name: 'Frej Stormöga',
+      score: 2,
+    },
+    {
+      place: 3,
+      name: 'Tyr Svärdhand',
+      score: 2,
+    },
+    {
+      place: 3,
+      name: 'Odin Åskväder',
+      score: 2,
+    },
+    {
+      place: 7,
+      name: 'Freja Stjärnljus',
+      score: 1,
+    },
+    {
+      place: 8,
+      name: 'Sigrid Nattskärm',
+      score: 0,
+    },
   ],
 }
