@@ -75,7 +75,7 @@ export function buildAlphabeticalPairingsInput(
               }
             : null,
       }
-      const group = self.playerGroup ?? ''
+      const group = tournament.chess4 ? (self.club ?? '') : (self.playerGroup ?? '')
       const list = byGroup.get(group) ?? []
       list.push(row)
       byGroup.set(group, list)

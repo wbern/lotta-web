@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DatabaseService } from '../db/database-service.ts'
 import { deleteDatabase } from '../db/persistence.ts'
-import { buildPairingsInput, buildStandingsInput } from './publish-data.ts'
+import {
+  buildAlphabeticalPairingsInput,
+  buildPairingsInput,
+  buildStandingsInput,
+} from './publish-data.ts'
 import { setResult } from './results.ts'
 import { pairNextRound } from './rounds.ts'
 import { setDatabaseService } from './service-provider.ts'
@@ -82,6 +86,58 @@ describe('publish-data builders', () => {
 
       const input = buildPairingsInput(tournamentId, 1)
       expect(input!.games[0].currentResult).toBeUndefined()
+    })
+  })
+
+  describe('buildAlphabeticalPairingsInput', () => {
+    it('groups Schackfyran players by their school class (stored as club)', async () => {
+      const t = service.tournaments.create({
+        name: 'Schack4an',
+        group: 'A',
+        pairingSystem: 'Monrad',
+        initialPairing: 'Rating',
+        nrOfRounds: 4,
+        barredPairing: false,
+        compensateWeakPlayerPP: false,
+        pointsPerGame: 4,
+        chess4: true,
+        ratingChoice: 'ELO',
+        showELO: false,
+        showGroup: false,
+      })
+      const club4A = service.clubs.create({ name: '4A' })
+      const club4B = service.clubs.create({ name: '4B' })
+
+      service.tournamentPlayers.add(t.id, {
+        firstName: 'Anna',
+        lastName: 'Andersson',
+        clubIndex: club4A.id,
+        ratingI: 1000,
+      })
+      service.tournamentPlayers.add(t.id, {
+        firstName: 'Bo',
+        lastName: 'Björk',
+        clubIndex: club4A.id,
+        ratingI: 1000,
+      })
+      service.tournamentPlayers.add(t.id, {
+        firstName: 'Cilla',
+        lastName: 'Carlsson',
+        clubIndex: club4B.id,
+        ratingI: 1000,
+      })
+      service.tournamentPlayers.add(t.id, {
+        firstName: 'Dan',
+        lastName: 'Dahl',
+        clubIndex: club4B.id,
+        ratingI: 1000,
+      })
+
+      await pairNextRound(t.id)
+
+      const input = buildAlphabeticalPairingsInput(t.id, 1)
+      expect(input).not.toBeNull()
+      expect(input!.classes.map((c) => c.className)).toEqual(['4A', '4B'])
     })
   })
 

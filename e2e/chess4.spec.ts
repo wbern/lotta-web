@@ -156,6 +156,46 @@ test.describe('Chess4 mode', () => {
     expect(allStandings).toEqual(CHESS4_STANDINGS_BY_ROUND)
   })
 
+  test('Alphabetical pairings puts each school class on its own page', async ({ page }) => {
+    await page.goto('/')
+    await waitForApi(page)
+    const $ = apiClient(page)
+
+    // In Schack4an the school class (4A, 4B, …) is represented as the player's club.
+    const classClubs = [
+      { name: '4A', chess4Members: 10 },
+      { name: '4B', chess4Members: 10 },
+      { name: '4C', chess4Members: 10 },
+    ]
+    const clubIds = await ensureClubs($, classClubs)
+    const players: PlayerInput[] = [
+      { lastName: 'Andersson', firstName: 'Anna', ratingI: 1000, clubIndex: clubIds[0] },
+      { lastName: 'Björk', firstName: 'Bo', ratingI: 1000, clubIndex: clubIds[0] },
+      { lastName: 'Carlsson', firstName: 'Cilla', ratingI: 1000, clubIndex: clubIds[1] },
+      { lastName: 'Dahl', firstName: 'Dan', ratingI: 1000, clubIndex: clubIds[1] },
+      { lastName: 'Ek', firstName: 'Eva', ratingI: 1000, clubIndex: clubIds[2] },
+      { lastName: 'Falk', firstName: 'Frida', ratingI: 1000, clubIndex: clubIds[2] },
+    ]
+    const { tid } = await createTournament($, { ...CHESS4_OPTS, name: 'Chess4-pages' }, players)
+    await pairRound($, tid)
+
+    const html = await $.get(`/api/tournaments/${tid}/publish/alphabetical?round=1`)
+
+    await page.setContent(html)
+    await page.emulateMedia({ media: 'print' })
+    const perClass = await page.$$eval('.CP_AlphabeticalClass', (els) =>
+      els.map((el) => ({
+        heading: el.querySelector('h3')?.textContent ?? '',
+        breakBefore: getComputedStyle(el).breakBefore,
+      })),
+    )
+    expect(perClass).toEqual([
+      { heading: '4A', breakBefore: 'auto' },
+      { heading: '4B', breakBefore: 'page' },
+      { heading: '4C', breakBefore: 'page' },
+    ])
+  })
+
   test('Publish chess4 standings HTML', async ({ page }) => {
     await page.goto('/')
     await waitForApi(page)
