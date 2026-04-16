@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   type ChangelogEntry,
   type ChangelogType,
+  entriesSince,
   fetchChangelog,
   groupByDate,
   groupByType,
@@ -21,11 +22,13 @@ const GROUP_ICONS: Record<ChangelogType, string> = {
 
 export function WhatsNewDialog({ open, onClose }: Props) {
   const [entries, setEntries] = useState<ChangelogEntry[] | null>(null)
+  const [showOlder, setShowOlder] = useState(false)
 
   useEffect(() => {
     if (!open) return
     let cancelled = false
     setEntries(null)
+    setShowOlder(false)
     fetchChangelog(import.meta.env.BASE_URL).then((data) => {
       if (!cancelled) setEntries(data)
     })
@@ -34,7 +37,13 @@ export function WhatsNewDialog({ open, onClose }: Props) {
     }
   }, [open])
 
-  const days = entries ? groupByDate(entries) : []
+  const newer = useMemo(
+    () => (entries ? entriesSince(entries, __COMMIT_HASH__, __COMMIT_DATE__) : []),
+    [entries],
+  )
+  const hasOlder = entries !== null && entries.length > newer.length
+  const visible = showOlder ? (entries ?? []) : newer
+  const days = groupByDate(visible)
 
   return (
     <Dialog
@@ -50,7 +59,7 @@ export function WhatsNewDialog({ open, onClose }: Props) {
       }
     >
       {entries === null && <p>Laddar ändringslogg…</p>}
-      {entries !== null && days.length === 0 && <p>Ingen ändringslogg tillgänglig.</p>}
+      {entries !== null && days.length === 0 && <p>Inga nya ändringar sedan din version.</p>}
       {days.length > 0 && (
         <div className="changelog-archive">
           {days.map((day) => (
@@ -77,6 +86,13 @@ export function WhatsNewDialog({ open, onClose }: Props) {
             </section>
           ))}
         </div>
+      )}
+      {hasOlder && !showOlder && (
+        <p className="changelog-show-older">
+          <button type="button" className="link-button" onClick={() => setShowOlder(true)}>
+            Visa tidigare versioner
+          </button>
+        </p>
       )}
     </Dialog>
   )

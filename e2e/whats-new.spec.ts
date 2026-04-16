@@ -17,6 +17,32 @@ test.describe('Vad är nytt dialog', () => {
     await page.waitForTimeout(1500)
   })
 
+  test('reveals older entries when clicking "Visa tidigare versioner"', async ({ page }) => {
+    await page.goto('/')
+    await waitForApi(page)
+
+    await page.getByTestId('menu-bar').getByRole('button', { name: 'Hjälp' }).click()
+    await page.waitForTimeout(400)
+    await page.getByTestId('menu-dropdown').getByText('Vad är nytt').click()
+    await page.waitForTimeout(500)
+
+    await expect(page.getByTestId('dialog-title').filter({ hasText: 'Vad är nytt' })).toBeVisible()
+    await expect(page.getByTestId('changelog-group').first()).toBeVisible()
+
+    const initialCount = await page.getByTestId('changelog-group').count()
+    const expandLink = page.getByRole('button', { name: 'Visa tidigare versioner' })
+    await expect(expandLink).toBeVisible()
+    await expandLink.click()
+    await page.waitForTimeout(300)
+
+    await expect
+      .poll(() => page.getByTestId('changelog-group').count())
+      .toBeGreaterThan(initialCount)
+    await expect(expandLink).toBeHidden()
+
+    await page.waitForTimeout(1500)
+  })
+
   test('checks for updates via Hjälp menu and shows status', async ({ page }) => {
     await page.goto('/')
     await waitForApi(page)

@@ -2629,6 +2629,25 @@ button.btn-danger {
   line-height: 1.4;
 }
 
+.changelog-show-older {
+  margin: 16px 0 0;
+  text-align: center;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.link-button:hover {
+  color: var(--color-primary-hover);
+}
+
 /* Storage persistence warning banner */
 .storage-warning {
   position: fixed;
