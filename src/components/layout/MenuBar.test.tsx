@@ -5,9 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MenuBar } from './MenuBar'
 
 const mockPairMutate = vi.fn()
+const mockPair = { isPending: false }
 
 vi.mock('../../hooks/useRounds', () => ({
-  usePairNextRound: () => ({ mutate: mockPairMutate }),
+  usePairNextRound: () => ({ mutate: mockPairMutate, isPending: mockPair.isPending }),
 }))
 
 function renderMenuBar(props: { tournamentId?: number; roundNr?: number } = {}) {
@@ -27,6 +28,7 @@ function setupPairError(message: string) {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  mockPair.isPending = false
 })
 
 describe('MenuBar add group item', () => {
@@ -112,6 +114,26 @@ describe('MenuBar check-updates item', () => {
 
     openMenu('Hjälp')
     expect(screen.getByText('Sök efter uppdateringar').closest('button')!.disabled).toBe(true)
+  })
+})
+
+describe('MenuBar pairing progress', () => {
+  it('shows a progress dialog with an incrementing seconds counter while pairing is in flight', () => {
+    vi.useFakeTimers()
+    try {
+      mockPair.isPending = true
+      renderMenuBar({ tournamentId: 1 })
+
+      expect(screen.getByText('Lottar...')).toBeTruthy()
+      expect(screen.getByTestId('pair-progress-elapsed').textContent).toBe('(0 s)')
+
+      act(() => {
+        vi.advanceTimersByTime(3000)
+      })
+      expect(screen.getByTestId('pair-progress-elapsed').textContent).toBe('(3 s)')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

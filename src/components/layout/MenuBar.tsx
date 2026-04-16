@@ -337,6 +337,8 @@ export function MenuBar({
         )}
       </div>
 
+      <PairProgressDialog open={pairMutation.isPending} />
+
       <Dialog
         title="Kan inte lotta"
         open={!!pairError}
@@ -392,5 +394,27 @@ export function MenuBar({
 
       <WhatsNewDialog open={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
     </div>
+  )
+}
+
+function PairProgressDialog({ open }: { open: boolean }) {
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    if (!open) {
+      setElapsed(0)
+      return
+    }
+    const id = setInterval(() => setElapsed((n) => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [open])
+
+  return (
+    <Dialog title="Lottar..." open={open} onClose={() => {}} isDirty={true} width={360}>
+      <div className="pair-progress">
+        <span className="pair-progress-spinner" aria-hidden="true" />
+        <span data-testid="pair-progress-elapsed">({elapsed} s)</span>
+      </div>
+    </Dialog>
   )
 }
