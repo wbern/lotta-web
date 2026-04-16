@@ -40,6 +40,7 @@ import { ChatMessageItem } from '../ChatMessageItem'
 import { ConnectionDiagnostics } from '../ConnectionDiagnostics'
 import { Dialog } from '../dialogs/Dialog'
 import { EmptyState } from '../EmptyState'
+import { IconButton } from '../IconButton'
 
 type LiveSubTab = 'delning' | 'vydelning' | 'logg' | 'chatt'
 
@@ -694,14 +695,13 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                 </div>
                 <div className="live-tab-share-main">
                   <div className="live-tab-qr-actions">
-                    <button
-                      className="btn btn-small btn-icon"
+                    <IconButton
                       onClick={() => setQrFullscreen(viewUrl)}
                       title="Visa i fullskärm"
                       aria-label="Visa i fullskärm"
                     >
                       ⛶
-                    </button>
+                    </IconButton>
                     <button
                       className="btn btn-small"
                       data-testid="print-main-qr"
@@ -715,13 +715,12 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                     <span className="live-tab-link-label">Länk:</span>
                     <div className="live-tab-link-row">
                       <code className="live-tab-url">{viewUrl}</code>
-                      <button
-                        className="btn btn-small btn-icon"
+                      <IconButton
                         onClick={() => copyToClipboard(viewUrl, 'viewUrl')}
                         title="Kopiera"
                       >
                         {copied === 'viewUrl' ? '✓' : '📋'}
-                      </button>
+                      </IconButton>
                     </div>
                   </div>
                 </div>
@@ -774,15 +773,13 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                         <code className="live-tab-club-code" data-testid={`club-code-${club}`}>
                           {clubCodeMap[club]}
                         </code>
-                        <button
-                          type="button"
-                          className="btn btn-icon btn-small"
+                        <IconButton
                           data-testid={`share-club-btn-${club}`}
                           title="Dela denna klubb"
                           onClick={() => setShareClubDialog(club)}
                         >
                           ⛶
-                        </button>
+                        </IconButton>
                       </div>
                     ))}
                     {hasClublessPlayers && (
@@ -797,15 +794,13 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                         >
                           {clubCodeMap[CLUBLESS_KEY]}
                         </code>
-                        <button
-                          type="button"
-                          className="btn btn-icon btn-small"
+                        <IconButton
                           data-testid={`share-club-btn-${CLUBLESS_KEY}`}
                           title="Dela klubblösa"
                           onClick={() => setShareClubDialog(CLUBLESS_KEY)}
                         >
                           ⛶
-                        </button>
+                        </IconButton>
                       </div>
                     )}
                   </div>
@@ -1027,36 +1022,31 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                           </span>
                         </div>
                         <div className="live-tab-grant-actions">
-                          <button
-                            type="button"
-                            className="btn btn-small btn-icon"
+                          <IconButton
                             data-testid={`grant-fullscreen-${grant.id}`}
                             onClick={() => setQrFullscreen(url)}
                             title="Visa i fullskärm"
                             aria-label="Visa i fullskärm"
                           >
                             ⛶
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-small btn-icon"
+                          </IconButton>
+                          <IconButton
                             data-testid={`grant-copy-${grant.id}`}
                             onClick={() => copyToClipboard(url, `grant-${grant.id}`)}
                             title="Kopiera länk"
                             aria-label="Kopiera länk"
                           >
                             {copied === `grant-${grant.id}` ? '✓' : '📋'}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-small btn-icon btn-danger"
+                          </IconButton>
+                          <IconButton
+                            className="btn-danger"
                             data-testid={`grant-revoke-${grant.id}`}
                             onClick={() => revokeGrant(grant.id)}
                             title="Ta bort åtkomst"
                             aria-label="Ta bort åtkomst"
                           >
                             ×
-                          </button>
+                          </IconButton>
                         </div>
                       </div>
                     )

@@ -3,6 +3,7 @@ import { generateRandomName } from '../../domain/random-name'
 import { useCreateTournament, useTournament, useUpdateTournament } from '../../hooks/useTournaments'
 import { sv } from '../../lib/swedish-text'
 import type { CreateTournamentRequest } from '../../types/api'
+import { IconButton } from '../IconButton'
 import { Dialog } from './Dialog'
 
 interface Props {
@@ -323,15 +324,13 @@ export function TournamentDialog({
             onChange={(e) => update({ name: e.target.value })}
             style={{ flex: 1 }}
           />
-          <button
-            type="button"
-            className="btn btn-small btn-icon"
+          <IconButton
             data-testid="randomize-name"
             onClick={() => update({ name: generateRandomName() })}
             title="Slumpa namn"
           >
             &#x1f3b2;
-          </button>
+          </IconButton>
         </div>
       </div>
       <div className="form-group">
@@ -347,15 +346,13 @@ export function TournamentDialog({
             onChange={(e) => update({ group: e.target.value })}
             style={{ flex: 1 }}
           />
-          <button
-            type="button"
-            className="btn btn-small btn-icon"
+          <IconButton
             data-testid="randomize-group"
             onClick={() => update({ group: generateRandomName({ includeYear: false }) })}
             title="Slumpa grupp"
           >
             &#x1f3b2;
-          </button>
+          </IconButton>
         </div>
       </div>
 
