@@ -1,3 +1,28 @@
+if git diff --cached --name-only --diff-filter=ACMR | grep -qx 'e2e/pairings-snapshots.ts'; then
+  if [ "$ALLOW_SNAPSHOT_REGEN" != "1" ]; then
+    cat >&2 <<'EOF'
+✗ Refusing to commit changes to e2e/pairings-snapshots.ts
+
+This file is the golden-master pairing snapshot. It locks the expected
+board pairings + final standings for every pairing-algorithm scenario.
+A drift here is almost always a regression in the pairing engine, not
+something you "fix" by regenerating the snapshot.
+
+History note: the previous version was captured against the old
+stateless Java REST API (which had a lotNr bug). The frontend port
+deliberately diverged to match Swing's correct stateful behavior. Do
+not regenerate just because tests fail — first verify the pairing
+output is actually correct.
+
+If you genuinely intend to regenerate (e.g. deliberate engine change,
+verified against Swing reference output):
+
+  ALLOW_SNAPSHOT_REGEN=1 git commit ...
+EOF
+    exit 1
+  fi
+fi
+
 pnpm exec lint-staged
 
 FILES=$(git diff --cached --name-only --diff-filter=ACMR)
