@@ -69,6 +69,7 @@ export default defineConfig({
     { name: 'undo', testMatch: 'undo.spec.ts' },
     { name: 'scroll', testMatch: 'scroll.spec.ts' },
     { name: 'fix-screenshots', testMatch: 'fix-screenshots.spec.ts' },
+    { name: 'keybind-demo', testMatch: 'keybind-demo.spec.ts' },
     ...(runningP2P
       ? [
           {
