@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import {
   type ChangelogEntry,
   fetchChangelog,
-  GROUP_LABELS,
   groupByDate,
+  groupByType,
 } from '../../domain/changelog'
 import { Dialog } from './Dialog'
 
@@ -49,20 +49,23 @@ export function WhatsNewDialog({ open, onClose }: Props) {
           {days.map((day) => (
             <section key={day.date} className="changelog-day">
               <h3>{day.date}</h3>
-              <ul>
-                {day.entries.map((entry) => (
-                  <li key={entry.sha}>
-                    <span
-                      className={`changelog-pill changelog-pill--${entry.type}`}
-                      data-testid="changelog-pill"
-                    >
-                      {GROUP_LABELS[entry.type]}
-                    </span>
-                    {entry.breaking && <strong> Brytande ändring: </strong>}
-                    <span className="changelog-message">{entry.message}</span>
-                  </li>
-                ))}
-              </ul>
+              {groupByType(day.entries).map((group) => (
+                <div
+                  key={group.type}
+                  className={`changelog-group changelog-group--${group.type}`}
+                  data-testid="changelog-group"
+                >
+                  <h4>{group.label}</h4>
+                  <ul>
+                    {group.entries.map((entry) => (
+                      <li key={entry.sha}>
+                        {entry.breaking && <strong>Brytande ändring: </strong>}
+                        {entry.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </section>
           ))}
         </div>

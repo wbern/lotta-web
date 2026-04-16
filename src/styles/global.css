@@ -54,11 +54,8 @@
   --color-badge-referee-text: #e65100;
   --color-badge-organizer-bg: #e8f5e9;
   --color-badge-organizer-text: #2e7d32;
-  --color-changelog-feat-bg: #e8f5e9;
   --color-changelog-feat-text: #2e7d32;
-  --color-changelog-fix-bg: #fff3e0;
   --color-changelog-fix-text: #e65100;
-  --color-changelog-perf-bg: #e3f2fd;
   --color-changelog-perf-text: #1565c0;
   --font-family: "Hanken Grotesk", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   --font-size-base: 1rem;
@@ -99,11 +96,8 @@
     --color-badge-referee-text: #ffab40;
     --color-badge-organizer-bg: #1b3a1b;
     --color-badge-organizer-text: #81c784;
-    --color-changelog-feat-bg: #1b3a1b;
     --color-changelog-feat-text: #81c784;
-    --color-changelog-fix-bg: #3e2723;
     --color-changelog-fix-text: #ffab40;
-    --color-changelog-perf-bg: #1a2a3a;
     --color-changelog-perf-text: #64b5f6;
   }
 }
@@ -141,11 +135,8 @@
   --color-badge-referee-text: #ffab40;
   --color-badge-organizer-bg: #1b3a1b;
   --color-badge-organizer-text: #81c784;
-  --color-changelog-feat-bg: #1b3a1b;
   --color-changelog-feat-text: #81c784;
-  --color-changelog-fix-bg: #3e2723;
   --color-changelog-fix-text: #ffab40;
-  --color-changelog-perf-bg: #1a2a3a;
   --color-changelog-perf-text: #64b5f6;
 }
 
@@ -2620,50 +2611,39 @@ button.btn-danger {
   font-family: monospace;
 }
 
+.changelog-group {
+  margin: 6px 0 0 0;
+}
+
+.changelog-group h4 {
+  margin: 0 0 2px;
+  font-size: var(--font-size-small);
+  font-weight: 600;
+}
+
+.changelog-group--feat h4 {
+  color: var(--color-changelog-feat-text);
+}
+
+.changelog-group--fix h4 {
+  color: var(--color-changelog-fix-text);
+}
+
+.changelog-group--perf h4 {
+  color: var(--color-changelog-perf-text);
+}
+
 .changelog-day ul {
-  margin: 0;
+  margin: 0 0 0 20px;
   padding: 0;
-  list-style: none;
+  list-style: disc;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
 .changelog-day li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.changelog-pill {
-  display: inline-block;
-  padding: 1px 8px;
-  border-radius: 999px;
-  font-size: var(--font-size-small);
-  font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.changelog-pill--feat {
-  background: var(--color-changelog-feat-bg);
-  color: var(--color-changelog-feat-text);
-}
-
-.changelog-pill--fix {
-  background: var(--color-changelog-fix-bg);
-  color: var(--color-changelog-fix-text);
-}
-
-.changelog-pill--perf {
-  background: var(--color-changelog-perf-bg);
-  color: var(--color-changelog-perf-text);
-}
-
-.changelog-message {
-  flex: 1;
-  min-width: 200px;
+  line-height: 1.4;
 }
 
 /* Storage persistence warning banner */

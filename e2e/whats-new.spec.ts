@@ -12,7 +12,7 @@ test.describe('Vad är nytt dialog', () => {
     await page.waitForTimeout(500)
 
     await expect(page.getByTestId('dialog-title').filter({ hasText: 'Vad är nytt' })).toBeVisible()
-    await expect(page.getByTestId('changelog-pill').first()).toBeVisible()
+    await expect(page.getByTestId('changelog-group').first()).toBeVisible()
 
     await page.waitForTimeout(1500)
   })

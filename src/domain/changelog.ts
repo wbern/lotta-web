@@ -15,7 +15,7 @@ interface ChangelogGroup {
   entries: ChangelogEntry[]
 }
 
-export const GROUP_LABELS: Record<ChangelogType, string> = {
+const GROUP_LABELS: Record<ChangelogType, string> = {
   feat: 'Nyheter',
   fix: 'Buggfixar',
   perf: 'Förbättringar',
