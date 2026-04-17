@@ -18,6 +18,7 @@ interface ClientP2PState {
   clubFilterEnabled: boolean | null
   roomCode: string | null
   pendingClubCode: string | null
+  hostRefreshing: boolean
 }
 
 const INITIAL: ClientP2PState = {
@@ -35,6 +36,7 @@ const INITIAL: ClientP2PState = {
   clubFilterEnabled: null,
   roomCode: null,
   pendingClubCode: null,
+  hostRefreshing: false,
 }
 
 let current: ClientP2PState = { ...INITIAL }
@@ -128,6 +130,10 @@ export function setRoomCode(code: string): void {
 
 export function setPendingClubCode(code: string | null): void {
   update({ pendingClubCode: code })
+}
+
+export function setHostRefreshing(refreshing: boolean): void {
+  update({ hostRefreshing: refreshing })
 }
 
 export function resetClientStore(): void {

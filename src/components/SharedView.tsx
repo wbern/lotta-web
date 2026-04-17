@@ -19,6 +19,7 @@ import {
   getClientP2PState,
   incrementUnread,
   setAnnouncement,
+  setHostRefreshing,
   setKicked,
   setPeerCount,
   setPendingClubCode,
@@ -150,6 +151,7 @@ export function SharedView({ roomCode, token, mode = 'full', code }: SharedViewP
       setAnnouncement(msg)
     }
 
+    service.onHostRefreshing = (refreshing) => setHostRefreshing(refreshing)
     service.onKicked = () => {
       setKicked()
       service.leave()

@@ -120,6 +120,13 @@ export function ClientOverlay() {
         </div>
       )}
 
+      {/* Host-refreshing hint */}
+      {store.hostRefreshing && !isReconnecting && (
+        <div className="client-announcement">
+          <span>{'Värden laddar om\u2026'}</span>
+        </div>
+      )}
+
       {/* Announcement banner */}
       {store.announcement && (
         <div className="client-announcement">

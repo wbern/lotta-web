@@ -413,6 +413,16 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     }
   }, [startHosting])
 
+  // Best-effort "refreshing" hint to viewers on page unload
+  useEffect(() => {
+    if (!isHosting) return
+    const handlePageHide = () => {
+      serviceRef.current?.broadcastHostRefreshing()
+    }
+    window.addEventListener('pagehide', handlePageHide)
+    return () => window.removeEventListener('pagehide', handlePageHide)
+  }, [isHosting])
+
   // Poll relay status and diagnostic info while panel is visible
   useEffect(() => {
     if (!isHosting || !showDiagnostics) return

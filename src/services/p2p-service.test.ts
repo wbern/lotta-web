@@ -949,6 +949,51 @@ describe('P2PService', () => {
     })
   })
 
+  describe('host-refreshing hint', () => {
+    it('organizer broadcasts host-refreshing to all peers', async () => {
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('organizer')
+      service.startHosting('test-room')
+      await flush()
+
+      service.broadcastHostRefreshing()
+      expect(mockRoom._getSendFn('host-refreshing')).toHaveBeenCalledWith(
+        expect.objectContaining({ ts: expect.any(Number) }),
+        null,
+      )
+    })
+
+    it('viewer fires onHostRefreshing(true) when hint is received', async () => {
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('viewer')
+      const calls: boolean[] = []
+      service.onHostRefreshing = (v) => calls.push(v)
+      service.joinRoom('test-room')
+      await flush()
+
+      mockRoom._simulateReceive('host-refreshing', { ts: Date.now() }, 'host-peer')
+      expect(calls).toEqual([true])
+    })
+
+    it('viewer fires onHostRefreshing(false) when heartbeat arrives after hint', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('viewer')
+      const calls: boolean[] = []
+      service.onHostRefreshing = (v) => calls.push(v)
+      service.joinRoom('test-room')
+      await flush()
+
+      mockRoom._simulateReceive('host-refreshing', { ts: Date.now() }, 'host-peer')
+      mockRoom._simulateReceive('heartbeat', { ts: Date.now() }, 'host-peer')
+      expect(calls).toEqual([true, false])
+      vi.useRealTimers()
+    })
+  })
+
   it('broadcasts a chat message to all peers', async () => {
     const mockRoom = createMockRoom()
     mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)

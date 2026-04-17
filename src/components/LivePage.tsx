@@ -255,6 +255,7 @@ function LivePageInner({
   const [chatInput, setChatInput] = useState('')
   const [unreadChat, setUnreadChat] = useState(0)
   const [chatEnabled, setChatEnabled] = useState(true)
+  const [hostRefreshing, setHostRefreshing] = useState(false)
   const [showDiagnostics, setShowDiagnostics] = useState(false)
   const [diagnosticLog, setDiagnosticLog] = useState<DiagnosticEntry[]>([])
   const [relayStatus, setRelayStatus] = useState<RelaySocketInfo[]>([])
@@ -380,6 +381,7 @@ function LivePageInner({
       if (peer?.role !== 'organizer') return
       setChatMessages((prev) => prev.filter((m) => m.id !== msg.id))
     }
+    service.onHostRefreshing = (refreshing) => setHostRefreshing(refreshing)
     service.onKicked = () => {
       setKicked(true)
       service.leave()
@@ -625,6 +627,9 @@ function LivePageInner({
       )}
 
       <main className="live-content">
+        {hostRefreshing && connectionState === 'connected' && (
+          <div className="live-offline-banner">Värden laddar om\u2026</div>
+        )}
         {connectionState === 'host-offline' && effectivePage && (
           <div className="live-offline-banner">Värden är offline — visar senaste kända data</div>
         )}

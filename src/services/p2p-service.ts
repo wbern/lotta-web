@@ -287,6 +287,7 @@ export class P2PService {
   onRpcResponse: ((response: RpcResponse) => void) | null = null
   onDataChanged: (() => void) | null = null
   onPeerToken: ((peerId: string, token: string) => void) | null = null
+  onHostRefreshing: ((refreshing: boolean) => void) | null = null
   onDiagnosticEvent: ((entry: DiagnosticEntry) => void) | null = null
   private diagnosticLog: DiagnosticEntry[] = []
   private peers: Map<string, P2PPeer> = new Map()
@@ -302,6 +303,7 @@ export class P2PService {
   private _sendRpcRequest: ActionSender<RpcRequest> | null = null
   private _sendRpcResponse: ActionSender<RpcResponse> | null = null
   private _sendDataChanged: ActionSender<{ ts: number }> | null = null
+  private _sendHostRefreshing: ActionSender<{ ts: number }> | null = null
   private _sendHeartbeat: ActionSender<HeartbeatMessage> | null = null
   private _reconnectAttempts = 0
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null
@@ -360,6 +362,7 @@ export class P2PService {
     this._sendRpcRequest = null
     this._sendRpcResponse = null
     this._sendDataChanged = null
+    this._sendHostRefreshing = null
     this._sendHeartbeat = null
     this.roomId = null
     this.clearHeartbeatTimers()
@@ -426,6 +429,10 @@ export class P2PService {
 
   broadcastDataChanged(): void {
     this._sendDataChanged?.({ ts: Date.now() }, null)
+  }
+
+  broadcastHostRefreshing(): void {
+    this._sendHostRefreshing?.({ ts: Date.now() }, null)
   }
 
   kickPeer(peerId: string, reason?: string): void {
@@ -646,6 +653,7 @@ export class P2PService {
     this._sendRpcRequest = null
     this._sendRpcResponse = null
     this._sendDataChanged = null
+    this._sendHostRefreshing = null
     this._sendHeartbeat = null
     this.peers.clear()
     this.onPeersChange?.()
@@ -735,6 +743,7 @@ export class P2PService {
         this.hostRefreshPeerId = null
         this.hostRefreshHostId = null
         this.onPeersChange?.()
+        this.onHostRefreshing?.(false)
       }
 
       // Organizer validates referee token
@@ -876,6 +885,16 @@ export class P2PService {
       this.onDataChanged?.()
     })
 
+    // Host-refreshing: organizer broadcasts on pagehide, viewers show a friendly hint
+    const [sendHostRefreshing, receiveHostRefreshing] = this.room.makeAction<{ ts: number }>(
+      'host-refreshing',
+    )
+    this._sendHostRefreshing = sendHostRefreshing
+    receiveHostRefreshing(() => {
+      this.logDiagnostic('Host sent refresh hint')
+      this.onHostRefreshing?.(true)
+    })
+
     // Kick: organizer sends to specific peer, that peer listens
     const [sendPeerKick, receivePeerKick] = this.room.makeAction<PeerKickMessage>('peer-kick')
     this._sendPeerKick = sendPeerKick
@@ -903,6 +922,7 @@ export class P2PService {
         this._reconnectAttempts = 0
         this.clearReconnectTimer()
         this.resetHeartbeatTimeout()
+        this.onHostRefreshing?.(false)
       })
       // Start timeout immediately — if no heartbeat arrives within 45s, host is offline
       this.resetHeartbeatTimeout()
