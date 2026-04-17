@@ -122,7 +122,7 @@ export function ClientOverlay() {
 
       {/* Host-refreshing hint */}
       {store.hostRefreshing && !isReconnecting && (
-        <div className="client-announcement">
+        <div className="client-refreshing-banner">
           <span>{'Värden laddar om\u2026'}</span>
         </div>
       )}

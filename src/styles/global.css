@@ -1695,6 +1695,32 @@ button.btn-danger {
   border-bottom: 1px solid var(--color-banner-warning-border);
 }
 
+.live-refreshing-banner {
+  background: var(--color-banner-info-bg, var(--color-primary));
+  color: var(--color-banner-info-text, var(--color-text-on-primary));
+  padding: 8px 16px;
+  text-align: center;
+  font-size: var(--font-size-small);
+  border-bottom: 1px solid var(--color-banner-info-border, transparent);
+}
+
+.client-refreshing-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  background: var(--color-banner-info-bg, var(--color-primary));
+  color: var(--color-banner-info-text, var(--color-text-on-primary));
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  box-shadow: 0 2px 8px var(--color-shadow);
+}
+
 @keyframes pulse {
   0%,
   100% {

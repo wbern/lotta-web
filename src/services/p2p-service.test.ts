@@ -918,6 +918,22 @@ describe('P2PService', () => {
       expect(reboundLog).toBe(true)
     })
 
+    it('fires onHostRefreshing(false) when rebind succeeds', async () => {
+      const { mockRoom, service } = await setupViewerWithHost('host-uuid-rb2')
+      const calls: boolean[] = []
+      service.onHostRefreshing = (v) => calls.push(v)
+
+      mockRoom._simulatePeerLeave('host-peer-1')
+      mockRoom._simulatePeerJoin('host-peer-2')
+      mockRoom._simulateReceive(
+        'role-announce',
+        { role: 'organizer', hostId: 'host-uuid-rb2' },
+        'host-peer-2',
+      )
+
+      expect(calls).toEqual([false])
+    })
+
     it('falls through to host-offline after grace expires without rebind', async () => {
       const { mockRoom, service } = await setupViewerWithHost()
       mockRoom._simulatePeerLeave('host-peer-1')
@@ -973,8 +989,25 @@ describe('P2PService', () => {
       service.joinRoom('test-room')
       await flush()
 
+      mockRoom._simulatePeerJoin('host-peer')
+      mockRoom._simulateReceive('role-announce', { role: 'organizer' }, 'host-peer')
       mockRoom._simulateReceive('host-refreshing', { ts: Date.now() }, 'host-peer')
       expect(calls).toEqual([true])
+    })
+
+    it('ignores host-refreshing from non-organizer peers', async () => {
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('viewer')
+      const calls: boolean[] = []
+      service.onHostRefreshing = (v) => calls.push(v)
+      service.joinRoom('test-room')
+      await flush()
+
+      // Peer joins as viewer (default role from addPeer)
+      mockRoom._simulatePeerJoin('viewer-peer')
+      mockRoom._simulateReceive('host-refreshing', { ts: Date.now() }, 'viewer-peer')
+      expect(calls).toEqual([])
     })
 
     it('viewer fires onHostRefreshing(false) when heartbeat arrives after hint', async () => {
@@ -987,6 +1020,8 @@ describe('P2PService', () => {
       service.joinRoom('test-room')
       await flush()
 
+      mockRoom._simulatePeerJoin('host-peer')
+      mockRoom._simulateReceive('role-announce', { role: 'organizer' }, 'host-peer')
       mockRoom._simulateReceive('host-refreshing', { ts: Date.now() }, 'host-peer')
       mockRoom._simulateReceive('heartbeat', { ts: Date.now() }, 'host-peer')
       expect(calls).toEqual([true, false])

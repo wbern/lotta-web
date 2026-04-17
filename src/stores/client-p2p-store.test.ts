@@ -14,6 +14,7 @@ import {
   incrementUnread,
   resetClientStore,
   setAnnouncement,
+  setHostRefreshing,
   setKicked,
   setPeerCount,
   toggleChat,
@@ -189,6 +190,14 @@ describe('client-p2p-store', () => {
       expect(state.kicked).toBe(false)
       expect(state.announcement).toBeNull()
       expect(chatRateLimitMap.size).toBe(0)
+    })
+
+    it('resets hostRefreshing to false', () => {
+      setHostRefreshing(true)
+      expect(getClientP2PState().hostRefreshing).toBe(true)
+
+      resetClientStore()
+      expect(getClientP2PState().hostRefreshing).toBe(false)
     })
   })
 

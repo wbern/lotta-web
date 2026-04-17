@@ -628,7 +628,7 @@ function LivePageInner({
 
       <main className="live-content">
         {hostRefreshing && connectionState === 'connected' && (
-          <div className="live-offline-banner">Värden laddar om\u2026</div>
+          <div className="live-refreshing-banner">Värden laddar om\u2026</div>
         )}
         {connectionState === 'host-offline' && effectivePage && (
           <div className="live-offline-banner">Värden är offline — visar senaste kända data</div>

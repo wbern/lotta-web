@@ -890,7 +890,9 @@ export class P2PService {
       'host-refreshing',
     )
     this._sendHostRefreshing = sendHostRefreshing
-    receiveHostRefreshing(() => {
+    receiveHostRefreshing((_data: { ts: number }, peerId: string) => {
+      const peer = this.peers.get(peerId)
+      if (peer?.role !== 'organizer') return
       this.logDiagnostic('Host sent refresh hint')
       this.onHostRefreshing?.(true)
     })
