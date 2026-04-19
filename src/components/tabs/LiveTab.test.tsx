@@ -532,7 +532,7 @@ describe('LiveTab', () => {
   })
 
   it('authorizes a peer presenting a live grant token with the grant preset permissions', async () => {
-    const { setPeerPermissions, createFullPermissions } = await import(
+    const { setPeerPermissions, createViewPermissions } = await import(
       '../../api/p2p-data-provider'
     )
     const mockSet = vi.mocked(setPeerPermissions)
@@ -557,7 +557,11 @@ describe('LiveTab', () => {
       mockOnPeerToken?.('peer-abc', token)
     })
 
-    expect(mockSet).toHaveBeenCalledWith('peer-abc', createFullPermissions())
+    expect(mockSet).toHaveBeenCalledWith('peer-abc', {
+      ...createViewPermissions(),
+      'results.set': true,
+      'commands.setResult': true,
+    })
   })
 
   it('stops authorizing peers presenting a revoked grant token', async () => {
@@ -772,7 +776,7 @@ describe('LiveTab', () => {
   })
 
   it('repopulates peer authorization for restored grants after resuming', async () => {
-    const { setPeerPermissions, createFullPermissions } = await import(
+    const { setPeerPermissions, createViewPermissions } = await import(
       '../../api/p2p-data-provider'
     )
     const mockSet = vi.mocked(setPeerPermissions)
@@ -803,7 +807,11 @@ describe('LiveTab', () => {
       mockOnPeerToken?.('peer-after-restore', token)
     })
 
-    expect(mockSet).toHaveBeenCalledWith('peer-after-restore', createFullPermissions())
+    expect(mockSet).toHaveBeenCalledWith('peer-after-restore', {
+      ...createViewPermissions(),
+      'results.set': true,
+      'commands.setResult': true,
+    })
   })
 
   it('restores saved grants from sessionStorage when resuming a live session', () => {
@@ -858,6 +866,82 @@ describe('LiveTab', () => {
 
     const perms = mockSet.mock.calls[0][1] as Record<string, boolean | undefined>
     expect(perms['rounds.pairNext']).toBe(true)
+  })
+
+  async function grantWithCheckbox(testId: string, peerId: string) {
+    const { setPeerPermissions } = await import('../../api/p2p-data-provider')
+    const mockSet = vi.mocked(setPeerPermissions)
+
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+
+    fireEvent.change(screen.getByTestId('grant-label-input'), {
+      target: { value: 'Tester' },
+    })
+    fireEvent.click(screen.getByTestId(testId))
+    fireEvent.click(screen.getByTestId('grant-submit'))
+
+    const row = screen
+      .getByTestId('live-tab-grants-panel')
+      .querySelector('[data-testid^="grant-row-"]') as HTMLElement
+    const qr = row.querySelector('[data-testid="qr-code"]') as HTMLElement
+    const token = new URL(qr.textContent!).searchParams.get('token')!
+
+    mockSet.mockClear()
+    act(() => {
+      mockOnPeerToken?.(peerId, token)
+    })
+
+    return mockSet.mock.calls[0][1] as Record<string, boolean | undefined>
+  }
+
+  it('edit-roster checkbox grants tournamentPlayers write perms', async () => {
+    const perms = await grantWithCheckbox('grant-perm-edit-roster', 'peer-roster')
+    expect(perms['tournamentPlayers.add']).toBe(true)
+    expect(perms['tournamentPlayers.addMany']).toBe(true)
+    expect(perms['tournamentPlayers.update']).toBe(true)
+    expect(perms['tournamentPlayers.remove']).toBe(true)
+    expect(perms['tournamentPlayers.removeMany']).toBe(true)
+  })
+
+  it('edit-clubs checkbox grants clubs write perms', async () => {
+    const perms = await grantWithCheckbox('grant-perm-edit-clubs', 'peer-clubs')
+    expect(perms['clubs.add']).toBe(true)
+    expect(perms['clubs.rename']).toBe(true)
+    expect(perms['clubs.delete']).toBe(true)
+  })
+
+  it('edit-pool checkbox grants poolPlayers write perms', async () => {
+    const perms = await grantWithCheckbox('grant-perm-edit-pool', 'peer-pool')
+    expect(perms['poolPlayers.list']).toBe(true)
+    expect(perms['poolPlayers.add']).toBe(true)
+    expect(perms['poolPlayers.update']).toBe(true)
+    expect(perms['poolPlayers.delete']).toBe(true)
+    expect(perms['poolPlayers.deleteMany']).toBe(true)
+  })
+
+  it('edit-settings checkbox grants settings.update perm', async () => {
+    const perms = await grantWithCheckbox('grant-perm-edit-settings', 'peer-settings')
+    expect(perms['settings.update']).toBe(true)
+  })
+
+  it('undo checkbox grants undo perms', async () => {
+    const perms = await grantWithCheckbox('grant-perm-undo', 'peer-undo')
+    expect(perms['undo.perform']).toBe(true)
+    expect(perms['undo.redo']).toBe(true)
+    expect(perms['undo.restoreToPoint']).toBe(true)
+  })
+
+  it('organizer-scope checkboxes default to unchecked', () => {
+    renderLiveTab()
+    fireEvent.click(screen.getByText('Starta Live'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+
+    expect((screen.getByTestId('grant-perm-edit-clubs') as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByTestId('grant-perm-edit-pool') as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByTestId('grant-perm-edit-settings') as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByTestId('grant-perm-undo') as HTMLInputElement).checked).toBe(false)
   })
 
   it('shows Domarstyrning sub-tab when hosting and switching to it does not destroy session', () => {

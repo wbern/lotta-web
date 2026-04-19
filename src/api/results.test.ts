@@ -197,7 +197,7 @@ describe('client path with expectedPrior', () => {
       resultDisplay: '1-0',
     })
 
-    spy = vi.spyOn(activeProviderModule, 'getActiveDataProvider').mockReturnValue({
+    spy = vi.spyOn(activeProviderModule, 'getDataProvider').mockReturnValue({
       results: { set: mockResultsSet },
       rounds: { get: vi.fn() },
     } as never)

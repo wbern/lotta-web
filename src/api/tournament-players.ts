@@ -1,14 +1,12 @@
 import type { PlayerDto } from '../types/api'
-import { getActiveDataProvider } from './active-provider'
+import { getDataProvider } from './active-provider'
 import { getDatabaseService, withSave } from './service-provider'
 
-export async function listTournamentPlayers(tournamentId: number): Promise<PlayerDto[]> {
-  const p = getActiveDataProvider()
-  if (p) return p.tournamentPlayers.list(tournamentId)
+export async function listTournamentPlayersLocal(tournamentId: number): Promise<PlayerDto[]> {
   return getDatabaseService().tournamentPlayers.list(tournamentId)
 }
 
-export async function addTournamentPlayer(
+export async function addTournamentPlayerLocal(
   tournamentId: number,
   dto: Partial<PlayerDto>,
 ): Promise<PlayerDto> {
@@ -19,7 +17,7 @@ export async function addTournamentPlayer(
   )
 }
 
-export async function addTournamentPlayers(
+export async function addTournamentPlayersLocal(
   tournamentId: number,
   dtos: Partial<PlayerDto>[],
 ): Promise<PlayerDto[]> {
@@ -34,7 +32,7 @@ export async function addTournamentPlayers(
   )
 }
 
-export async function updateTournamentPlayer(
+export async function updateTournamentPlayerLocal(
   _tournamentId: number,
   playerId: number,
   dto: Partial<PlayerDto>,
@@ -46,7 +44,7 @@ export async function updateTournamentPlayer(
   )
 }
 
-export async function removeTournamentPlayer(
+export async function removeTournamentPlayerLocal(
   tournamentId: number,
   playerId: number,
 ): Promise<void> {
@@ -61,7 +59,7 @@ export async function removeTournamentPlayer(
   )
 }
 
-export async function removeTournamentPlayers(
+export async function removeTournamentPlayersLocal(
   tournamentId: number,
   playerIds: number[],
 ): Promise<void> {
@@ -77,4 +75,44 @@ export async function removeTournamentPlayers(
     'Ta bort turneringsspelare',
     detail,
   )
+}
+
+export async function listTournamentPlayers(tournamentId: number): Promise<PlayerDto[]> {
+  return getDataProvider().tournamentPlayers.list(tournamentId)
+}
+
+export async function addTournamentPlayer(
+  tournamentId: number,
+  dto: Partial<PlayerDto>,
+): Promise<PlayerDto> {
+  return getDataProvider().tournamentPlayers.add(tournamentId, dto)
+}
+
+export async function addTournamentPlayers(
+  tournamentId: number,
+  dtos: Partial<PlayerDto>[],
+): Promise<PlayerDto[]> {
+  return getDataProvider().tournamentPlayers.addMany(tournamentId, dtos)
+}
+
+export async function updateTournamentPlayer(
+  tournamentId: number,
+  playerId: number,
+  dto: Partial<PlayerDto>,
+): Promise<PlayerDto> {
+  return getDataProvider().tournamentPlayers.update(tournamentId, playerId, dto)
+}
+
+export async function removeTournamentPlayer(
+  tournamentId: number,
+  playerId: number,
+): Promise<void> {
+  return getDataProvider().tournamentPlayers.remove(tournamentId, playerId)
+}
+
+export async function removeTournamentPlayers(
+  tournamentId: number,
+  playerIds: number[],
+): Promise<void> {
+  return getDataProvider().tournamentPlayers.removeMany(tournamentId, playerIds)
 }

@@ -98,6 +98,11 @@ interface GrantPermFlags {
   viewStandings: boolean
   pairNext: boolean
   unpairLast: boolean
+  editRoster: boolean
+  editClubs: boolean
+  editPool: boolean
+  editSettings: boolean
+  undo: boolean
 }
 
 const DEFAULT_GRANT_PERM_FLAGS: GrantPermFlags = {
@@ -105,6 +110,11 @@ const DEFAULT_GRANT_PERM_FLAGS: GrantPermFlags = {
   viewStandings: true,
   pairNext: false,
   unpairLast: false,
+  editRoster: false,
+  editClubs: false,
+  editPool: false,
+  editSettings: false,
+  undo: false,
 }
 
 function buildGrantPermissions(flags: GrantPermFlags): RpcPermissions {
@@ -114,6 +124,33 @@ function buildGrantPermissions(flags: GrantPermFlags): RpcPermissions {
     ...(flags.viewStandings ? { 'standings.get': true } : {}),
     ...(flags.pairNext ? { 'rounds.pairNext': true } : {}),
     ...(flags.unpairLast ? { 'rounds.unpairLast': true } : {}),
+    ...(flags.editRoster
+      ? {
+          'tournamentPlayers.add': true,
+          'tournamentPlayers.addMany': true,
+          'tournamentPlayers.update': true,
+          'tournamentPlayers.remove': true,
+          'tournamentPlayers.removeMany': true,
+        }
+      : {}),
+    ...(flags.editClubs ? { 'clubs.add': true, 'clubs.rename': true, 'clubs.delete': true } : {}),
+    ...(flags.editPool
+      ? {
+          'poolPlayers.list': true,
+          'poolPlayers.add': true,
+          'poolPlayers.update': true,
+          'poolPlayers.delete': true,
+          'poolPlayers.deleteMany': true,
+        }
+      : {}),
+    ...(flags.editSettings ? { 'settings.update': true } : {}),
+    ...(flags.undo
+      ? {
+          'undo.perform': true,
+          'undo.redo': true,
+          'undo.restoreToPoint': true,
+        }
+      : {}),
   }
 }
 
@@ -159,6 +196,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
   const [grantPermFlags, setGrantPermFlags] = useState<GrantPermFlags>(DEFAULT_GRANT_PERM_FLAGS)
   const [clubCodeSecret, setClubCodeSecret] = useState<string | null>(null)
   const tokenPermissionsRef = useRef(new Map<string, RpcPermissions>())
+  const tokenLabelsRef = useRef(new Map<string, string>())
   const peerTokensRef = useRef(new Map<string, string>())
   const allClubEntriesRef = useRef<string[]>([])
   const [clubFilterEnabled, setClubFilterEnabled] = useState(false)
@@ -248,11 +286,14 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
 
     // Set up token → permissions mapping
     const tokenPerms = tokenPermissionsRef.current
+    const tokenLabels = tokenLabelsRef.current
     tokenPerms.clear()
+    tokenLabels.clear()
     tokenPerms.set(token, createFullPermissions())
     tokenPerms.set(vToken, createViewPermissions())
     for (const grant of restoredGrants) {
       tokenPerms.set(grant.token, grant.permissions)
+      tokenLabels.set(grant.token, grant.label)
     }
 
     // When a peer presents a token, assign per-peer permissions
@@ -342,6 +383,10 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
       },
       clubCodeSecret: secret,
       getAllClubEntries: () => allClubEntriesRef.current,
+      getPeerLabel: (peerId) => {
+        const t = peerTokensRef.current.get(peerId)
+        return t ? tokenLabelsRef.current.get(t) : undefined
+      },
     })
 
     mutationUnsubRef.current = subscribeMutationBroadcast(queryClient, () =>
@@ -366,6 +411,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     clearSession()
     clearAllPeerPermissions()
     tokenPermissionsRef.current.clear()
+    tokenLabelsRef.current.clear()
     peerTokensRef.current.clear()
     setLiveStatus(null)
     setIsHosting(false)
@@ -531,6 +577,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     const permissions = buildGrantPermissions(grantPermFlags)
     const grant = createGrant({ label: trimmed, permissions })
     tokenPermissionsRef.current.set(grant.token, grant.permissions)
+    tokenLabelsRef.current.set(grant.token, grant.label)
     setGrants((prev) => {
       const next = [...prev, grant]
       persistGrants(next)
@@ -545,6 +592,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
         const target = prev.find((g) => g.id === id)
         if (target) {
           tokenPermissionsRef.current.delete(target.token)
+          tokenLabelsRef.current.delete(target.token)
           const peerTokens = peerTokensRef.current
           for (const [peerId, peerToken] of peerTokens.entries()) {
             if (peerToken === target.token) {
@@ -948,15 +996,16 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                   addGrant()
                 }}
               >
-                <label className="live-tab-grant-label">
-                  Namn
+                <div className="form-group live-tab-grant-label">
+                  <label htmlFor="grant-label-input">Namn</label>
                   <input
+                    id="grant-label-input"
                     type="text"
                     data-testid="grant-label-input"
                     value={grantLabel}
                     onChange={(e) => setGrantLabel(e.target.value)}
                   />
-                </label>
+                </div>
                 <fieldset className="live-tab-grant-perms">
                   <legend>Rättigheter</legend>
                   <label>
@@ -1014,6 +1063,76 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                       }
                     />
                     Ångra senaste lottning
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      data-testid="grant-perm-edit-roster"
+                      checked={grantPermFlags.editRoster}
+                      onChange={(e) =>
+                        setGrantPermFlags((prev) => ({
+                          ...prev,
+                          editRoster: e.target.checked,
+                        }))
+                      }
+                    />
+                    Redigera spelare
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      data-testid="grant-perm-edit-clubs"
+                      checked={grantPermFlags.editClubs}
+                      onChange={(e) =>
+                        setGrantPermFlags((prev) => ({
+                          ...prev,
+                          editClubs: e.target.checked,
+                        }))
+                      }
+                    />
+                    Redigera klubbar
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      data-testid="grant-perm-edit-pool"
+                      checked={grantPermFlags.editPool}
+                      onChange={(e) =>
+                        setGrantPermFlags((prev) => ({
+                          ...prev,
+                          editPool: e.target.checked,
+                        }))
+                      }
+                    />
+                    Redigera spelarpool
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      data-testid="grant-perm-edit-settings"
+                      checked={grantPermFlags.editSettings}
+                      onChange={(e) =>
+                        setGrantPermFlags((prev) => ({
+                          ...prev,
+                          editSettings: e.target.checked,
+                        }))
+                      }
+                    />
+                    Ändra inställningar
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      data-testid="grant-perm-undo"
+                      checked={grantPermFlags.undo}
+                      onChange={(e) =>
+                        setGrantPermFlags((prev) => ({
+                          ...prev,
+                          undo: e.target.checked,
+                        }))
+                      }
+                    />
+                    Ångra/gör om
                   </label>
                 </fieldset>
                 <div className="live-tab-grant-form-actions">

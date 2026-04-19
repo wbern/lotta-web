@@ -10,22 +10,18 @@ import {
 } from '../domain/pairing-runner'
 import { getPlayerRating } from '../domain/ratings'
 import type { RoundDto } from '../types/api'
-import { getActiveDataProvider } from './active-provider'
+import { getDataProvider } from './active-provider'
 import { broadcastAfterPairing } from './p2p-broadcast'
 import { getPairingExecutor } from './pairing-executor-provider'
 import { getDatabaseService, withSave } from './service-provider'
 
 const PAIRING_TIMEOUT_MS = 10_000
 
-export async function listRounds(tournamentId: number): Promise<RoundDto[]> {
-  const p = getActiveDataProvider()
-  if (p) return p.rounds.list(tournamentId)
+export async function listRoundsLocal(tournamentId: number): Promise<RoundDto[]> {
   return getDatabaseService().games.listRounds(tournamentId)
 }
 
-export async function getRound(tournamentId: number, roundNr: number): Promise<RoundDto> {
-  const p = getActiveDataProvider()
-  if (p) return p.rounds.get(tournamentId, roundNr)
+export async function getRoundLocal(tournamentId: number, roundNr: number): Promise<RoundDto> {
   const result = getDatabaseService().games.getRound(tournamentId, roundNr)
   if (!result) throw new Error(`Round ${roundNr} not found`)
   return result
@@ -81,10 +77,7 @@ function sortByScoreAndLotNr(players: PairingPlayerInfo[]): void {
 // Safe because pairing is triggered by a single TD per client; there's no local
 // UI path to mutate the tournament mid-await. P2P replication only applies
 // inbound changes between explicit user actions, not during this function.
-export async function pairNextRound(tournamentId: number): Promise<RoundDto> {
-  const p = getActiveDataProvider()
-  if (p) return p.rounds.pairNext(tournamentId)
-
+export async function pairNextRoundLocal(tournamentId: number): Promise<RoundDto> {
   const db = getDatabaseService()
   const tournament = db.tournaments.get(tournamentId)
   if (!tournament) throw new Error(`Tournament ${tournamentId} not found`)
@@ -406,9 +399,7 @@ function pairBerger(
   return db.games.getRound(tournamentId, 1)!
 }
 
-export async function unpairLastRound(tournamentId: number): Promise<void> {
-  const p = getActiveDataProvider()
-  if (p) return p.rounds.unpairLast(tournamentId)
+export async function unpairLastRoundLocal(tournamentId: number): Promise<void> {
   const db = getDatabaseService()
   const rounds = db.games.listRounds(tournamentId)
   const lastRoundNr = rounds.length > 0 ? rounds[rounds.length - 1].roundNr : 0
@@ -429,4 +420,20 @@ export async function unpairLastRound(tournamentId: number): Promise<void> {
     'Ångra lottning',
     `Rond ${lastRoundNr}`,
   )
+}
+
+export async function listRounds(tournamentId: number): Promise<RoundDto[]> {
+  return getDataProvider().rounds.list(tournamentId)
+}
+
+export async function getRound(tournamentId: number, roundNr: number): Promise<RoundDto> {
+  return getDataProvider().rounds.get(tournamentId, roundNr)
+}
+
+export async function pairNextRound(tournamentId: number): Promise<RoundDto> {
+  return getDataProvider().rounds.pairNext(tournamentId)
+}
+
+export async function unpairLastRound(tournamentId: number): Promise<void> {
+  return getDataProvider().rounds.unpairLast(tournamentId)
 }

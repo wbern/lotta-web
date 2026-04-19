@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DatabaseService } from '../db/database-service.ts'
+import { setLocalProviderFactory } from './active-provider.ts'
 import { addClub, deleteClub, listClubs, renameClub } from './clubs.ts'
+import { getLocalProvider } from './local-data-provider.ts'
 import { setDatabaseService } from './service-provider.ts'
 
 describe('clubs API (local)', () => {
@@ -9,6 +11,7 @@ describe('clubs API (local)', () => {
   beforeEach(async () => {
     service = await DatabaseService.create()
     setDatabaseService(service)
+    setLocalProviderFactory(() => getLocalProvider())
   })
 
   afterEach(() => {

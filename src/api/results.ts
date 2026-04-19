@@ -1,32 +1,15 @@
 import type { GameDto, SetResultRequest } from '../types/api'
-import { getActiveDataProvider } from './active-provider'
+import { getActiveDataProvider, getDataProvider } from './active-provider'
 import { broadcastAfterResultChange } from './p2p-broadcast'
 import { createCommandDeps, handleSetResult, ResultConflictError } from './result-command'
 import { getDatabaseService, withSave } from './service-provider'
 
-export async function setResult(
+export async function setResultLocal(
   tournamentId: number,
   roundNr: number,
   boardNr: number,
   req: SetResultRequest,
 ): Promise<GameDto> {
-  const p = getActiveDataProvider()
-  if (p) {
-    if (req.expectedPrior != null && p.commands) {
-      const outcome = await p.commands.setResult({
-        tournamentId,
-        roundNr,
-        boardNr,
-        resultType: req.resultType,
-        expectedPrior: req.expectedPrior,
-      })
-      if (outcome.status === 'conflict') throw new ResultConflictError(outcome.current)
-      const round = await p.rounds.get(tournamentId, roundNr)
-      return round.games.find((g) => g.boardNr === boardNr)!
-    }
-    return p.results.set(tournamentId, roundNr, boardNr, req)
-  }
-
   if (req.expectedPrior != null) {
     const deps = createCommandDeps({
       rounds: { get: (tid, rn) => Promise.resolve(getDatabaseService().games.getRound(tid, rn)!) },
@@ -79,7 +62,7 @@ export async function setResult(
   return result
 }
 
-export async function deleteGame(
+export async function deleteGameLocal(
   tournamentId: number,
   roundNr: number,
   boardNr: number,
@@ -91,7 +74,7 @@ export async function deleteGame(
   )
 }
 
-export async function deleteGames(
+export async function deleteGamesLocal(
   tournamentId: number,
   roundNr: number,
   boardNrs: number[],
@@ -105,7 +88,7 @@ export async function deleteGames(
   )
 }
 
-export async function addGame(
+export async function addGameLocal(
   tournamentId: number,
   roundNr: number,
   whitePlayerId: number | null,
@@ -122,7 +105,7 @@ export async function addGame(
   )
 }
 
-export async function updateGame(
+export async function updateGameLocal(
   tournamentId: number,
   roundNr: number,
   boardNr: number,
@@ -140,5 +123,70 @@ export async function updateGame(
       ),
     'Uppdatera bord',
     `Bord ${boardNr}`,
+  )
+}
+
+export async function setResult(
+  tournamentId: number,
+  roundNr: number,
+  boardNr: number,
+  req: SetResultRequest,
+): Promise<GameDto> {
+  // If a remote (P2P) provider is active and supports the setResult command
+  // protocol, route through the command path to get conflict detection.
+  const active = getActiveDataProvider()
+  if (active && req.expectedPrior != null && active.commands) {
+    const outcome = await active.commands.setResult({
+      tournamentId,
+      roundNr,
+      boardNr,
+      resultType: req.resultType,
+      expectedPrior: req.expectedPrior,
+    })
+    if (outcome.status === 'conflict') throw new ResultConflictError(outcome.current)
+    const round = await active.rounds.get(tournamentId, roundNr)
+    return round.games.find((g) => g.boardNr === boardNr)!
+  }
+  return getDataProvider().results.set(tournamentId, roundNr, boardNr, req)
+}
+
+export async function deleteGame(
+  tournamentId: number,
+  roundNr: number,
+  boardNr: number,
+): Promise<void> {
+  return getDataProvider().results.deleteGame(tournamentId, roundNr, boardNr)
+}
+
+export async function deleteGames(
+  tournamentId: number,
+  roundNr: number,
+  boardNrs: number[],
+): Promise<void> {
+  return getDataProvider().results.deleteGames(tournamentId, roundNr, boardNrs)
+}
+
+export async function addGame(
+  tournamentId: number,
+  roundNr: number,
+  whitePlayerId: number | null,
+  blackPlayerId: number | null,
+): Promise<void> {
+  return getDataProvider().results.addGame(tournamentId, roundNr, whitePlayerId, blackPlayerId)
+}
+
+export async function updateGame(
+  tournamentId: number,
+  roundNr: number,
+  boardNr: number,
+  whitePlayerId: number | null,
+  blackPlayerId: number | null,
+): Promise<void> {
+  return getDataProvider().results.updateGame(
+    tournamentId,
+    roundNr,
+    boardNr,
+    whitePlayerId,
+    blackPlayerId,
   )
 }

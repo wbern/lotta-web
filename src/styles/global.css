@@ -2963,17 +2963,8 @@ button.btn-danger {
 }
 
 .live-tab-grant-label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-weight: 600;
-  font-size: calc(var(--font-size-base) * 0.9);
-  color: var(--color-text-muted);
-}
-
-.live-tab-grant-label input {
-  font-weight: 400;
-  color: var(--color-text);
+  margin-bottom: 0;
+  max-width: 320px;
 }
 
 .live-tab-grant-perms {

@@ -18,11 +18,14 @@ export async function dispatch(
   args: unknown[],
 ): Promise<unknown> {
   const [domain, fn] = method.split('.')
-  const target = provider[domain as keyof DataProvider]
-  if (!target || typeof (target as Record<string, unknown>)[fn] !== 'function') {
+  if (!Object.hasOwn(provider, domain)) {
     throw new Error(`Unknown method: ${method}`)
   }
-  return (target as Record<string, (...a: unknown[]) => unknown>)[fn](...args)
+  const target = provider[domain as keyof DataProvider] as Record<string, unknown>
+  if (!Object.hasOwn(target, fn) || typeof target[fn] !== 'function') {
+    throw new Error(`Unknown method: ${method}`)
+  }
+  return (target[fn] as (...a: unknown[]) => unknown)(...args)
 }
 
 export function createRpcClient(

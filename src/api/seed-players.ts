@@ -166,11 +166,15 @@ function randomRating(): number {
   return Math.round(base + r * range)
 }
 
-function generateFakePlayer(clubIndex: number): Partial<PlayerDto> {
+function generateFakePlayer(
+  clubIndex: number,
+  firstName: string,
+  lastName: string,
+): Partial<PlayerDto> {
   const rating = randomRating()
   return {
-    firstName: pickRandom(SWEDISH_FIRST_NAMES),
-    lastName: pickRandom(SWEDISH_LAST_NAMES),
+    firstName,
+    lastName,
     clubIndex,
     ratingN: rating,
     ratingI: 0,
@@ -188,15 +192,35 @@ function generateFakePlayer(clubIndex: number): Partial<PlayerDto> {
   }
 }
 
+const MAX_UNIQUE_NAMES = SWEDISH_FIRST_NAMES.length * SWEDISH_LAST_NAMES.length
+
+function generateUniqueNames(count: number): Array<{ firstName: string; lastName: string }> {
+  // The DB has UNIQUE(lastname, firstname, clubindex); pre-dedup to avoid INSERT conflicts.
+  const keys = new Set<string>()
+  const names: Array<{ firstName: string; lastName: string }> = []
+  while (names.length < count) {
+    const firstName = pickRandom(SWEDISH_FIRST_NAMES)
+    const lastName = pickRandom(SWEDISH_LAST_NAMES)
+    const key = `${firstName}|${lastName}`
+    if (keys.has(key)) continue
+    keys.add(key)
+    names.push({ firstName, lastName })
+  }
+  return names
+}
+
 export function generateFakePlayers(
   count: number,
   clubIds: number[],
   playerRepo: AvailablePlayerRepository,
 ): PlayerDto[] {
+  const capped = Math.min(count, MAX_UNIQUE_NAMES)
+  const names = generateUniqueNames(capped)
   const players: PlayerDto[] = []
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < capped; i++) {
     const clubIndex = clubIds.length > 0 ? clubIds[i % clubIds.length] : 0
-    players.push(playerRepo.create(generateFakePlayer(clubIndex)))
+    const { firstName, lastName } = names[i]
+    players.push(playerRepo.create(generateFakePlayer(clubIndex, firstName, lastName)))
   }
   return players
 }

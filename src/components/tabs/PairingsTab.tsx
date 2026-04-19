@@ -189,9 +189,7 @@ export function PairingsTab({
         if (idx >= 0 && idx < games.length - 1) {
           const nextBoardNr = games[idx + 1].boardNr
           selectBoard(nextBoardNr)
-          const nextRow = document.querySelector<HTMLElement>(
-            `tr[data-board-nr="${nextBoardNr}"]`,
-          )
+          const nextRow = document.querySelector<HTMLElement>(`tr[data-board-nr="${nextBoardNr}"]`)
           nextRow?.focus()
         }
       }

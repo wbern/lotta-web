@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateClubCodeMap } from '../domain/club-codes'
-import type { DataProvider } from './data-provider'
 import {
   clearAllPeerPermissions,
   clearPeerPermissions,
@@ -11,6 +10,7 @@ import {
   setPeerPermissions,
   startP2pRpcServer,
 } from './p2p-data-provider'
+import { createMockProvider } from './test-mock-provider'
 
 function createMockService() {
   let rpcResponseHandler: ((res: { id: number; result?: unknown; error?: string }) => void) | null =
@@ -114,24 +114,11 @@ describe('round-trip: client + server over simulated P2P', () => {
       },
     }
 
-    const mockProvider: DataProvider = {
+    const mockProvider = createMockProvider({
       tournaments: {
-        list: vi.fn(),
-        get: vi.fn(),
         create: vi.fn().mockResolvedValue({ id: 99, name: 'Remote Tournament' }),
       },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     // Wire up server
     startP2pRpcServer(serverService, mockProvider)
@@ -182,24 +169,11 @@ describe('startP2pRpcServer', () => {
 
   it('dispatches RPC request to provider and sends response', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
+    const provider = createMockProvider({
       tournaments: {
-        list: vi.fn(),
-        get: vi.fn(),
         create: vi.fn().mockResolvedValue({ id: 1, name: 'Created' }),
       },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', { ...createFullPermissions(), 'tournaments.create': true })
@@ -220,24 +194,16 @@ describe('startP2pRpcServer', () => {
 
   it('calls onMutation after a write operation succeeds', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
+    const provider = createMockProvider({
       tournaments: {
         list: vi.fn().mockResolvedValue([]),
         get: vi.fn().mockResolvedValue({ id: 1 }),
         create: vi.fn().mockResolvedValue({ id: 1, name: 'New' }),
       },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
+      results: {
+        set: vi.fn().mockResolvedValue({}),
       },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn().mockResolvedValue({}) },
-      standings: { get: vi.fn() },
-    }
+    })
 
     const onMutation = vi.fn()
     startP2pRpcServer(service, provider, { onMutation })
@@ -262,36 +228,19 @@ describe('startP2pRpcServer', () => {
 
   it('dispatches commands.setResult through the command handler', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: {
-        list: vi.fn(),
-        get: vi.fn(),
-        create: vi.fn(),
-      },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
+    const provider = createMockProvider({
       rounds: {
-        list: vi.fn(),
         get: vi.fn().mockResolvedValue({
           roundNr: 1,
           hasAllResults: false,
           gameCount: 1,
           games: [{ boardNr: 1, resultType: 'NO_RESULT' }],
         }),
-        pairNext: vi.fn(),
-        unpairLast: vi.fn(),
       },
       results: {
         set: vi.fn().mockResolvedValue({ boardNr: 1, resultType: 'WHITE_WIN' }),
       },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createFullPermissions())
@@ -322,66 +271,40 @@ describe('startP2pRpcServer', () => {
     expect(provider.results.set).toHaveBeenCalledWith(1, 1, 1, { resultType: 'WHITE_WIN' })
   })
 
-  it('allows read methods for peers without explicit permissions (fallback)', async () => {
+  it('denies all methods for peers without explicit permissions', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
+    const provider = createMockProvider({
       tournaments: {
         list: vi.fn().mockResolvedValue([{ id: 1, name: 'Test' }]),
-        get: vi.fn(),
-        create: vi.fn(),
       },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
-    // No explicit permissions set for peer-1 — fallback allows reads
+    // No explicit permissions set for peer-1
 
     service._simulateRequest({ id: 30, method: 'tournaments.list', args: [] }, 'peer-1')
 
     await vi.waitFor(() => {
       expect(service.sendRpcResponse).toHaveBeenCalledWith(
-        { id: 30, result: [{ id: 1, name: 'Test' }] },
+        { id: 30, error: 'Permission denied: tournaments.list' },
         'peer-1',
       )
     })
+    expect(provider.tournaments.list).not.toHaveBeenCalled()
   })
 
   it('rejects commands.setResult when peer has view-only permissions', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
+    const provider = createMockProvider({
       rounds: {
-        list: vi.fn(),
         get: vi.fn().mockResolvedValue({
           roundNr: 1,
           hasAllResults: false,
           gameCount: 1,
           games: [{ boardNr: 1, resultType: 'NO_RESULT' }],
         }),
-        pairNext: vi.fn(),
-        unpairLast: vi.fn(),
       },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createViewPermissions())
@@ -414,24 +337,12 @@ describe('startP2pRpcServer', () => {
 
   it('rejects methods not in peer permissions', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
+    const provider = createMockProvider({
       tournaments: {
         list: vi.fn().mockResolvedValue([]),
-        get: vi.fn(),
         create: vi.fn().mockResolvedValue({ id: 1 }),
       },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createViewPermissions())
@@ -453,18 +364,8 @@ describe('startP2pRpcServer', () => {
 
   it('filters rounds.get games to authorized clubs and redacts opponent names for view peers', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
+    const provider = createMockProvider({
       rounds: {
-        list: vi.fn(),
         get: vi.fn().mockResolvedValue({
           roundNr: 1,
           hasAllResults: false,
@@ -538,12 +439,8 @@ describe('startP2pRpcServer', () => {
             },
           ],
         }),
-        pairNext: vi.fn(),
-        unpairLast: vi.fn(),
       },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createViewPermissions())
@@ -614,18 +511,8 @@ describe('startP2pRpcServer', () => {
 
   it('returns empty games for rounds.get to view peers with no club authorization', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
+    const provider = createMockProvider({
       rounds: {
-        list: vi.fn(),
         get: vi.fn().mockResolvedValue({
           roundNr: 1,
           hasAllResults: false,
@@ -655,12 +542,8 @@ describe('startP2pRpcServer', () => {
             },
           ],
         }),
-        pairNext: vi.fn(),
-        unpairLast: vi.fn(),
       },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createViewPermissions())
@@ -680,24 +563,15 @@ describe('startP2pRpcServer', () => {
 
   it('filters tournamentPlayers.list to authorized clubs for view peers', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+    const provider = createMockProvider({
       tournamentPlayers: {
         list: vi.fn().mockResolvedValue([
           { id: 1, firstName: 'Linnea', lastName: 'Jonsson', club: 'Club A' },
           { id: 2, firstName: 'Anna', lastName: 'Jonsson', club: 'Club B' },
           { id: 3, firstName: 'Eva', lastName: 'Andersson', club: 'Club A' },
         ]),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
       },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createViewPermissions())
@@ -721,23 +595,14 @@ describe('startP2pRpcServer', () => {
 
   it('returns empty tournamentPlayers.list to view peers with no club authorization', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+    const provider = createMockProvider({
       tournamentPlayers: {
         list: vi.fn().mockResolvedValue([
           { id: 1, firstName: 'Linnea', lastName: 'Jonsson', club: 'Club A' },
           { id: 2, firstName: 'Anna', lastName: 'Jonsson', club: 'Club B' },
         ]),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
       },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createViewPermissions())
@@ -749,22 +614,13 @@ describe('startP2pRpcServer', () => {
     })
   })
 
-  it('rejects standings.get for peers with view-only permissions', async () => {
+  it('allows standings.get for peers with view-only permissions', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
+    const provider = createMockProvider({
+      standings: {
+        get: vi.fn().mockResolvedValue([]),
       },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createViewPermissions())
@@ -772,42 +628,25 @@ describe('startP2pRpcServer', () => {
     service._simulateRequest({ id: 40, method: 'standings.get', args: [1] }, 'peer-1')
 
     await vi.waitFor(() => {
-      expect(service.sendRpcResponse).toHaveBeenCalledWith(
-        { id: 40, error: 'Permission denied: standings.get' },
-        'peer-1',
-      )
+      expect(service.sendRpcResponse).toHaveBeenCalledWith({ id: 40, result: [] }, 'peer-1')
     })
-    expect(provider.standings.get).not.toHaveBeenCalled()
   })
 
   it('allows commands.setResult for peers with full permissions', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
+    const provider = createMockProvider({
       rounds: {
-        list: vi.fn(),
         get: vi.fn().mockResolvedValue({
           roundNr: 1,
           hasAllResults: false,
           gameCount: 1,
           games: [{ boardNr: 1, resultType: 'NO_RESULT' }],
         }),
-        pairNext: vi.fn(),
-        unpairLast: vi.fn(),
       },
       results: {
         set: vi.fn().mockResolvedValue({ boardNr: 1, resultType: 'WHITE_WIN' }),
       },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createFullPermissions())
@@ -840,30 +679,16 @@ describe('startP2pRpcServer', () => {
 
   it('rejects commands.setResult after the peer permissions have been cleared', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
+    const provider = createMockProvider({
       rounds: {
-        list: vi.fn(),
         get: vi.fn().mockResolvedValue({
           roundNr: 1,
           hasAllResults: false,
           gameCount: 1,
           games: [{ boardNr: 1, resultType: 'NO_RESULT' }],
         }),
-        pairNext: vi.fn(),
-        unpairLast: vi.fn(),
       },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createFullPermissions())
@@ -897,30 +722,16 @@ describe('startP2pRpcServer', () => {
 
   it('returns conflict from commands.setResult when expectedPrior mismatches', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
+    const provider = createMockProvider({
       rounds: {
-        list: vi.fn(),
         get: vi.fn().mockResolvedValue({
           roundNr: 1,
           hasAllResults: false,
           gameCount: 1,
           games: [{ boardNr: 1, resultType: 'BLACK_WIN' }],
         }),
-        pairNext: vi.fn(),
-        unpairLast: vi.fn(),
       },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider)
     setPeerPermissions('peer-1', createFullPermissions())
@@ -953,23 +764,14 @@ describe('startP2pRpcServer', () => {
 
   it('auth.redeemClubCode authorizes the peer when code is valid', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+    const provider = createMockProvider({
       tournamentPlayers: {
         list: vi.fn().mockResolvedValue([
           { id: 1, firstName: 'Linnea', lastName: 'Jonsson', club: 'Club A' },
           { id: 2, firstName: 'Anna', lastName: 'Karlsson', club: 'Club B' },
         ]),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
       },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     const allClubs = ['Club A', 'Club B']
     const secret = 'host-session-secret-xyz'
@@ -1005,23 +807,14 @@ describe('startP2pRpcServer', () => {
 
   it('view-role peers see unfiltered data when clubFilterEnabled is false', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
+    const provider = createMockProvider({
       tournamentPlayers: {
         list: vi.fn().mockResolvedValue([
           { id: 1, firstName: 'Anna', lastName: 'S', club: 'Club A' },
           { id: 2, firstName: 'Erik', lastName: 'J', club: 'Club B' },
         ]),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
       },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    })
 
     startP2pRpcServer(service, provider, { clubFilterEnabled: false })
     setPeerPermissions('peer-1', createViewPermissions())
@@ -1044,20 +837,7 @@ describe('startP2pRpcServer', () => {
 
   it('auth.redeemClubCode accumulates clubs across multiple redemptions on the same peer', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    const provider = createMockProvider()
 
     const allClubs = ['Club A', 'Club B', 'Club C']
     const secret = 'accum-secret'
@@ -1094,20 +874,7 @@ describe('startP2pRpcServer', () => {
 
   it('auth.redeemClubCode resolves a per-club code from the code map', async () => {
     const service = createMockServerService()
-    const provider: DataProvider = {
-      tournaments: { list: vi.fn(), get: vi.fn(), create: vi.fn() },
-      tournamentPlayers: {
-        list: vi.fn(),
-        add: vi.fn(),
-        addMany: vi.fn(),
-        update: vi.fn(),
-        remove: vi.fn(),
-        removeMany: vi.fn(),
-      },
-      rounds: { list: vi.fn(), get: vi.fn(), pairNext: vi.fn(), unpairLast: vi.fn() },
-      results: { set: vi.fn() },
-      standings: { get: vi.fn() },
-    }
+    const provider = createMockProvider()
 
     const allClubs = ['Club A', 'Club B', 'Club C']
     const secret = 'map-secret'
@@ -1128,6 +895,765 @@ describe('startP2pRpcServer', () => {
     await vi.waitFor(() => {
       expect(service.sendRpcResponse).toHaveBeenCalledWith(
         { id: 80, result: { status: 'ok', clubs: ['Club B'] } },
+        'peer-1',
+      )
+    })
+  })
+})
+
+describe('view-scoped filtering across all view methods', () => {
+  beforeEach(() => {
+    clearAllPeerPermissions()
+  })
+
+  const pA = {
+    id: 1,
+    name: 'Anna Andersson',
+    club: 'Club A',
+    rating: 1500,
+    lotNr: 1,
+  }
+  const pB = {
+    id: 2,
+    name: 'Bo Berg',
+    club: 'Club B',
+    rating: 1500,
+    lotNr: 2,
+  }
+  const baseGame = {
+    resultType: 'NO_RESULT' as const,
+    whiteScore: 0,
+    blackScore: 0,
+    resultDisplay: '',
+  }
+
+  it('rounds.list filters games per round to authorized clubs and redacts opponents', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      rounds: {
+        list: vi.fn().mockResolvedValue([
+          {
+            roundNr: 1,
+            hasAllResults: false,
+            gameCount: 1,
+            games: [{ boardNr: 1, roundNr: 1, whitePlayer: pA, blackPlayer: pB, ...baseGame }],
+          },
+          {
+            roundNr: 2,
+            hasAllResults: false,
+            gameCount: 1,
+            games: [
+              {
+                boardNr: 1,
+                roundNr: 2,
+                whitePlayer: { ...pB, id: 3 },
+                blackPlayer: { ...pB, id: 4 },
+                ...baseGame,
+              },
+            ],
+          },
+        ]),
+      },
+    })
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+    setPeerAuthorizedClubs('peer-1', ['Club A'])
+
+    service._simulateRequest({ id: 200, method: 'rounds.list', args: [1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalled()
+    })
+    const response = service.sendRpcResponse.mock.calls[0][0]
+    expect(response.id).toBe(200)
+    const rounds = response.result as Array<{
+      roundNr: number
+      gameCount: number
+      games: Array<{ blackPlayer: { name: string; club: string | null } | null }>
+    }>
+    expect(rounds).toHaveLength(2)
+    expect(rounds[0].gameCount).toBe(1)
+    expect(rounds[0].games[0].blackPlayer).toEqual({
+      id: 2,
+      name: 'Bo',
+      club: null,
+      rating: 1500,
+      lotNr: 2,
+    })
+    expect(rounds[1].gameCount).toBe(0)
+    expect(rounds[1].games).toEqual([])
+  })
+
+  it('rounds.list returns empty-games rounds when peer has no club authorization', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      rounds: {
+        list: vi.fn().mockResolvedValue([
+          {
+            roundNr: 1,
+            hasAllResults: false,
+            gameCount: 1,
+            games: [{ boardNr: 1, roundNr: 1, whitePlayer: pA, blackPlayer: pB, ...baseGame }],
+          },
+        ]),
+      },
+    })
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    service._simulateRequest({ id: 201, method: 'rounds.list', args: [1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        {
+          id: 201,
+          result: [{ roundNr: 1, hasAllResults: false, gameCount: 0, games: [] }],
+        },
+        'peer-1',
+      )
+    })
+  })
+
+  it('standings.get filters to rows whose club is authorized', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      standings: {
+        get: vi.fn().mockResolvedValue([
+          {
+            place: 1,
+            name: 'Anna',
+            playerGroup: '',
+            club: 'Club A',
+            rating: 1500,
+            score: 2,
+            scoreDisplay: '2',
+            tiebreaks: {},
+          },
+          {
+            place: 2,
+            name: 'Bo',
+            playerGroup: '',
+            club: 'Club B',
+            rating: 1500,
+            score: 1,
+            scoreDisplay: '1',
+            tiebreaks: {},
+          },
+          {
+            place: 3,
+            name: 'Cleo',
+            playerGroup: '',
+            club: null,
+            rating: 1500,
+            score: 0,
+            scoreDisplay: '0',
+            tiebreaks: {},
+          },
+        ]),
+      },
+    })
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+    setPeerAuthorizedClubs('peer-1', ['Club A'])
+
+    service._simulateRequest({ id: 210, method: 'standings.get', args: [1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalled()
+    })
+    const response = service.sendRpcResponse.mock.calls[0][0]
+    expect(response.id).toBe(210)
+    expect((response.result as Array<{ club: string | null }>).map((r) => r.club)).toEqual([
+      'Club A',
+    ])
+  })
+
+  it('standings.getClub filters to authorized clubs', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      standings: {
+        getClub: vi.fn().mockResolvedValue([
+          { place: 1, club: 'Club A', score: 5 },
+          { place: 2, club: 'Club B', score: 3 },
+        ]),
+      },
+    })
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+    setPeerAuthorizedClubs('peer-1', ['Club A'])
+
+    service._simulateRequest({ id: 220, method: 'standings.getClub', args: [1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        { id: 220, result: [{ place: 1, club: 'Club A', score: 5 }] },
+        'peer-1',
+      )
+    })
+  })
+
+  it('standings.getChess4 filters to authorized clubs', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      standings: {
+        getChess4: vi.fn().mockResolvedValue([
+          { place: 1, club: 'Club A', playerCount: 4, chess4Members: 4, score: 10 },
+          { place: 2, club: 'Club B', playerCount: 4, chess4Members: 4, score: 8 },
+        ]),
+      },
+    })
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+    setPeerAuthorizedClubs('peer-1', ['Club A'])
+
+    service._simulateRequest({ id: 230, method: 'standings.getChess4', args: [1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        {
+          id: 230,
+          result: [{ place: 1, club: 'Club A', playerCount: 4, chess4Members: 4, score: 10 }],
+        },
+        'peer-1',
+      )
+    })
+  })
+
+  it('clubs.list filters to authorized clubs', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      clubs: {
+        list: vi.fn().mockResolvedValue([
+          { id: 1, name: 'Club A', chess4Members: 4 },
+          { id: 2, name: 'Club B', chess4Members: 4 },
+          { id: 3, name: 'Club C', chess4Members: 0 },
+        ]),
+      },
+    })
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+    setPeerAuthorizedClubs('peer-1', ['Club A', 'Club C'])
+
+    service._simulateRequest({ id: 240, method: 'clubs.list', args: [] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        {
+          id: 240,
+          result: [
+            { id: 1, name: 'Club A', chess4Members: 4 },
+            { id: 3, name: 'Club C', chess4Members: 0 },
+          ],
+        },
+        'peer-1',
+      )
+    })
+  })
+
+  it('standings and clubs return empty lists when peer has no club authorization', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      standings: {
+        get: vi.fn().mockResolvedValue([
+          {
+            place: 1,
+            name: 'Anna',
+            playerGroup: '',
+            club: 'Club A',
+            rating: 1500,
+            score: 0,
+            scoreDisplay: '0',
+            tiebreaks: {},
+          },
+        ]),
+        getClub: vi.fn().mockResolvedValue([{ place: 1, club: 'Club A', score: 5 }]),
+        getChess4: vi
+          .fn()
+          .mockResolvedValue([
+            { place: 1, club: 'Club A', playerCount: 4, chess4Members: 4, score: 10 },
+          ]),
+      },
+      clubs: {
+        list: vi.fn().mockResolvedValue([{ id: 1, name: 'Club A', chess4Members: 4 }]),
+      },
+    })
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    for (const [id, method] of [
+      [250, 'standings.get'],
+      [251, 'standings.getClub'],
+      [252, 'standings.getChess4'],
+      [253, 'clubs.list'],
+    ] as const) {
+      service._simulateRequest({ id, method, args: [1] }, 'peer-1')
+    }
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledTimes(4)
+    })
+    for (const call of service.sendRpcResponse.mock.calls) {
+      expect(call[0].result).toEqual([])
+    }
+  })
+
+  it('view-scoped filtering is bypassed when clubFilterEnabled is false', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      standings: {
+        get: vi.fn().mockResolvedValue([
+          {
+            place: 1,
+            name: 'Anna',
+            playerGroup: '',
+            club: 'Club A',
+            rating: 1500,
+            score: 0,
+            scoreDisplay: '0',
+            tiebreaks: {},
+          },
+          {
+            place: 2,
+            name: 'Bo',
+            playerGroup: '',
+            club: 'Club B',
+            rating: 1500,
+            score: 0,
+            scoreDisplay: '0',
+            tiebreaks: {},
+          },
+        ]),
+      },
+    })
+
+    startP2pRpcServer(service, provider, { clubFilterEnabled: false })
+    setPeerPermissions('peer-1', createViewPermissions())
+    setPeerAuthorizedClubs('peer-1', ['Club A'])
+
+    service._simulateRequest({ id: 260, method: 'standings.get', args: [1] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalled()
+    })
+    const rows = service.sendRpcResponse.mock.calls[0][0].result as Array<{ club: string | null }>
+    expect(rows.map((r) => r.club)).toEqual(['Club A', 'Club B'])
+  })
+
+  it('commands.setResult is rejected when board is outside the peer authorized clubs', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      rounds: {
+        get: vi.fn().mockResolvedValue({
+          roundNr: 1,
+          hasAllResults: false,
+          gameCount: 2,
+          games: [
+            {
+              boardNr: 1,
+              roundNr: 1,
+              whitePlayer: {
+                id: 1,
+                name: 'Anna Andersson',
+                club: 'Club A',
+                rating: 1500,
+                lotNr: 1,
+              },
+              blackPlayer: {
+                id: 2,
+                name: 'Ada Andersson',
+                club: 'Club A',
+                rating: 1500,
+                lotNr: 2,
+              },
+              resultType: 'NO_RESULT' as const,
+              whiteScore: 0,
+              blackScore: 0,
+              resultDisplay: '',
+            },
+            {
+              boardNr: 2,
+              roundNr: 1,
+              whitePlayer: { id: 3, name: 'Bo Berg', club: 'Club B', rating: 1500, lotNr: 3 },
+              blackPlayer: { id: 4, name: 'Beata Berg', club: 'Club B', rating: 1500, lotNr: 4 },
+              resultType: 'NO_RESULT' as const,
+              whiteScore: 0,
+              blackScore: 0,
+              resultDisplay: '',
+            },
+          ],
+        }),
+      },
+      results: {
+        set: vi.fn().mockResolvedValue({ boardNr: 2, resultType: 'WHITE_WIN' }),
+      },
+    })
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', { ...createViewPermissions(), 'commands.setResult': true })
+    setPeerAuthorizedClubs('peer-1', ['Club A'])
+
+    service._simulateRequest(
+      {
+        id: 270,
+        method: 'commands.setResult',
+        args: [
+          {
+            tournamentId: 1,
+            roundNr: 1,
+            boardNr: 2,
+            resultType: 'WHITE_WIN',
+            expectedPrior: 'NO_RESULT',
+          },
+        ],
+      },
+      'peer-1',
+    )
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalled()
+    })
+    const response = service.sendRpcResponse.mock.calls[0][0]
+    expect(response.id).toBe(270)
+    expect(response.error ?? (response.result as { status?: string })?.status).not.toBe('applied')
+    expect(response.result).not.toEqual({ status: 'applied' })
+    expect(provider.results.set).not.toHaveBeenCalled()
+  })
+})
+
+describe('auth.redeemClubCode rate limiting', () => {
+  beforeEach(() => {
+    clearAllPeerPermissions()
+  })
+
+  it('clearPeerPermissions resets the failure counter for that peer', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider()
+    startP2pRpcServer(service, provider, {
+      clubCodeSecret: 'secret',
+      getAllClubEntries: () => ['Club A'],
+    })
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    for (let i = 0; i < 20; i++) {
+      service._simulateRequest({ id: i, method: 'auth.redeemClubCode', args: ['0000'] }, 'peer-1')
+    }
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledTimes(20)
+    })
+
+    clearPeerPermissions('peer-1')
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    service._simulateRequest({ id: 500, method: 'auth.redeemClubCode', args: ['0000'] }, 'peer-1')
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledTimes(21)
+    })
+    expect(service.sendRpcResponse.mock.calls[20][0]).toEqual({
+      id: 500,
+      result: { status: 'error', reason: 'invalid-code' },
+    })
+  })
+
+  it('returns rate-limited after 20 failed redemptions from the same peer', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider()
+    startP2pRpcServer(service, provider, {
+      clubCodeSecret: 'secret',
+      getAllClubEntries: () => ['Club A'],
+    })
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    for (let i = 0; i < 20; i++) {
+      service._simulateRequest({ id: i, method: 'auth.redeemClubCode', args: ['0000'] }, 'peer-1')
+    }
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledTimes(20)
+    })
+    for (const call of service.sendRpcResponse.mock.calls) {
+      expect(call[0].result).toEqual({ status: 'error', reason: 'invalid-code' })
+    }
+
+    service._simulateRequest({ id: 999, method: 'auth.redeemClubCode', args: ['0000'] }, 'peer-1')
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledTimes(21)
+    })
+    expect(service.sendRpcResponse.mock.calls[20][0]).toEqual({
+      id: 999,
+      result: { status: 'error', reason: 'rate-limited' },
+    })
+  })
+})
+
+describe('createFullPermissions defaults', () => {
+  it('includes referee-level read and write methods for tournaments, players, rounds, results', () => {
+    const perms = createFullPermissions()
+    expect(perms['tournaments.list']).toBe(true)
+    expect(perms['tournaments.get']).toBe(true)
+    expect(perms['tournamentPlayers.list']).toBe(true)
+    expect(perms['tournamentPlayers.add']).toBe(true)
+    expect(perms['tournamentPlayers.addMany']).toBe(true)
+    expect(perms['tournamentPlayers.update']).toBe(true)
+    expect(perms['tournamentPlayers.remove']).toBe(true)
+    expect(perms['tournamentPlayers.removeMany']).toBe(true)
+    expect(perms['rounds.list']).toBe(true)
+    expect(perms['rounds.get']).toBe(true)
+    expect(perms['rounds.pairNext']).toBe(true)
+    expect(perms['rounds.unpairLast']).toBe(true)
+    expect(perms['results.set']).toBe(true)
+    expect(perms['results.addGame']).toBe(true)
+    expect(perms['results.updateGame']).toBe(true)
+    expect(perms['results.deleteGame']).toBe(true)
+    expect(perms['results.deleteGames']).toBe(true)
+    expect(perms['standings.get']).toBe(true)
+    expect(perms['standings.getClub']).toBe(true)
+    expect(perms['standings.getChess4']).toBe(true)
+    expect(perms['commands.setResult']).toBe(true)
+    expect(perms['auth.redeemClubCode']).toBe(true)
+  })
+
+  it('defaults organizer-scope methods to off (clubs, pool, settings, undo, tournament create/delete)', () => {
+    const perms = createFullPermissions()
+    expect(perms['tournaments.create']).toBeUndefined()
+    expect(perms['tournaments.update']).toBeUndefined()
+    expect(perms['tournaments.delete']).toBeUndefined()
+    expect(perms['clubs.add']).toBeUndefined()
+    expect(perms['clubs.rename']).toBeUndefined()
+    expect(perms['clubs.delete']).toBeUndefined()
+    expect(perms['settings.update']).toBeUndefined()
+    expect(perms['poolPlayers.add']).toBeUndefined()
+    expect(perms['poolPlayers.update']).toBeUndefined()
+    expect(perms['poolPlayers.delete']).toBeUndefined()
+    expect(perms['poolPlayers.deleteMany']).toBeUndefined()
+    expect(perms['undo.perform']).toBeUndefined()
+    expect(perms['undo.redo']).toBeUndefined()
+    expect(perms['undo.restoreToPoint']).toBeUndefined()
+  })
+})
+
+describe('RPC server peer label threading', () => {
+  beforeEach(() => {
+    clearAllPeerPermissions()
+  })
+
+  it('sets the current actor to the peer label during a mutation dispatch', async () => {
+    const { getCurrentActor } = await import('./peer-actor.ts')
+    const service = createMockServerService()
+    let actorDuringCall: string | null = null
+    const provider = createMockProvider({
+      clubs: {
+        add: vi.fn().mockImplementation(async () => {
+          actorDuringCall = getCurrentActor()
+          return { id: 1, name: 'SK Lund' }
+        }),
+      },
+    })
+
+    startP2pRpcServer(service, provider, {
+      getPeerLabel: (peerId) => (peerId === 'peer-1' ? 'Domare Sofia' : undefined),
+    })
+    setPeerPermissions('peer-1', { ...createFullPermissions(), 'clubs.add': true })
+
+    service._simulateRequest(
+      { id: 100, method: 'clubs.add', args: [{ name: 'SK Lund' }] },
+      'peer-1',
+    )
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        { id: 100, result: { id: 1, name: 'SK Lund' } },
+        'peer-1',
+      )
+    })
+    expect(actorDuringCall).toBe('Domare Sofia')
+  })
+
+  it('clears the current actor after dispatch completes', async () => {
+    const { getCurrentActor } = await import('./peer-actor.ts')
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      clubs: {
+        add: vi.fn().mockResolvedValue({ id: 1, name: 'SK Lund' }),
+      },
+    })
+
+    startP2pRpcServer(service, provider, {
+      getPeerLabel: () => 'Domare Sofia',
+    })
+    setPeerPermissions('peer-1', { ...createFullPermissions(), 'clubs.add': true })
+
+    service._simulateRequest(
+      { id: 101, method: 'clubs.add', args: [{ name: 'SK Lund' }] },
+      'peer-1',
+    )
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalled()
+    })
+    expect(getCurrentActor()).toBeNull()
+  })
+
+  it('does not set an actor when getPeerLabel is not provided', async () => {
+    const { getCurrentActor } = await import('./peer-actor.ts')
+    const service = createMockServerService()
+    let actorDuringCall: string | null = null
+    const provider = createMockProvider({
+      clubs: {
+        add: vi.fn().mockImplementation(async () => {
+          actorDuringCall = getCurrentActor()
+          return { id: 1, name: 'SK Lund' }
+        }),
+      },
+    })
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', { ...createFullPermissions(), 'clubs.add': true })
+
+    service._simulateRequest(
+      { id: 102, method: 'clubs.add', args: [{ name: 'SK Lund' }] },
+      'peer-1',
+    )
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalled()
+    })
+    expect(actorDuringCall).toBeNull()
+  })
+
+  it('clears the actor even if dispatch throws', async () => {
+    const { getCurrentActor } = await import('./peer-actor.ts')
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      clubs: {
+        add: vi.fn().mockRejectedValue(new Error('boom')),
+      },
+    })
+
+    startP2pRpcServer(service, provider, {
+      getPeerLabel: () => 'Domare Sofia',
+    })
+    setPeerPermissions('peer-1', { ...createFullPermissions(), 'clubs.add': true })
+
+    service._simulateRequest(
+      { id: 103, method: 'clubs.add', args: [{ name: 'SK Lund' }] },
+      'peer-1',
+    )
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith({ id: 103, error: 'boom' }, 'peer-1')
+    })
+    expect(getCurrentActor()).toBeNull()
+  })
+})
+
+describe('createViewPermissions defaults', () => {
+  it('includes read-only methods needed to render the UI', () => {
+    const perms = createViewPermissions()
+    expect(perms['tournaments.list']).toBe(true)
+    expect(perms['tournaments.get']).toBe(true)
+    expect(perms['tournamentPlayers.list']).toBe(true)
+    expect(perms['rounds.list']).toBe(true)
+    expect(perms['rounds.get']).toBe(true)
+    expect(perms['standings.get']).toBe(true)
+    expect(perms['standings.getClub']).toBe(true)
+    expect(perms['standings.getChess4']).toBe(true)
+    expect(perms['clubs.list']).toBe(true)
+    expect(perms['settings.get']).toBe(true)
+    expect(perms['auth.redeemClubCode']).toBe(true)
+  })
+
+  it('excludes all write methods', () => {
+    const perms = createViewPermissions()
+    expect(perms['tournaments.create']).toBeUndefined()
+    expect(perms['tournamentPlayers.add']).toBeUndefined()
+    expect(perms['rounds.pairNext']).toBeUndefined()
+    expect(perms['results.set']).toBeUndefined()
+    expect(perms['commands.setResult']).toBeUndefined()
+    expect(perms['clubs.add']).toBeUndefined()
+    expect(perms['settings.update']).toBeUndefined()
+    expect(perms['poolPlayers.add']).toBeUndefined()
+    expect(perms['undo.perform']).toBeUndefined()
+  })
+})
+
+describe('auth.redeemClubCode per-peer club cap', () => {
+  beforeEach(() => {
+    clearAllPeerPermissions()
+  })
+
+  it('rejects a third club redemption from the same peer', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider()
+    const entries = ['Club A', 'Club B', 'Club C']
+    startP2pRpcServer(service, provider, {
+      clubCodeSecret: 'secret',
+      getAllClubEntries: () => entries,
+    })
+    setPeerPermissions('peer-1', createViewPermissions())
+    const map = generateClubCodeMap(entries, 'secret')
+
+    service._simulateRequest(
+      { id: 1, method: 'auth.redeemClubCode', args: [map['Club A']] },
+      'peer-1',
+    )
+    service._simulateRequest(
+      { id: 2, method: 'auth.redeemClubCode', args: [map['Club B']] },
+      'peer-1',
+    )
+    service._simulateRequest(
+      { id: 3, method: 'auth.redeemClubCode', args: [map['Club C']] },
+      'peer-1',
+    )
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledTimes(3)
+    })
+    expect(service.sendRpcResponse.mock.calls[2][0]).toEqual({
+      id: 3,
+      result: { status: 'error', reason: 'club-limit-reached' },
+    })
+  })
+})
+
+describe('startP2pRpcServer peer-leave cleanup', () => {
+  beforeEach(() => {
+    clearAllPeerPermissions()
+  })
+
+  it('preserves an onPeerLeave handler set before startP2pRpcServer', () => {
+    const service: ReturnType<typeof createMockServerService> & {
+      onPeerLeave: ((peerId: string) => void) | null
+    } = Object.assign(createMockServerService(), { onPeerLeave: null })
+    const prior = vi.fn()
+    service.onPeerLeave = prior
+    const provider = createMockProvider()
+    startP2pRpcServer(service, provider)
+
+    service.onPeerLeave?.('peer-9')
+
+    expect(prior).toHaveBeenCalledWith('peer-9')
+  })
+
+  it('clears a peer\u2019s permissions when the service fires onPeerLeave', async () => {
+    const service: ReturnType<typeof createMockServerService> & {
+      onPeerLeave: ((peerId: string) => void) | null
+    } = Object.assign(createMockServerService(), { onPeerLeave: null })
+    const provider = createMockProvider()
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createFullPermissions())
+
+    service.onPeerLeave?.('peer-1')
+
+    service._simulateRequest({ id: 1, method: 'tournaments.list', args: [] }, 'peer-1')
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        { id: 1, error: 'Permission denied: tournaments.list' },
         'peer-1',
       )
     })

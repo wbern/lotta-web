@@ -129,6 +129,22 @@ describe.each(PROVIDERS)('DataProvider contract (%s)', (_name, factory) => {
     expect(summary).toEqual(EXPECTED_FINAL_STANDINGS)
   })
 
+  it('tournaments.update mutates fields; tournaments.delete removes the row', async () => {
+    const tournament = await provider.tournaments.create(NS_TOURNAMENT)
+
+    const updated = await provider.tournaments.update(tournament.id, {
+      ...NS_TOURNAMENT,
+      name: 'Renamed',
+      nrOfRounds: 9,
+    })
+    expect(updated.name).toBe('Renamed')
+    expect(updated.nrOfRounds).toBe(9)
+
+    await provider.tournaments.delete(tournament.id)
+    const list = await provider.tournaments.list()
+    expect(list.find((t) => t.id === tournament.id)).toBeUndefined()
+  })
+
   it('listRounds returns all rounds after pairing', async () => {
     const tournament = await provider.tournaments.create(NS_TOURNAMENT)
     for (const p of PLAYERS) {
@@ -149,5 +165,82 @@ describe.each(PROVIDERS)('DataProvider contract (%s)', (_name, factory) => {
     expect(rounds).toHaveLength(2)
     expect(rounds[0].roundNr).toBe(1)
     expect(rounds[1].roundNr).toBe(2)
+  })
+
+  it('results.addGame/updateGame/deleteGame manipulates boards directly', async () => {
+    const tournament = await provider.tournaments.create(NS_TOURNAMENT)
+    const players: number[] = []
+    for (const p of PLAYERS) {
+      const created = await provider.tournamentPlayers.add(tournament.id, p)
+      players.push(created.id)
+    }
+    await provider.rounds.pairNext(tournament.id)
+
+    await provider.results.addGame(tournament.id, 1, players[0], players[1])
+    let round = await provider.rounds.get(tournament.id, 1)
+    const addedBoard = round.games.length
+    expect(round.games.at(-1)?.whitePlayer?.id).toBe(players[0])
+
+    await provider.results.updateGame(tournament.id, 1, addedBoard, players[2], players[3])
+    round = await provider.rounds.get(tournament.id, 1)
+    expect(round.games.find((g) => g.boardNr === addedBoard)?.whitePlayer?.id).toBe(players[2])
+
+    await provider.results.deleteGame(tournament.id, 1, addedBoard)
+    round = await provider.rounds.get(tournament.id, 1)
+    expect(round.games.find((g) => g.boardNr === addedBoard)).toBeUndefined()
+  })
+
+  it('clubs CRUD and settings.update round-trip', async () => {
+    const club = await provider.clubs.add({ name: 'Testklubb' })
+    expect(club.name).toBe('Testklubb')
+    const renamed = await provider.clubs.rename(club.id, { name: 'Testklubb II' })
+    expect(renamed.name).toBe('Testklubb II')
+    const list = await provider.clubs.list()
+    expect(list.find((c) => c.id === club.id)?.name).toBe('Testklubb II')
+
+    const settings = await provider.settings.get()
+    const updated = await provider.settings.update({
+      ...settings,
+      playerPresentation: 'LAST_FIRST',
+    })
+    expect(updated.playerPresentation).toBe('LAST_FIRST')
+
+    await provider.clubs.delete(club.id)
+    const afterDelete = await provider.clubs.list()
+    expect(afterDelete.find((c) => c.id === club.id)).toBeUndefined()
+  })
+
+  it('poolPlayers CRUD round-trip', async () => {
+    const player = await provider.poolPlayers.add({
+      firstName: 'Pool',
+      lastName: 'Player',
+      ratingI: 1600,
+    })
+    expect(player.firstName).toBe('Pool')
+
+    const updated = await provider.poolPlayers.update(player.id, {
+      firstName: 'Pool',
+      lastName: 'Player-Updated',
+    })
+    expect(updated.lastName).toBe('Player-Updated')
+
+    await provider.poolPlayers.delete(player.id)
+    const remaining = await provider.poolPlayers.list()
+    expect(remaining.find((p) => p.id === player.id)).toBeUndefined()
+  })
+
+  it('undo.perform rolls the last mutation back', async () => {
+    const tournament = await provider.tournaments.create(NS_TOURNAMENT)
+    const before = await provider.tournaments.list()
+    expect(before.find((t) => t.id === tournament.id)).toBeDefined()
+
+    await provider.tournaments.delete(tournament.id)
+    const mid = await provider.tournaments.list()
+    expect(mid.find((t) => t.id === tournament.id)).toBeUndefined()
+
+    const ok = await provider.undo.perform()
+    expect(ok).toBe(true)
+    const after = await provider.tournaments.list()
+    expect(after.find((t) => t.id === tournament.id)).toBeDefined()
   })
 })

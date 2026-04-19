@@ -531,6 +531,21 @@ describe('P2PService', () => {
     expect(onChange).toHaveBeenCalledTimes(3)
   })
 
+  it('fires onPeerLeave when a peer disconnects from the room', async () => {
+    const mockRoom = createMockRoom()
+    mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+    const service = new P2PService('organizer')
+    const onLeave = vi.fn()
+    service.onPeerLeave = onLeave
+    service.startHosting('test-room')
+    await flush()
+
+    mockRoom._simulatePeerJoin('peer-1')
+    mockRoom._simulatePeerLeave('peer-1')
+
+    expect(onLeave).toHaveBeenCalledWith('peer-1')
+  })
+
   it('broadcastPageUpdate is a no-op before connecting to a room', () => {
     const service = new P2PService('organizer')
     // Should not throw when no room is connected

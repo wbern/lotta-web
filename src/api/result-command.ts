@@ -59,7 +59,8 @@ export function createCommandDeps(provider: {
     getCurrentResult: async (tournamentId, roundNr, boardNr) => {
       const round = await provider.rounds.get(tournamentId, roundNr)
       const game = round.games.find((g) => g.boardNr === boardNr)
-      return game?.resultType ?? 'NO_RESULT'
+      if (!game) throw new Error(`Board ${boardNr} not found in round ${roundNr}`)
+      return game.resultType
     },
     applyResult: async (tournamentId, roundNr, boardNr, resultType) => {
       await provider.results.set(tournamentId, roundNr, boardNr, { resultType })

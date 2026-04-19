@@ -7,7 +7,7 @@ import {
   calculateStandings,
 } from '../domain/standings'
 import type { Chess4StandingDto, ClubStandingDto, StandingDto } from '../types/api'
-import { getActiveDataProvider } from './active-provider'
+import { getDataProvider } from './active-provider'
 import { getDatabaseService } from './service-provider'
 
 function buildStandingsInput(tournamentId: number, round?: number): StandingsInput {
@@ -71,15 +71,16 @@ function buildStandingsInput(tournamentId: number, round?: number): StandingsInp
   }
 }
 
-export async function getStandings(tournamentId: number, round?: number): Promise<StandingDto[]> {
-  const p = getActiveDataProvider()
-  if (p) return p.standings.get(tournamentId, round)
+export async function getStandingsLocal(
+  tournamentId: number,
+  round?: number,
+): Promise<StandingDto[]> {
   const input = buildStandingsInput(tournamentId, round)
   if (input.roundNr === 0) return []
   return calculateStandings(input)
 }
 
-export async function getClubStandings(
+export async function getClubStandingsLocal(
   tournamentId: number,
   round?: number,
 ): Promise<ClubStandingDto[]> {
@@ -88,7 +89,7 @@ export async function getClubStandings(
   return calculateClubStandings(input)
 }
 
-export async function getChess4Standings(
+export async function getChess4StandingsLocal(
   tournamentId: number,
   round?: number,
 ): Promise<Chess4StandingDto[]> {
@@ -101,4 +102,22 @@ export async function getChess4Standings(
     chess4Members: c.chess4Members,
   }))
   return calculateChess4Standings(input, clubs)
+}
+
+export async function getStandings(tournamentId: number, round?: number): Promise<StandingDto[]> {
+  return getDataProvider().standings.get(tournamentId, round)
+}
+
+export async function getClubStandings(
+  tournamentId: number,
+  round?: number,
+): Promise<ClubStandingDto[]> {
+  return getDataProvider().standings.getClub(tournamentId, round)
+}
+
+export async function getChess4Standings(
+  tournamentId: number,
+  round?: number,
+): Promise<Chess4StandingDto[]> {
+  return getDataProvider().standings.getChess4(tournamentId, round)
 }

@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DatabaseService } from '../db/database-service.ts'
 import { deleteDatabase } from '../db/persistence.ts'
 import type { GameDto, PlayerDto, ResultType, RoundDto } from '../types/api.ts'
+import { setLocalProviderFactory } from './active-provider.ts'
+import { getLocalProvider } from './local-data-provider.ts'
 import { setResult } from './results.ts'
 import { pairNextRound } from './rounds.ts'
 import { setDatabaseService } from './service-provider.ts'
@@ -62,6 +64,7 @@ describe('Snapshot verification: frontend vs e2e (API-generated)', () => {
   beforeEach(async () => {
     service = await DatabaseService.create()
     setDatabaseService(service)
+    setLocalProviderFactory(() => getLocalProvider())
   })
 
   afterEach(async () => {

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DatabaseService } from '../db/database-service.ts'
 import { deleteDatabase } from '../db/persistence.ts'
+import { setLocalProviderFactory } from './active-provider.ts'
+import { getLocalProvider } from './local-data-provider.ts'
 import {
   buildAlphabeticalPairingsInput,
   buildPairingsInput,
@@ -17,6 +19,7 @@ describe('publish-data builders', () => {
   beforeEach(async () => {
     service = await DatabaseService.create()
     setDatabaseService(service)
+    setLocalProviderFactory(() => getLocalProvider())
 
     const t = service.tournaments.create({
       name: 'Testturneringen',

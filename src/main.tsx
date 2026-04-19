@@ -7,6 +7,8 @@ import {
   RouterProvider,
 } from '@tanstack/react-router'
 import ReactDOM from 'react-dom/client'
+import { setLocalProviderFactory } from './api/active-provider'
+import { getLocalProvider } from './api/local-data-provider'
 import { setPairingExecutor } from './api/pairing-executor-provider'
 import { WorkerPairingExecutor } from './api/pairing-worker-executor'
 import { setDatabaseService } from './api/service-provider'
@@ -105,6 +107,8 @@ async function main() {
   const undoManager = await UndoManager.create()
   setUndoManager(undoManager)
   await undoManager.captureInitialState()
+
+  setLocalProviderFactory(() => getLocalProvider())
 
   // Expose API functions on window for E2E tests
   if (import.meta.env.DEV) {

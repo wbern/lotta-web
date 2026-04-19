@@ -278,6 +278,7 @@ export class P2PService {
   onConnectionStateChange: ((state: P2PConnectionState) => void) | null = null
   onPeersChange: (() => void) | null = null
   onNewPeerJoin: ((peerId: string) => void) | null = null
+  onPeerLeave: ((peerId: string) => void) | null = null
   onPeerCount: ((message: PeerCountMessage) => void) | null = null
   onAnnouncement: ((message: AnnouncementMessage) => void) | null = null
   onKicked: ((message: PeerKickMessage) => void) | null = null
@@ -457,6 +458,7 @@ export class P2PService {
 
   removePeer(id: string): void {
     this.peers.delete(id)
+    this.onPeerLeave?.(id)
     this.onPeersChange?.()
   }
 

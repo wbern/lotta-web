@@ -1,31 +1,25 @@
 import { generateLiveChessPgn } from '../domain/livechess'
 import { getPlayerRating } from '../domain/ratings'
 import type { CreateTournamentRequest, TournamentDto, TournamentListItemDto } from '../types/api'
-import { getActiveDataProvider } from './active-provider'
+import { getDataProvider } from './active-provider'
 import { getDatabaseService, withSave } from './service-provider'
 
-export async function listTournaments(): Promise<TournamentListItemDto[]> {
-  const p = getActiveDataProvider()
-  if (p) return p.tournaments.list()
+export async function listTournamentsLocal(): Promise<TournamentListItemDto[]> {
   return getDatabaseService().tournaments.list()
 }
 
-export async function getTournament(id: number): Promise<TournamentDto> {
-  const p = getActiveDataProvider()
-  if (p) return p.tournaments.get(id)
+export async function getTournamentLocal(id: number): Promise<TournamentDto> {
   const result = getDatabaseService().tournaments.get(id)
   if (!result) throw new Error(`Tournament ${id} not found`)
   return result
 }
 
-export async function createTournament(req: CreateTournamentRequest): Promise<TournamentDto> {
-  const p = getActiveDataProvider()
-  if (p) return p.tournaments.create(req)
+export async function createTournamentLocal(req: CreateTournamentRequest): Promise<TournamentDto> {
   const detail = req.group ? `${req.name} (${req.group})` : req.name
   return withSave(() => getDatabaseService().tournaments.create(req), 'Ny turnering', detail)
 }
 
-export async function updateTournament(
+export async function updateTournamentLocal(
   id: number,
   req: CreateTournamentRequest,
 ): Promise<TournamentDto> {
@@ -36,13 +30,36 @@ export async function updateTournament(
   )
 }
 
-export async function deleteTournament(id: number): Promise<void> {
+export async function deleteTournamentLocal(id: number): Promise<void> {
   const tournament = getDatabaseService().tournaments.get(id)
   return withSave(
     () => getDatabaseService().tournaments.delete(id),
     'Ta bort turnering',
     tournament?.name ?? '',
   )
+}
+
+export async function listTournaments(): Promise<TournamentListItemDto[]> {
+  return getDataProvider().tournaments.list()
+}
+
+export async function getTournament(id: number): Promise<TournamentDto> {
+  return getDataProvider().tournaments.get(id)
+}
+
+export async function createTournament(req: CreateTournamentRequest): Promise<TournamentDto> {
+  return getDataProvider().tournaments.create(req)
+}
+
+export async function updateTournament(
+  id: number,
+  req: CreateTournamentRequest,
+): Promise<TournamentDto> {
+  return getDataProvider().tournaments.update(id, req)
+}
+
+export async function deleteTournament(id: number): Promise<void> {
+  return getDataProvider().tournaments.delete(id)
 }
 
 export async function exportTournamentPlayers(id: number): Promise<Blob> {

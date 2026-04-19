@@ -4,6 +4,8 @@ import { deleteDatabase } from '../db/persistence.ts'
 import { UndoManager } from '../db/undo-manager.ts'
 import { deleteUndoDatabase } from '../db/undo-persistence.ts'
 import { getUndoManager, setUndoManager } from '../db/undo-provider.ts'
+import { setLocalProviderFactory } from './active-provider.ts'
+import { getLocalProvider } from './local-data-provider.ts'
 import { getDatabaseService, setDatabaseService } from './service-provider.ts'
 import { redo, restoreToPoint, undo } from './undo.ts'
 
@@ -18,6 +20,7 @@ describe('undo API', () => {
     const manager = await UndoManager.create()
     setUndoManager(manager)
     await manager.captureInitialState()
+    setLocalProviderFactory(() => getLocalProvider())
   })
 
   afterEach(async () => {
