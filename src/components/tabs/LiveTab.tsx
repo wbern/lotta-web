@@ -1405,6 +1405,19 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                 >
                   Kopiera länk
                 </button>
+                {canNativeShare && (
+                  <button
+                    type="button"
+                    className="btn"
+                    data-testid="share-club-dialog-share"
+                    onClick={() => {
+                      const label = shareClubDialog === CLUBLESS_KEY ? 'Klubblösa' : shareClubDialog
+                      shareUrl(url, `${label} – ${tournamentName}`)
+                    }}
+                  >
+                    Dela länk
+                  </button>
+                )}
               </div>
             )
           })()}
