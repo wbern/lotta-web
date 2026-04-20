@@ -53,7 +53,6 @@ interface Props {
 
 const SESSION_KEY = 'lotta-live-session'
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
 interface SavedSession {
   roomCode: string
@@ -507,8 +506,9 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
       })
   }, [])
 
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
   const shareUrl = useCallback((url: string, title: string) => {
-    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return
     navigator.share({ url, title }).catch(() => {
       // User cancelled or share was rejected; ignore
     })

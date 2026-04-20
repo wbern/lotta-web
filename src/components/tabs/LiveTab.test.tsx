@@ -1729,4 +1729,137 @@ describe('LiveTab', () => {
 
     expect(mockSet).toHaveBeenCalledWith(null)
   })
+
+  describe('native share button', () => {
+    const originalShare = Object.getOwnPropertyDescriptor(Navigator.prototype, 'share')
+
+    function stubShare(impl: (data: ShareData) => Promise<void>) {
+      Object.defineProperty(Navigator.prototype, 'share', {
+        configurable: true,
+        writable: true,
+        value: impl,
+      })
+    }
+
+    function unstubShare() {
+      if (originalShare) {
+        Object.defineProperty(Navigator.prototype, 'share', originalShare)
+      } else {
+        Object.defineProperty(Navigator.prototype, 'share', {
+          configurable: true,
+          writable: true,
+          value: undefined,
+        })
+      }
+    }
+
+    afterEach(unstubShare)
+
+    it('hides the share button on the spectator link when navigator.share is unavailable', () => {
+      unstubShare()
+      renderLiveTab()
+      fireEvent.click(screen.getByText('Starta Live'))
+      expect(screen.queryByTestId('share-view-url')).toBeNull()
+    })
+
+    it('shares the spectator URL via navigator.share when supported', () => {
+      const shareMock = vi.fn((_data: ShareData) => Promise.resolve())
+      stubShare(shareMock)
+
+      renderLiveTab({ tournamentName: 'Lilla Cupen' })
+      fireEvent.click(screen.getByText('Starta Live'))
+
+      const shareBtn = screen.getByTestId('share-view-url')
+      fireEvent.click(shareBtn)
+
+      expect(shareMock).toHaveBeenCalledTimes(1)
+      const arg = shareMock.mock.calls[0][0] as ShareData
+      expect(arg.url).toMatch(/\/live\/[A-HJ-NP-Z2-9]{6}\?/)
+      expect(arg.url).toContain('share=view')
+      expect(arg.title).toBe('Lilla Cupen')
+    })
+
+    it('hides the share button on grant rows when navigator.share is unavailable', () => {
+      unstubShare()
+      renderLiveTab()
+      fireEvent.click(screen.getByText('Starta Live'))
+      fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+      fireEvent.change(screen.getByTestId('grant-label-input'), {
+        target: { value: 'Sofia' },
+      })
+      fireEvent.click(screen.getByTestId('grant-submit'))
+
+      const row = screen
+        .getByTestId('live-tab-grants-panel')
+        .querySelector('[data-testid^="grant-row-"]') as HTMLElement
+      expect(row.querySelector('[data-testid^="grant-share-"]')).toBeNull()
+    })
+
+    it('shares the grant URL with the grant label in the title', () => {
+      const shareMock = vi.fn((_data: ShareData) => Promise.resolve())
+      stubShare(shareMock)
+
+      renderLiveTab({ tournamentName: 'Lilla Cupen' })
+      fireEvent.click(screen.getByText('Starta Live'))
+      fireEvent.click(screen.getByRole('tab', { name: 'Domarstyrning' }))
+      fireEvent.change(screen.getByTestId('grant-label-input'), {
+        target: { value: 'Sofia — KSS' },
+      })
+      fireEvent.click(screen.getByTestId('grant-submit'))
+
+      const row = screen
+        .getByTestId('live-tab-grants-panel')
+        .querySelector('[data-testid^="grant-row-"]') as HTMLElement
+      const shareBtn = row.querySelector('[data-testid^="grant-share-"]') as HTMLElement
+      fireEvent.click(shareBtn)
+
+      expect(shareMock).toHaveBeenCalledTimes(1)
+      const arg = shareMock.mock.calls[0][0] as ShareData
+      expect(arg.url).toContain('share=full')
+      expect(arg.title).toBe('Sofia — KSS – Lilla Cupen')
+    })
+
+    it('shares the club-code URL and normalizes the clubless label', () => {
+      const shareMock = vi.fn((_data: ShareData) => Promise.resolve())
+      stubShare(shareMock)
+
+      renderLiveTab({ tournamentName: 'Lilla Cupen' })
+      fireEvent.click(screen.getByText('Starta Live'))
+      fireEvent.click(screen.getByRole('button', { name: /Aktivera klubbfilter/i }))
+      fireEvent.click(screen.getByTestId('share-club-btn-__CLUBLESS__'))
+
+      const dialog = screen.getByTestId('share-club-dialog')
+      const shareBtn = dialog.querySelector(
+        '[data-testid="share-club-dialog-share"]',
+      ) as HTMLElement
+      fireEvent.click(shareBtn)
+
+      expect(shareMock).toHaveBeenCalledTimes(1)
+      const arg = shareMock.mock.calls[0][0] as ShareData
+      expect(arg.url).toContain('share=view')
+      expect(arg.url).toMatch(/[?&]code=\d{4}/)
+      expect(arg.title).toBe('Klubblösa – Lilla Cupen')
+    })
+
+    it('swallows a rejected share promise (user cancels)', async () => {
+      const shareMock = vi.fn((_data: ShareData) =>
+        Promise.reject(new DOMException('canceled', 'AbortError')),
+      )
+      stubShare(shareMock)
+      const unhandled = vi.fn()
+      window.addEventListener('unhandledrejection', unhandled)
+
+      renderLiveTab()
+      fireEvent.click(screen.getByText('Starta Live'))
+      fireEvent.click(screen.getByTestId('share-view-url'))
+
+      // Let the rejection settle
+      await Promise.resolve()
+      await Promise.resolve()
+
+      expect(shareMock).toHaveBeenCalledTimes(1)
+      expect(unhandled).not.toHaveBeenCalled()
+      window.removeEventListener('unhandledrejection', unhandled)
+    })
+  })
 })
