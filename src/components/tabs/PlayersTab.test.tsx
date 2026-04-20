@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockPlayer } from '../../test/mock-player'
 import type { PlayerDto } from '../../types/api'
 import { PlayersTab } from './PlayersTab'
@@ -11,6 +11,10 @@ let mockPlayers: PlayerDto[] = []
 vi.mock('../../hooks/useTournamentPlayers', () => ({
   useTournamentPlayers: () => ({ data: mockPlayers, isLoading: false }),
 }))
+
+beforeEach(() => {
+  mockPlayers = []
+})
 
 afterEach(() => {
   cleanup()
