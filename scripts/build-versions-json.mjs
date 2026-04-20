@@ -13,6 +13,7 @@
 import { execFileSync } from 'node:child_process'
 import { readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 /**
  * @typedef {Object} VersionEntry
@@ -68,12 +69,12 @@ function readGitMetadata(repoDir, subpath) {
   try {
     const out = execFileSync(
       'git',
-      ['-C', repoDir, 'log', '-1', '--format=%H%x1f%cI', '--', subpath],
+      ['-C', repoDir, 'log', '-1', '--format=%h%x1f%cI', '--', subpath],
       { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
     ).trim()
     if (!out) return {}
     const [hash, iso] = out.split('\x1f')
-    return { hash: hash.slice(0, 7), date: iso.slice(0, 10) }
+    return { hash, date: iso.slice(0, 10) }
   } catch {
     return {}
   }
@@ -104,6 +105,6 @@ function main() {
   console.log(`Wrote ${out} (${json.versions.length} versions)`)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   main()
 }

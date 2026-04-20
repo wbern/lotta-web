@@ -126,6 +126,9 @@ export default defineConfig({
   resolve: {
     alias: {
       ...(useMqtt ? { trystero: '@trystero-p2p/mqtt' } : {}),
+      // Rollback builds do not include VitePWA, so the virtual module it
+      // normally provides does not exist. Point the import at an inert stub
+      // so ReloadPrompt still compiles but never registers a service worker.
       ...(rollback
         ? { 'virtual:pwa-register/react': join(__dirname, 'src/build/pwa-register-stub.ts') }
         : {}),

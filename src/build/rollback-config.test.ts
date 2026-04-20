@@ -6,10 +6,9 @@ describe('rollbackBuildConfig', () => {
     expect(rollbackBuildConfig(null)).toBeNull()
   })
 
-  it('derives base path and workbox cacheId for a given version', () => {
+  it('derives base path for a given version', () => {
     expect(rollbackBuildConfig('1.2.3')).toEqual({
       base: '/v/1.2.3/',
-      cacheId: 'lotta-v1.2.3',
     })
   })
 })
