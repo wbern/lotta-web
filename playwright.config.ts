@@ -180,6 +180,31 @@ export default defineConfig({
               },
             },
           },
+          {
+            name: 'chaos',
+            testMatch: 'chaos.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+              launchOptions: {
+                args: [
+                  '--use-fake-ui-for-media-stream',
+                  '--use-fake-device-for-media-stream',
+                  '--disable-features=WebRtcHideLocalIpsWithMdns',
+                  '--no-sandbox',
+                ],
+              },
+            },
+          },
+          {
+            name: 'chaos-monkey',
+            testMatch: 'chaos-monkey.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+              launchOptions: { args: ['--no-sandbox'] },
+            },
+          },
         ]
       : []),
     ...(hasBrowserStack
