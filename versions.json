@@ -3,17 +3,22 @@
     {
       "version": "1.0.0",
       "date": "2026-04-21",
-      "hash": "00f7bf7"
+      "hash": "3c6fb5b"
     },
     {
       "version": "1.0.1",
       "date": "2026-04-21",
-      "hash": "00f7bf7"
+      "hash": "165512a"
     },
     {
       "version": "1.0.2",
       "date": "2026-04-21",
-      "hash": "00f7bf7"
+      "hash": "41b09aa"
+    },
+    {
+      "version": "1.0.3",
+      "date": "2026-04-21",
+      "hash": "9fc86b8"
     }
   ]
 }
