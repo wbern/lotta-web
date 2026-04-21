@@ -153,6 +153,46 @@ async function snapshotViewer(viewer: Page): Promise<string> {
   }
 }
 
+/**
+ * Read the host's currently-displayed round from the status bar
+ * ("Rond N/M" or "Ej startad"). Returns null when no round is active,
+ * so callers can skip the parity check in that window.
+ */
+async function readHostRound(hostPage: Page): Promise<number | null> {
+  const bar = hostPage.getByTestId('status-bar')
+  const text = (await bar.textContent({ timeout: 1000 }).catch(() => '')) ?? ''
+  const m = text.match(/Rond\s+(\d+)\/\d+/)
+  return m ? Number(m[1]) : null
+}
+
+/**
+ * Read the highest round the viewer iframe knows about. Prefers the
+ * `.live-round-select` dropdown (only rendered when ≥2 rounds exist);
+ * falls back to parsing "rond N" out of the iframe H2.
+ */
+async function readViewerMaxRound(viewer: Page): Promise<number | null> {
+  const options = viewer.locator('.live-round-select option')
+  const count = await options.count().catch(() => 0)
+  if (count > 0) {
+    let max = 0
+    for (let i = 0; i < count; i++) {
+      const val = await options
+        .nth(i)
+        .getAttribute('value')
+        .catch(() => null)
+      const n = val ? Number(val) : NaN
+      if (Number.isFinite(n) && n > max) max = n
+    }
+    return max > 0 ? max : null
+  }
+
+  const frame: FrameLocator = viewer.frameLocator('.live-iframe')
+  const h2 = frame.locator('h2').first()
+  const text = (await h2.textContent({ timeout: 1000 }).catch(() => '')) ?? ''
+  const m = text.match(/rond\s+(\d+)/i)
+  return m ? Number(m[1]) : null
+}
+
 async function awaitConvergence(
   hostPage: Page,
   viewer: Page,
@@ -302,10 +342,11 @@ async function runHuntSession(opts: {
       await hostPage.waitForTimeout(200)
     }
 
+    const expectedPeers = viewers.length // 8 (4 desktop + 4 mobile)
     await hostPage.getByTestId('tab-headers').getByText('Live (Beta)').click()
     await expect(hostPage.locator('.live-tab-container')).toBeVisible()
-    await expect(hostPage.locator('.live-tab-badge')).not.toContainText('0 anslutna', {
-      timeout: 20_000,
+    await expect(hostPage.locator('.live-tab-badge')).toContainText(`${expectedPeers} anslutna`, {
+      timeout: 30_000,
     })
     await hostPage.getByTestId('tab-headers').getByText('Lottning & resultat').click()
 
@@ -367,6 +408,38 @@ async function runHuntSession(opts: {
         })
       }
 
+      // Round-count parity: every viewer's max known round must equal the
+      // host's currently-displayed round. Catches "viewer never saw the new
+      // round" bugs that snapshot comparison alone could miss when the old
+      // round happens to still have matching rows.
+      const hostRound = await readHostRound(hostPage)
+      if (hostRound != null) {
+        const viewerRounds = await Promise.all(
+          viewers.map(async (v) => ({
+            id: v.id,
+            round: await readViewerMaxRound(v.page),
+          })),
+        )
+        const mismatched = viewerRounds.filter((v) => v.round !== hostRound)
+        if (mismatched.length > 0) {
+          appendFinding({
+            created: new Date().toISOString(),
+            severity: 'auto-capture',
+            status: 'auto',
+            area: 'live/round-parity',
+            title: `hunt round-parity mismatch at iter ${i} (seed ${seed}) after ${action.name}`,
+            detail: `Host shows round ${hostRound}, but ${mismatched.length}/${viewers.length} viewers disagree. Logged and continued.`,
+            test: 'chaos-hunt',
+            seed,
+            iteration: i,
+            action: action.name,
+            host_round: hostRound,
+            viewer_rounds: viewerRounds,
+            last_actions: chaosLog.slice(-10),
+          })
+        }
+      }
+
       // Hard failure: any pageerror or console.error across host + 8 viewers.
       // Viewer coverage was the #1 hole in the safe-set test.
       if (panelErrors.length > 0) {
@@ -393,6 +466,113 @@ async function runHuntSession(opts: {
           `[chaos-hunt] ${last.kind} on ${last.panel} at iter ${i} (seed ${seed}): ${last.message}\n(appended to e2e/chaos-findings.jsonl)`,
         )
       }
+    }
+
+    // End-of-session peer-count invariant: all 8 viewers should still be
+    // connected after the hunt loop. A drop means chaos silently severed a
+    // link — catch it even if no single iteration flagged divergence.
+    try {
+      await hostPage.getByTestId('tab-headers').getByText('Live (Beta)').click({ timeout: 2000 })
+      await expect(hostPage.locator('.live-tab-container')).toBeVisible({ timeout: 5000 })
+      const badgeText =
+        (await hostPage.locator('.live-tab-badge').textContent({ timeout: 5000 })) ?? ''
+      const m = badgeText.match(/(\d+)\s+anslutna/)
+      const actualPeers = m ? Number(m[1]) : null
+      if (actualPeers !== expectedPeers) {
+        appendFinding({
+          created: new Date().toISOString(),
+          severity: 'auto-capture',
+          status: 'auto',
+          area: 'live/peer-count',
+          title: `hunt peer-count drop after seed ${seed}: badge reads "${badgeText.trim()}"`,
+          detail: `Expected ${expectedPeers} connected viewers at end of hunt loop, badge reports ${actualPeers ?? 'unparseable'}. One or more viewers silently disconnected during chaos.`,
+          test: 'chaos-hunt',
+          seed,
+          iteration: iterations,
+          expected_peers: expectedPeers,
+          actual_peers: actualPeers,
+          badge_text: badgeText.trim(),
+          last_actions: chaosLog.slice(-10),
+        })
+      }
+    } catch (err) {
+      // Badge read itself failed — log but don't crash the session.
+      appendFinding({
+        created: new Date().toISOString(),
+        severity: 'auto-capture',
+        status: 'auto',
+        area: 'live/peer-count',
+        title: `hunt peer-count probe failed after seed ${seed}`,
+        detail: `Could not read .live-tab-badge at end of session: ${String(err instanceof Error ? err.message : err).slice(0, 200)}`,
+        test: 'chaos-hunt',
+        seed,
+        iteration: iterations,
+      })
+    }
+
+    // End-of-session DB backup/restore roundtrip invariant. Export the
+    // current DB bytes, hash them, re-import the same bytes, re-export,
+    // and compare the hashes. A mismatch means either the export path is
+    // non-deterministic or the import path silently corrupts state. Also
+    // verifies the hunt tournament is still present after restore.
+    try {
+      const roundtripResult = await hostPage.evaluate(
+        async ({ tournamentName }) => {
+          const api = (window as unknown as Record<string, any>).__lottaApi
+          const hashBytes = async (bytes: Uint8Array): Promise<string> => {
+            const digest = await crypto.subtle.digest('SHA-256', bytes as unknown as BufferSource)
+            return Array.from(new Uint8Array(digest))
+              .map((b) => b.toString(16).padStart(2, '0'))
+              .join('')
+          }
+
+          const before: Uint8Array = api.exportDbBytes()
+          const beforeLen = before.byteLength
+          const beforeHash = await hashBytes(before)
+
+          await api.restoreDbBytes(before)
+
+          const after: Uint8Array = api.exportDbBytes()
+          const afterLen = after.byteLength
+          const afterHash = await hashBytes(after)
+
+          const tournaments: Array<{ name: string }> = await api.listTournaments()
+          const hasTournament = tournaments.some((t) => t.name === tournamentName)
+
+          return { beforeLen, beforeHash, afterLen, afterHash, hasTournament }
+        },
+        { tournamentName },
+      )
+
+      if (
+        roundtripResult.beforeHash !== roundtripResult.afterHash ||
+        !roundtripResult.hasTournament
+      ) {
+        appendFinding({
+          created: new Date().toISOString(),
+          severity: 'auto-capture',
+          status: 'auto',
+          area: 'db/backup-roundtrip',
+          title: `hunt backup/restore roundtrip mismatch after seed ${seed}`,
+          detail: `Exported ${roundtripResult.beforeLen}B → restored → re-exported ${roundtripResult.afterLen}B. Hash match: ${roundtripResult.beforeHash === roundtripResult.afterHash}. Tournament "${tournamentName}" present after restore: ${roundtripResult.hasTournament}.`,
+          test: 'chaos-hunt',
+          seed,
+          iteration: iterations,
+          roundtrip: roundtripResult,
+        })
+      }
+    } catch (err) {
+      appendFinding({
+        created: new Date().toISOString(),
+        severity: 'auto-capture',
+        status: 'auto',
+        area: 'db/backup-roundtrip',
+        title: `hunt backup/restore roundtrip threw after seed ${seed}`,
+        detail: `Export or restore path raised: ${String(err instanceof Error ? err.message : err).slice(0, 300)}`,
+        test: 'chaos-hunt',
+        seed,
+        iteration: iterations,
+      })
     }
 
     const okCount = chaosLog.filter((e) => e.outcome.status === 'ok').length
