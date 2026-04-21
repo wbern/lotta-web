@@ -1206,6 +1206,10 @@ button.btn-danger {
   margin: 0;
 }
 
+.rollback-warning p + p {
+  margin-top: 8px;
+}
+
 .rollback-version-list {
   list-style: none;
   margin: 0;

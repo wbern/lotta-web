@@ -50,7 +50,7 @@ describe('RollbackDialog', () => {
     expect(screen.getByTestId('rollback-version-1.1.0')).toBeDefined()
   })
 
-  it('renders a backup advisory warning when versions are available', async () => {
+  it('renders a warning that explains the per-version DB isolation and the backup-and-import path', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({ versions: [{ version: '1.0.0', date: null, hash: null }] }), {
         status: 200,
@@ -59,8 +59,14 @@ describe('RollbackDialog', () => {
     renderDialog()
     const warning = await screen.findByTestId('rollback-warning')
     expect(warning).toBeDefined()
-    expect(warning.textContent).toMatch(/säkerhetskopiera/i)
-    expect(warning.textContent).toMatch(/tom databas/i)
+    // The older version runs against its own IDB, so the warning should tell
+    // the user their current data is untouched but also invisible from there.
+    expect(warning.textContent).toMatch(/egen databas/i)
+    // And point them at the backup → import escape hatch if they want to
+    // bring data across, with a clear "own risk" caveat.
+    expect(warning.textContent).toMatch(/säkerhetskopia/i)
+    expect(warning.textContent).toMatch(/importera/i)
+    expect(warning.textContent).toMatch(/egen risk/i)
   })
 
   it('invokes onSwitch with the target version when the switch button is clicked', async () => {

@@ -32,9 +32,14 @@ export function RollbackDialog({ open, onClose, onSwitch }: Props) {
         <>
           <div className="rollback-warning" data-testid="rollback-warning" role="alert">
             <p>
-              <strong>Säkerhetskopiera databasen först.</strong> En äldre version startar med en tom
-              databas och kan inte läsa nyare databasformat. Ladda ner en säkerhetskopia via
-              Inställningar → Säkerhetskopiera, och importera den sedan i den äldre versionen.
+              <strong>Den äldre versionen har sin egen databas.</strong> Din nuvarande data rörs
+              inte, men den äldre versionen ser den inte heller — den kör mot en separat lagring och
+              startar tom.
+            </p>
+            <p>
+              Vill du ta med dig dina turneringar dit? Ladda ner en säkerhetskopia via Inställningar
+              → Säkerhetskopiera, och importera den sedan i den äldre versionen. Gör det på egen
+              risk — äldre versioner kan misstolka nyare databasformat.
             </p>
           </div>
           <ul className="rollback-version-list">
