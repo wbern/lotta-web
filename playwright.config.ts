@@ -205,6 +205,22 @@ export default defineConfig({
               launchOptions: { args: ['--no-sandbox'] },
             },
           },
+          {
+            name: 'chaos-hunt',
+            testMatch: 'chaos-hunt.spec.ts',
+            use: {
+              baseURL: p2pBaseURL,
+              ignoreHTTPSErrors: true,
+              launchOptions: {
+                args: [
+                  '--use-fake-ui-for-media-stream',
+                  '--use-fake-device-for-media-stream',
+                  '--disable-features=WebRtcHideLocalIpsWithMdns',
+                  '--no-sandbox',
+                ],
+              },
+            },
+          },
         ]
       : []),
     ...(hasBrowserStack
