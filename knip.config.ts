@@ -18,8 +18,11 @@ const config: KnipConfig = {
     '@semantic-release/github',
     '@semantic-release/release-notes-generator',
     'lint-staged',
+    // semantic-release itself is invoked from .github/workflows/deploy.yml,
+    // which knip does not parse.
+    'semantic-release',
   ],
-  ignoreBinaries: ['pwa-assets-generator'],
+  ignoreBinaries: ['pwa-assets-generator', 'semantic-release'],
 }
 
 export default config
