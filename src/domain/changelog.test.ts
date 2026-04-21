@@ -62,6 +62,32 @@ describe('releasesSince', () => {
     const releases = [release({ version: '1.0.0' })]
     expect(releasesSince(releases, '')).toEqual(releases)
   })
+
+  it('hides a prerelease of the current stable version', () => {
+    // User is on v1.0.0; the v1.0.0-rc.1 that preceded it is older and must
+    // not reappear in the "vad är nytt" list.
+    const releases = [release({ version: '1.0.0-rc.1' })]
+    expect(releasesSince(releases, '1.0.0')).toEqual([])
+  })
+
+  it('surfaces a newer prerelease to users on an older stable', () => {
+    // Prereleases ship through rollback-deploy; a user on 1.0.0 should see
+    // a freshly-cut 1.1.0-rc.1 as a new release.
+    const releases = [release({ version: '1.1.0-rc.1' }), release({ version: '1.0.0' })]
+    expect(releasesSince(releases, '1.0.0').map((r) => r.version)).toEqual(['1.1.0-rc.1'])
+  })
+
+  it('surfaces newer prereleases to a user currently on a prerelease', () => {
+    const releases = [
+      release({ version: '1.0.0' }),
+      release({ version: '1.0.0-rc.2' }),
+      release({ version: '1.0.0-rc.1' }),
+    ]
+    expect(releasesSince(releases, '1.0.0-rc.1').map((r) => r.version)).toEqual([
+      '1.0.0',
+      '1.0.0-rc.2',
+    ])
+  })
 })
 
 describe('groupCommitsByType', () => {
