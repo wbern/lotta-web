@@ -1,3 +1,11 @@
+## [1.0.2](https://github.com/wbern/lotta/compare/v1.0.1...v1.0.2) (2026-04-21)
+
+
+### Bug Fixes
+
+* **ci:** harden release dispatch + rollback versions.json push ([6b51540](https://github.com/wbern/lotta/commit/6b515405bdab93e3e489428588863e09c8dc326d)), closes [#pages](https://github.com/wbern/lotta/issues/pages)
+* **ui:** tighten WhatsNewDialog edge cases ([4dd687f](https://github.com/wbern/lotta/commit/4dd687f7e5c1b01237cd474d122148877b1dd203))
+
 ## [1.0.1](https://github.com/wbern/lotta/compare/v1.0.0...v1.0.1) (2026-04-21)
 
 
