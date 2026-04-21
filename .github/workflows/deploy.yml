@@ -18,6 +18,9 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  # Needed by the release job so it can dispatch rollback-deploy.yml for a
+  # freshly-cut tag (GITHUB_TOKEN pushes don't trigger downstream workflows).
+  actions: write
 
 concurrency:
   group: pages
@@ -126,10 +129,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Capture tag count before release
+        id: tags_before
+        run: echo "count=$(git tag -l 'v*' | wc -l | tr -d ' ')" >> "$GITHUB_OUTPUT"
+
       - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm exec semantic-release
+
+      - name: Dispatch rollback-deploy for the new tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # semantic-release pushes its tag via GITHUB_TOKEN, which does not
+          # trigger downstream workflows. Explicitly dispatch rollback-deploy
+          # if a new v-tag just appeared on the remote.
+          git fetch --tags --quiet
+          after=$(git tag -l 'v*' | wc -l | tr -d ' ')
+          before=${{ steps.tags_before.outputs.count }}
+          if [ "$after" -le "$before" ]; then
+            echo "No new tag — nothing to snapshot."
+            exit 0
+          fi
+          new_tag=$(git describe --tags --abbrev=0)
+          new_version="${new_tag#v}"
+          echo "Dispatching rollback-deploy for $new_tag (version=$new_version)"
+          gh workflow run rollback-deploy.yml --ref "$new_tag" -f version="$new_version"
 
   deploy:
     runs-on: ubuntu-latest
