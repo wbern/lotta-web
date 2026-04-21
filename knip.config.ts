@@ -12,6 +12,11 @@ const config: KnipConfig = {
     '@commitlint/cli',
     '@secretlint/core',
     '@secretlint/secretlint-rule-preset-recommend',
+    // semantic-release plugins: referenced only from .releaserc.json,
+    // which knip's built-in plugin does not fully resolve.
+    '@semantic-release/commit-analyzer',
+    '@semantic-release/github',
+    '@semantic-release/release-notes-generator',
     'lint-staged',
   ],
   ignoreBinaries: ['pwa-assets-generator'],
