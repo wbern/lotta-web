@@ -1,0 +1,98 @@
+name: Deploy rollback bundle
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version string without leading v (e.g. 1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  # Share the 'pages' group with the mainline deploy so they serialize
+  # against gh-pages and never race the clean step.
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            tag="${GITHUB_REF_NAME}"
+            echo "value=${tag#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build rollback bundle
+        run: pnpm build:rollback
+        env:
+          ROLLBACK_VERSION: ${{ steps.ver.outputs.value }}
+          VITE_METERED_API_KEY: ${{ secrets.VITE_METERED_API_KEY }}
+
+      - name: Copy index.html to 404.html for SPA routing
+        run: cp dist-rollback/index.html dist-rollback/404.html
+
+      - name: Deploy rollback bundle to v/<version>/
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: dist-rollback
+          target-folder: v/${{ steps.ver.outputs.value }}
+          clean: true
+
+      - name: Check out gh-pages for versions.json regeneration
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-checkout
+          fetch-depth: 0
+
+      - name: Regenerate versions.json
+        run: |
+          node scripts/build-versions-json.mjs \
+            --from-dir gh-pages-checkout \
+            --out gh-pages-checkout/versions.json
+
+      - name: Commit versions.json to gh-pages
+        run: |
+          cd gh-pages-checkout
+          if git diff --quiet versions.json; then
+            echo "versions.json unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add versions.json
+          git commit -m "chore: regenerate versions.json for v${{ steps.ver.outputs.value }}"
+          git push origin gh-pages
