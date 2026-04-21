@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/wbern/lotta/compare/v1.0.3...v1.1.0) (2026-04-21)
+
+
+### Features
+
+* **e2e-bridge:** expose DB export/restore for chaos-hunt roundtrip ([b687980](https://github.com/wbern/lotta/commit/b687980c31ee649dc15bfc649d9ecd7b841e4ccc))
+
 ## [1.0.3](https://github.com/wbern/lotta/compare/v1.0.2...v1.0.3) (2026-04-21)
 
 
