@@ -118,13 +118,15 @@ jobs:
       (needs.test-e2e.result == 'success' || needs.test-e2e.result == 'skipped')
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          path: source
 
       - name: Fetch gh-pages for versions.json regeneration
         run: |
-          git clone --depth 1 --branch gh-pages "https://github.com/${GITHUB_REPOSITORY}.git" gh-pages || mkdir -p gh-pages
+          if git ls-remote --exit-code --heads "https://github.com/${GITHUB_REPOSITORY}.git" gh-pages >/dev/null; then
+            git clone --depth 1 --branch gh-pages "https://github.com/${GITHUB_REPOSITORY}.git" gh-pages-checkout
+          else
+            echo "gh-pages branch does not exist yet; starting with empty versions list"
+            mkdir -p gh-pages-checkout
+          fi
 
       - uses: actions/download-artifact@v4
         with:
@@ -132,7 +134,7 @@ jobs:
           path: dist
 
       - name: Regenerate versions.json from current gh-pages
-        run: node source/scripts/build-versions-json.mjs --from-dir gh-pages --out dist/versions.json
+        run: node scripts/build-versions-json.mjs --from-dir gh-pages-checkout --out dist/versions.json
 
       - name: Deploy mainline to gh-pages root
         uses: JamesIves/github-pages-deploy-action@v4
