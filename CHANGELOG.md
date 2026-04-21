@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/wbern/lotta/compare/v1.0.0...v1.0.1) (2026-04-21)
+
+
+### Bug Fixes
+
+* **ci:** dispatch rollback-deploy after semantic-release cuts a tag ([0f46892](https://github.com/wbern/lotta/commit/0f4689273a81c46899d6d4179cd9d09402c6aba6))
+
 # 1.0.0 (2026-04-21)
 
 
