@@ -2,7 +2,10 @@ name: Deploy rollback bundle
 
 on:
   push:
-    tags: ['v*']
+    # Match semver tags (v1.2.3) plus prereleases (v1.2.3-rc.1). Both are
+    # snapshot-deployed under /v/<version>/ so the rollback picker can target
+    # either. Stray non-version tags are ignored.
+    tags: ['v[0-9]*']
   workflow_dispatch:
     inputs:
       version:
