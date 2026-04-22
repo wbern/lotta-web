@@ -18,6 +18,7 @@ let mockLeaveCalled = false
 let mockOnResultSubmit: ((msg: ResultSubmitMessage, peerId: string) => void) | null = null
 let mockOnPeersChange: (() => void) | null = null
 let mockOnNewPeerJoin: ((peerId: string) => void) | null = null
+let mockOnPeerReconnected: ((peerId: string) => void) | null = null
 let mockOnPeerToken: ((peerId: string, token: string) => void) | null = null
 let mockConnectionState = 'disconnected'
 let mockPeers: { id: string; role: string; connectedAt: number; label?: string }[] = []
@@ -113,6 +114,13 @@ vi.mock('../../services/p2p-service', () => {
       }
       get onNewPeerJoin() {
         return mockOnNewPeerJoin
+      }
+
+      set onPeerReconnected(cb: ((peerId: string) => void) | null) {
+        mockOnPeerReconnected = cb
+      }
+      get onPeerReconnected() {
+        return mockOnPeerReconnected
       }
 
       set onChatMessage(cb: ((msg: ChatMessage, peerId: string) => void) | null) {
@@ -238,6 +246,7 @@ describe('LiveTab', () => {
     mockOnResultSubmit = null
     mockOnPeersChange = null
     mockOnNewPeerJoin = null
+    mockOnPeerReconnected = null
     mockOnPeerToken = null
     mockOnChatMessage = null
     mockBroadcastChatMessageCalls = []
@@ -463,7 +472,7 @@ describe('LiveTab', () => {
     expect(mockSend).toHaveBeenCalledWith('new-peer-123', 5, 3)
   })
 
-  it('does not send state to new peer when no round is active', async () => {
+  it('does not send state with a defined round to new peer when no round is active', async () => {
     const { sendCurrentStateToPeer } = await import('../../api/p2p-broadcast')
     const mockSend = vi.mocked(sendCurrentStateToPeer)
     mockSend.mockClear()
@@ -475,7 +484,55 @@ describe('LiveTab', () => {
       mockOnNewPeerJoin?.('new-peer-456')
     })
 
-    expect(mockSend).not.toHaveBeenCalled()
+    expect(mockSend).not.toHaveBeenCalledWith('new-peer-456', 5, expect.any(Number))
+  })
+
+  it('sends state to peer that joined before round prop resolved', async () => {
+    const { sendCurrentStateToPeer } = await import('../../api/p2p-broadcast')
+    const mockSend = vi.mocked(sendCurrentStateToPeer)
+    mockSend.mockClear()
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { rerender } = render(
+      <QueryClientProvider client={qc}>
+        <LiveTab tournamentName="Test" tournamentId={5} round={undefined} />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(screen.getByText('Starta Live'))
+
+    act(() => {
+      mockPeers = [{ id: 'new-peer-456', role: 'viewer', connectedAt: Date.now() }]
+      mockOnNewPeerJoin?.('new-peer-456')
+    })
+
+    expect(mockSend).not.toHaveBeenCalledWith('new-peer-456', 5, expect.any(Number))
+
+    rerender(
+      <QueryClientProvider client={qc}>
+        <LiveTab tournamentName="Test" tournamentId={5} round={3} />
+      </QueryClientProvider>,
+    )
+
+    await waitFor(() => {
+      expect(mockSend).toHaveBeenCalledWith('new-peer-456', 5, 3)
+    })
+  })
+
+  it('re-sends state to peer whose RTC connection recovered', async () => {
+    const { sendCurrentStateToPeer } = await import('../../api/p2p-broadcast')
+    const mockSend = vi.mocked(sendCurrentStateToPeer)
+    mockSend.mockClear()
+
+    renderLiveTab({ tournamentId: 5, round: 3 })
+    fireEvent.click(screen.getByText('Starta Live'))
+
+    expect(mockOnPeerReconnected).not.toBeNull()
+
+    act(() => {
+      mockOnPeerReconnected?.('recovered-peer-1')
+    })
+
+    expect(mockSend).toHaveBeenCalledWith('recovered-peer-1', 5, 3)
   })
 
   it('shows empty-state hint in Domarstyrning panel when no grants exist', () => {

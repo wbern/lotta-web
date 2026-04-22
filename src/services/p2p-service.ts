@@ -278,6 +278,7 @@ export class P2PService {
   onConnectionStateChange: ((state: P2PConnectionState) => void) | null = null
   onPeersChange: (() => void) | null = null
   onNewPeerJoin: ((peerId: string) => void) | null = null
+  onPeerReconnected: ((peerId: string) => void) | null = null
   onPeerLeave: ((peerId: string) => void) | null = null
   onPeerCount: ((message: PeerCountMessage) => void) | null = null
   onAnnouncement: ((message: AnnouncementMessage) => void) | null = null
@@ -766,6 +767,20 @@ export class P2PService {
     this.room.onPeerJoin((peerId: string) => {
       this.logDiagnostic(`Peer joined: ${peerId.slice(0, 8)}...`)
       this.addPeer(peerId, 'viewer')
+      const pc = this.room?.getPeers()[peerId]
+      if (pc) {
+        let wasDisrupted = false
+        pc.addEventListener('connectionstatechange', () => {
+          const s = pc.connectionState
+          if (s === 'disconnected' || s === 'failed') {
+            wasDisrupted = true
+          } else if (s === 'connected' && wasDisrupted) {
+            wasDisrupted = false
+            this.logDiagnostic(`Peer recovered: ${peerId.slice(0, 8)}...`)
+            this.onPeerReconnected?.(peerId)
+          }
+        })
+      }
       // Announce our role, token, label, and hostId to the new peer
       sendRoleAnnounce(
         {

@@ -30,10 +30,30 @@ function createMockRoom() {
     string,
     { send: ReturnType<typeof vi.fn>; receive: ReturnType<typeof vi.fn> }
   > = {}
-  const mockPeerConnections: Record<
-    string,
-    { restartIce: ReturnType<typeof vi.fn>; connectionState: string }
-  > = {}
+  type MockPeerConnection = {
+    restartIce: ReturnType<typeof vi.fn>
+    connectionState: string
+    addEventListener: (event: string, cb: () => void) => void
+    _setConnectionState: (state: string) => void
+  }
+  const mockPeerConnections: Record<string, MockPeerConnection> = {}
+  function createPc(): MockPeerConnection {
+    const listeners: Record<string, Array<() => void>> = {}
+    const pc: MockPeerConnection = {
+      restartIce: vi.fn(),
+      connectionState: 'connected',
+      addEventListener: (event, cb) => {
+        const list = listeners[event] ?? []
+        list.push(cb)
+        listeners[event] = list
+      },
+      _setConnectionState: (state) => {
+        pc.connectionState = state
+        for (const cb of listeners['connectionstatechange'] ?? []) cb()
+      },
+    }
+    return pc
+  }
   return {
     onPeerJoin: (cb: PeerCallback) => {
       handlers['peerJoin'] = cb
@@ -50,8 +70,11 @@ function createMockRoom() {
     leave: vi.fn(),
     getPeers: () => mockPeerConnections,
     _simulatePeerJoin: (id: string) => {
-      mockPeerConnections[id] = { restartIce: vi.fn(), connectionState: 'connected' }
+      mockPeerConnections[id] = createPc()
       handlers['peerJoin']?.(id)
+    },
+    _simulatePcStateChange: (id: string, state: string) => {
+      mockPeerConnections[id]?._setConnectionState(state)
     },
     _simulatePeerLeave: (id: string) => {
       delete mockPeerConnections[id]
@@ -1336,6 +1359,26 @@ describe('P2PService', () => {
       vi.advanceTimersByTime(4000)
       await flush()
       expect(service.reconnectAttempts).toBe(2)
+    })
+
+    it('fires onPeerReconnected when a peer PC recovers from disconnected to connected', async () => {
+      const service = new P2PService('organizer')
+      service.startHosting('test-room')
+      await flush()
+      const room0 = mockRooms[mockRooms.length - 1]
+
+      const onReconnected = vi.fn()
+      service.onPeerReconnected = onReconnected
+
+      room0._simulatePeerJoin('peer-1')
+      expect(onReconnected).not.toHaveBeenCalled()
+
+      room0._simulatePcStateChange('peer-1', 'disconnected')
+      expect(onReconnected).not.toHaveBeenCalled()
+
+      room0._simulatePcStateChange('peer-1', 'connected')
+      expect(onReconnected).toHaveBeenCalledWith('peer-1')
+      expect(onReconnected).toHaveBeenCalledTimes(1)
     })
 
     it('tries ICE restart before full teardown when peers exist', async () => {

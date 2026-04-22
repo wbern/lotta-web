@@ -86,8 +86,9 @@ export async function broadcastAfterPairing(tournamentId: number, roundNr: numbe
 export async function sendCurrentStateToPeer(
   peerId: string,
   tournamentId: number,
-  roundNr: number,
+  roundNr: number | undefined,
 ): Promise<void> {
+  if (roundNr == null) return
   if (!isP2PActive()) return
 
   const service = getP2PService()

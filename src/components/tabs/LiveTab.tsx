@@ -240,8 +240,14 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
 
   useDocumentTitle(unreadChat, `Live: ${tournamentName}`)
   useEffect(() => {
+    const prevRound = roundRef.current
     tournamentIdRef.current = tournamentId
     roundRef.current = round
+    if (round != null && round !== prevRound && serviceRef.current) {
+      for (const peer of serviceRef.current.getPeers()) {
+        sendCurrentStateToPeer(peer.id, tournamentId, round)
+      }
+    }
   }, [tournamentId, round])
   useEffect(() => {
     chatEnabledRef.current = chatEnabled
@@ -370,12 +376,14 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     }
 
     service.onNewPeerJoin = (peerId: string) => {
-      if (roundRef.current != null) {
-        sendCurrentStateToPeer(peerId, tournamentIdRef.current, roundRef.current)
-      }
+      sendCurrentStateToPeer(peerId, tournamentIdRef.current, roundRef.current)
       for (const msg of chatMessagesRef.current) {
         serviceRef.current?.sendChatMessageToPeer(msg, peerId)
       }
+    }
+
+    service.onPeerReconnected = (peerId: string) => {
+      sendCurrentStateToPeer(peerId, tournamentIdRef.current, roundRef.current)
     }
 
     startP2pRpcServer(service, getLocalProvider(), {
