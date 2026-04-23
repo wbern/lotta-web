@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/wbern/lotta/compare/v1.1.1...v1.1.2) (2026-04-23)
+
+
+### Bug Fixes
+
+* **live:** broadcast state to peers after host undo/redo ([34df6da](https://github.com/wbern/lotta/commit/34df6da0468076cbdb556ef8605b6feb4ff334ee))
+
 ## [1.1.1](https://github.com/wbern/lotta/compare/v1.1.0...v1.1.1) (2026-04-22)
 
 
