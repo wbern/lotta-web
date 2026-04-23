@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as p2pProvider from '../services/p2p-provider.ts'
 import type { PageUpdateMessage, ResultSubmitMessage } from '../types/p2p.ts'
+import { setLiveContext } from './live-context.ts'
 import {
   broadcastAfterPairing,
+  broadcastAfterRestore,
   broadcastAfterResultChange,
   handleResultSubmission,
   sendCurrentStateToPeer,
@@ -235,6 +237,92 @@ describe('sendCurrentStateToPeer', () => {
     await sendCurrentStateToPeer('peer', 1, 1)
 
     expect(mockSendPageUpdateTo).not.toHaveBeenCalled()
+  })
+})
+
+describe('broadcastAfterRestore', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(p2pProvider.getP2PService).mockReturnValue({
+      connectionState: 'connected',
+      broadcastPageUpdate: mockBroadcastPageUpdate,
+      sendPageUpdateTo: mockSendPageUpdateTo,
+      role: 'organizer',
+    } as unknown as ReturnType<typeof p2pProvider.getP2PService>)
+  })
+
+  afterEach(() => {
+    setLiveContext(null)
+  })
+
+  it('broadcasts pairings, referee pairings, and standings for the live round', async () => {
+    setLiveContext({ tournamentId: 1, round: 2 })
+    const db = createMockDb({ tournamentName: 'Restore Cup', roundNr: 2 })
+    db.games.listRounds.mockReturnValue([{ roundNr: 1 }, { roundNr: 2 }] as never)
+    mockGetDatabaseService.mockReturnValue(db)
+    mockGetStandings.mockResolvedValue([])
+
+    await broadcastAfterRestore()
+
+    expect(mockBroadcastPageUpdate).toHaveBeenCalledTimes(3)
+    const pageTypes = mockBroadcastPageUpdate.mock.calls.map(
+      (c: unknown[]) => (c[0] as PageUpdateMessage).pageType,
+    )
+    expect(pageTypes).toContain('pairings')
+    expect(pageTypes).toContain('refereePairings')
+    expect(pageTypes).toContain('standings')
+    const rounds = mockBroadcastPageUpdate.mock.calls.map(
+      (c: unknown[]) => (c[0] as PageUpdateMessage).roundNr,
+    )
+    expect(rounds.every((r: number) => r === 2)).toBe(true)
+  })
+
+  it('falls back to latest remaining round when snapshot removed the selected round', async () => {
+    setLiveContext({ tournamentId: 1, round: 3 })
+    const db = createMockDb({ tournamentName: 'Rollback', roundNr: 2 })
+    db.games.listRounds.mockReturnValue([{ roundNr: 1 }, { roundNr: 2 }] as never)
+    mockGetDatabaseService.mockReturnValue(db)
+    mockGetStandings.mockResolvedValue([])
+
+    await broadcastAfterRestore()
+
+    expect(mockBroadcastPageUpdate).toHaveBeenCalled()
+    const rounds = mockBroadcastPageUpdate.mock.calls.map(
+      (c: unknown[]) => (c[0] as PageUpdateMessage).roundNr,
+    )
+    expect(rounds.every((r: number) => r === 2)).toBe(true)
+  })
+
+  it('does nothing when live context is not set', async () => {
+    setLiveContext(null)
+    const db = createMockDb()
+    mockGetDatabaseService.mockReturnValue(db)
+
+    await broadcastAfterRestore()
+
+    expect(mockBroadcastPageUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when the tournament has no rounds', async () => {
+    setLiveContext({ tournamentId: 1, round: null })
+    const db = createMockDb()
+    db.games.listRounds.mockReturnValue([] as never)
+    mockGetDatabaseService.mockReturnValue(db)
+
+    await broadcastAfterRestore()
+
+    expect(mockBroadcastPageUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when P2P is not active', async () => {
+    setLiveContext({ tournamentId: 1, round: 1 })
+    vi.mocked(p2pProvider.getP2PService).mockImplementation(() => {
+      throw new Error('P2PService not initialized')
+    })
+
+    await broadcastAfterRestore()
+
+    expect(mockBroadcastPageUpdate).not.toHaveBeenCalled()
   })
 })
 

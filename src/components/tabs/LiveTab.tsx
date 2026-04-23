@@ -1,6 +1,7 @@
 import QRCode from 'qrcode'
 import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { setLiveContext } from '../../api/live-context'
 import { getLocalProvider } from '../../api/local-data-provider'
 import { handleResultSubmission, sendCurrentStateToPeer } from '../../api/p2p-broadcast'
 import type { RpcPermissions } from '../../api/p2p-data-provider'
@@ -243,6 +244,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     const prevRound = roundRef.current
     tournamentIdRef.current = tournamentId
     roundRef.current = round
+    setLiveContext({ tournamentId, round: round ?? null })
     if (round != null && round !== prevRound && serviceRef.current) {
       for (const peer of serviceRef.current.getPeers()) {
         sendCurrentStateToPeer(peer.id, tournamentId, round)
@@ -419,6 +421,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
       serviceRef.current = null
       clearP2PService()
     }
+    setLiveContext(null)
     clearSession()
     clearAllPeerPermissions()
     tokenPermissionsRef.current.clear()
@@ -454,6 +457,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
       mutationUnsubRef.current = null
       setLiveStatus(null)
       clearAllPeerPermissions()
+      setLiveContext(null)
       if (serviceRef.current) {
         serviceRef.current.leave()
         serviceRef.current = null

@@ -6,8 +6,10 @@ import {
 } from '../domain/html-publisher.ts'
 import { getP2PService } from '../services/p2p-provider.ts'
 import type { AuditLogEntry, PageUpdateMessage, ResultSubmitMessage } from '../types/p2p.ts'
+import { getLiveContext } from './live-context.ts'
 import { buildPairingsInput, buildStandingsInput } from './publish-data.ts'
 import { setResult } from './results.ts'
+import { getDatabaseService } from './service-provider.ts'
 
 function isP2PActive(): boolean {
   try {
@@ -80,6 +82,34 @@ export async function broadcastAfterPairing(tournamentId: number, roundNr: numbe
   if (pairingsInput) broadcastPairings(pairingsInput)
 
   broadcastRefereePairings(tournamentId, roundNr)
+}
+
+/**
+ * Rebroadcast pairings/referee pairings/standings after the host restores from
+ * a snapshot (undo/redo/restoreToPoint). Uses the currently-live tournament
+ * and round. If the snapshot removed the selected round, falls back to the
+ * latest remaining round. No-op when P2P is inactive or no live context is set.
+ */
+export async function broadcastAfterRestore(): Promise<void> {
+  if (!isP2PActive()) return
+  const ctx = getLiveContext()
+  if (!ctx) return
+
+  const db = getDatabaseService()
+  const rounds = db.games.listRounds(ctx.tournamentId)
+  if (rounds.length === 0) return
+
+  const roundNrs = rounds.map((r) => r.roundNr)
+  const roundNr =
+    ctx.round != null && roundNrs.includes(ctx.round) ? ctx.round : roundNrs[roundNrs.length - 1]
+
+  const pairingsInput = buildPairingsInput(ctx.tournamentId, roundNr)
+  if (pairingsInput) broadcastPairings(pairingsInput)
+
+  broadcastRefereePairings(ctx.tournamentId, roundNr)
+
+  const standingsInput = await buildStandingsInput(ctx.tournamentId, roundNr)
+  if (standingsInput) broadcastStandings(standingsInput)
 }
 
 /** Send current tournament state to a specific peer (for late joiners). */
