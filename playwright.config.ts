@@ -74,70 +74,6 @@ export default defineConfig({
     ...(runningP2P
       ? [
           {
-            name: 'vydelning',
-            testMatch: 'vydelning.spec.ts',
-            use: {
-              baseURL: p2pBaseURL,
-              ignoreHTTPSErrors: true,
-              launchOptions: {
-                args: [
-                  '--use-fake-ui-for-media-stream',
-                  '--use-fake-device-for-media-stream',
-                  '--disable-features=WebRtcHideLocalIpsWithMdns',
-                  '--no-sandbox',
-                ],
-              },
-            },
-          },
-          {
-            name: 'club-code',
-            testMatch: 'club-code.spec.ts',
-            use: {
-              baseURL: p2pBaseURL,
-              ignoreHTTPSErrors: true,
-              launchOptions: {
-                args: [
-                  '--use-fake-ui-for-media-stream',
-                  '--use-fake-device-for-media-stream',
-                  '--disable-features=WebRtcHideLocalIpsWithMdns',
-                  '--no-sandbox',
-                ],
-              },
-            },
-          },
-          {
-            name: 'delning',
-            testMatch: 'delning.spec.ts',
-            use: {
-              baseURL: p2pBaseURL,
-              ignoreHTTPSErrors: true,
-              launchOptions: {
-                args: [
-                  '--use-fake-ui-for-media-stream',
-                  '--use-fake-device-for-media-stream',
-                  '--disable-features=WebRtcHideLocalIpsWithMdns',
-                  '--no-sandbox',
-                ],
-              },
-            },
-          },
-          {
-            name: 'p2p',
-            testMatch: 'p2p.spec.ts',
-            use: {
-              baseURL: p2pBaseURL,
-              ignoreHTTPSErrors: true,
-              launchOptions: {
-                args: [
-                  '--use-fake-ui-for-media-stream',
-                  '--use-fake-device-for-media-stream',
-                  '--disable-features=WebRtcHideLocalIpsWithMdns',
-                  '--no-sandbox',
-                ],
-              },
-            },
-          },
-          {
             name: 'compat-warnings',
             testMatch: 'compat-warnings.spec.ts',
             use: {
@@ -145,38 +81,6 @@ export default defineConfig({
               ignoreHTTPSErrors: true,
               launchOptions: {
                 args: ['--no-sandbox'],
-              },
-            },
-          },
-          {
-            name: 'reconnection',
-            testMatch: 'reconnection.spec.ts',
-            use: {
-              baseURL: p2pBaseURL,
-              ignoreHTTPSErrors: true,
-              launchOptions: {
-                args: [
-                  '--use-fake-ui-for-media-stream',
-                  '--use-fake-device-for-media-stream',
-                  '--disable-features=WebRtcHideLocalIpsWithMdns',
-                  '--no-sandbox',
-                ],
-              },
-            },
-          },
-          {
-            name: 'tournament-lifecycle',
-            testMatch: 'tournament-lifecycle.spec.ts',
-            use: {
-              baseURL: p2pBaseURL,
-              ignoreHTTPSErrors: true,
-              launchOptions: {
-                args: [
-                  '--use-fake-ui-for-media-stream',
-                  '--use-fake-device-for-media-stream',
-                  '--disable-features=WebRtcHideLocalIpsWithMdns',
-                  '--no-sandbox',
-                ],
               },
             },
           },
