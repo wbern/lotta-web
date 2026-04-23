@@ -4,7 +4,24 @@ const p2pPort = 5174
 const p2pBaseURL = `https://localhost:${p2pPort}`
 
 const hasBrowserStack = !!process.env.BROWSERSTACK_USERNAME
+// P2P specs (Tier 2) need an MQTT broker, HTTPS, and a second dev server on
+// p2pPort — none of which are present in CI. Opt in locally with RUN_P2P_E2E=1
+// or implicitly via BrowserStack.
 const runningP2P = process.env.RUN_P2P_E2E === '1' || hasBrowserStack
+
+const p2pWebRtcLaunch = {
+  args: [
+    '--use-fake-ui-for-media-stream',
+    '--use-fake-device-for-media-stream',
+    '--disable-features=WebRtcHideLocalIpsWithMdns',
+    '--no-sandbox',
+  ],
+}
+const p2pUse = {
+  baseURL: p2pBaseURL,
+  ignoreHTTPSErrors: true,
+  launchOptions: p2pWebRtcLaunch,
+}
 
 export default defineConfig({
   testDir: './e2e',
@@ -73,33 +90,26 @@ export default defineConfig({
     { name: 'whats-new', testMatch: 'whats-new.spec.ts' },
     ...(runningP2P
       ? [
+          { name: 'p2p', testMatch: 'p2p.spec.ts', use: p2pUse },
+          { name: 'club-code', testMatch: 'club-code.spec.ts', use: p2pUse },
+          { name: 'delning', testMatch: 'delning.spec.ts', use: p2pUse },
+          { name: 'vydelning', testMatch: 'vydelning.spec.ts', use: p2pUse },
+          { name: 'reconnection', testMatch: 'reconnection.spec.ts', use: p2pUse },
+          {
+            name: 'tournament-lifecycle',
+            testMatch: 'tournament-lifecycle.spec.ts',
+            use: p2pUse,
+          },
           {
             name: 'compat-warnings',
             testMatch: 'compat-warnings.spec.ts',
             use: {
               baseURL: p2pBaseURL,
               ignoreHTTPSErrors: true,
-              launchOptions: {
-                args: ['--no-sandbox'],
-              },
+              launchOptions: { args: ['--no-sandbox'] },
             },
           },
-          {
-            name: 'chaos',
-            testMatch: 'chaos.spec.ts',
-            use: {
-              baseURL: p2pBaseURL,
-              ignoreHTTPSErrors: true,
-              launchOptions: {
-                args: [
-                  '--use-fake-ui-for-media-stream',
-                  '--use-fake-device-for-media-stream',
-                  '--disable-features=WebRtcHideLocalIpsWithMdns',
-                  '--no-sandbox',
-                ],
-              },
-            },
-          },
+          { name: 'chaos', testMatch: 'chaos.spec.ts', use: p2pUse },
           {
             name: 'chaos-monkey',
             testMatch: 'chaos-monkey.spec.ts',
@@ -109,22 +119,7 @@ export default defineConfig({
               launchOptions: { args: ['--no-sandbox'] },
             },
           },
-          {
-            name: 'chaos-hunt',
-            testMatch: 'chaos-hunt.spec.ts',
-            use: {
-              baseURL: p2pBaseURL,
-              ignoreHTTPSErrors: true,
-              launchOptions: {
-                args: [
-                  '--use-fake-ui-for-media-stream',
-                  '--use-fake-device-for-media-stream',
-                  '--disable-features=WebRtcHideLocalIpsWithMdns',
-                  '--no-sandbox',
-                ],
-              },
-            },
-          },
+          { name: 'chaos-hunt', testMatch: 'chaos-hunt.spec.ts', use: p2pUse },
         ]
       : []),
     ...(hasBrowserStack

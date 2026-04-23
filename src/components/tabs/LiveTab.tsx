@@ -395,6 +395,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
       },
       clubCodeSecret: secret,
       getAllClubEntries: () => allClubEntriesRef.current,
+      clubFilterEnabled: () => clubFilterEnabledRef.current,
       getPeerLabel: (peerId) => {
         const t = peerTokensRef.current.get(peerId)
         return t ? tokenLabelsRef.current.get(t) : undefined
@@ -727,6 +728,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
             Live: {tournamentName}{' '}
             <button
               className="live-tab-badge"
+              data-testid="live-peer-badge"
               onClick={() => setShowDiagnostics((prev) => !prev)}
               title="Visa anslutningsdiagnostik"
             >
@@ -817,7 +819,9 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                   <div className="live-tab-link-group">
                     <span className="live-tab-link-label">Länk:</span>
                     <div className="live-tab-link-row">
-                      <code className="live-tab-url">{viewUrl}</code>
+                      <code className="live-tab-url" data-testid="live-share-url">
+                        {viewUrl}
+                      </code>
                       <IconButton
                         onClick={() => copyToClipboard(viewUrl, 'viewUrl')}
                         title="Kopiera"
@@ -1218,6 +1222,7 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
                         key={grant.id}
                         className="live-tab-grant-row"
                         data-testid={`grant-row-${grant.id}`}
+                        data-grant-url={url}
                       >
                         <div className="live-tab-grant-qr">
                           <QRCodeSVG value={url} size={120} />

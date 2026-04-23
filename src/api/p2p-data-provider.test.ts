@@ -1,15 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateClubCodeMap } from '../domain/club-codes'
+import type { PageUpdateMessage } from '../types/p2p'
+
+const mockGetCurrentPageUpdates = vi.fn<() => Promise<PageUpdateMessage[]>>()
+vi.mock('./p2p-broadcast', () => ({
+  getCurrentPageUpdates: () => mockGetCurrentPageUpdates(),
+}))
+
 import {
   clearAllPeerPermissions,
   clearPeerPermissions,
   createFullPermissions,
   createP2pClientProvider,
   createViewPermissions,
+  NON_WRITE_PERMISSIONS,
   resetClubCodeRateLimit,
   setPeerAuthorizedClubs,
   setPeerPermissions,
   startP2pRpcServer,
+  WRITE_PERMISSIONS,
 } from './p2p-data-provider'
 import { createMockProvider } from './test-mock-provider'
 
@@ -292,6 +301,52 @@ describe('startP2pRpcServer', () => {
       )
     })
     expect(provider.tournaments.list).not.toHaveBeenCalled()
+  })
+
+  it('dispatches pages.getCurrent by invoking getCurrentPageUpdates', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider()
+    const fakeMessages: PageUpdateMessage[] = [
+      {
+        pageType: 'pairings',
+        tournamentName: 'T',
+        roundNr: 2,
+        html: '<p>pairings</p>',
+        timestamp: 123,
+      },
+    ]
+    mockGetCurrentPageUpdates.mockResolvedValue(fakeMessages)
+
+    startP2pRpcServer(service, provider)
+    setPeerPermissions('peer-1', createViewPermissions())
+
+    service._simulateRequest({ id: 77, method: 'pages.getCurrent', args: [] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        { id: 77, result: fakeMessages },
+        'peer-1',
+      )
+    })
+  })
+
+  it('rejects pages.getCurrent when peer has no permissions', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider()
+    mockGetCurrentPageUpdates.mockReset()
+    mockGetCurrentPageUpdates.mockResolvedValue([])
+
+    startP2pRpcServer(service, provider)
+
+    service._simulateRequest({ id: 78, method: 'pages.getCurrent', args: [] }, 'peer-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        { id: 78, error: 'Permission denied: pages.getCurrent' },
+        'peer-1',
+      )
+    })
+    expect(mockGetCurrentPageUpdates).not.toHaveBeenCalled()
   })
 
   it('rejects commands.setResult when peer has view-only permissions', async () => {
@@ -806,6 +861,88 @@ describe('startP2pRpcServer', () => {
     })
   })
 
+  it('referee grants (report-results, no admin perms) bypass club scoping', async () => {
+    const service = createMockServerService()
+    const provider = createMockProvider({
+      tournamentPlayers: {
+        list: vi.fn().mockResolvedValue([
+          { id: 1, firstName: 'Anna', lastName: 'S', club: 'Club A' },
+          { id: 2, firstName: 'Erik', lastName: 'J', club: 'Club B' },
+        ]),
+      },
+    })
+
+    startP2pRpcServer(service, provider, { clubFilterEnabled: () => true })
+    // Default referee grant: view perms plus result-reporting, no admin perms.
+    // The referee never redeems a club code — they must still see all data.
+    setPeerPermissions('ref-1', {
+      ...createViewPermissions(),
+      'results.set': true,
+      'commands.setResult': true,
+    })
+
+    service._simulateRequest({ id: 150, method: 'tournamentPlayers.list', args: [1] }, 'ref-1')
+
+    await vi.waitFor(() => {
+      expect(service.sendRpcResponse).toHaveBeenCalledWith(
+        {
+          id: 150,
+          result: [
+            { id: 1, firstName: 'Anna', lastName: 'S', club: 'Club A' },
+            { id: 2, firstName: 'Erik', lastName: 'J', club: 'Club B' },
+          ],
+        },
+        'ref-1',
+      )
+    })
+  })
+
+  it('createFullPermissions is partitioned into WRITE_PERMISSIONS and NON_WRITE_PERMISSIONS', () => {
+    const fullKeys = Object.keys(createFullPermissions()).sort()
+    const partition = [...WRITE_PERMISSIONS, ...NON_WRITE_PERMISSIONS].sort()
+    const overlap = WRITE_PERMISSIONS.filter((m) => NON_WRITE_PERMISSIONS.includes(m))
+    expect(overlap).toEqual([])
+    expect(partition).toEqual(fullKeys)
+  })
+
+  it('every method in WRITE_PERMISSIONS bypasses club scoping', async () => {
+    expect(WRITE_PERMISSIONS.length).toBeGreaterThan(0)
+
+    for (const [idx, method] of WRITE_PERMISSIONS.entries()) {
+      const peerId = `drift-peer-${idx}`
+      const service = createMockServerService()
+      const provider = createMockProvider({
+        tournamentPlayers: {
+          list: vi.fn().mockResolvedValue([
+            { id: 1, firstName: 'Anna', lastName: 'S', club: 'Club A' },
+            { id: 2, firstName: 'Erik', lastName: 'J', club: 'Club B' },
+          ]),
+        },
+      })
+      startP2pRpcServer(service, provider, { clubFilterEnabled: () => true })
+      setPeerPermissions(peerId, { 'tournamentPlayers.list': true, [method]: true })
+
+      const reqId = 1000 + idx
+      service._simulateRequest({ id: reqId, method: 'tournamentPlayers.list', args: [1] }, peerId)
+
+      await vi.waitFor(
+        () => {
+          expect(service.sendRpcResponse).toHaveBeenCalledWith(
+            {
+              id: reqId,
+              result: [
+                { id: 1, firstName: 'Anna', lastName: 'S', club: 'Club A' },
+                { id: 2, firstName: 'Erik', lastName: 'J', club: 'Club B' },
+              ],
+            },
+            peerId,
+          )
+        },
+        { timeout: 1000 },
+      )
+    }
+  })
+
   it('view-role peers see unfiltered data when clubFilterEnabled is false', async () => {
     const service = createMockServerService()
     const provider = createMockProvider({
@@ -817,7 +954,7 @@ describe('startP2pRpcServer', () => {
       },
     })
 
-    startP2pRpcServer(service, provider, { clubFilterEnabled: false })
+    startP2pRpcServer(service, provider, { clubFilterEnabled: () => false })
     setPeerPermissions('peer-1', createViewPermissions())
 
     service._simulateRequest({ id: 100, method: 'tournamentPlayers.list', args: [1] }, 'peer-1')
@@ -1234,7 +1371,7 @@ describe('view-scoped filtering across all view methods', () => {
       },
     })
 
-    startP2pRpcServer(service, provider, { clubFilterEnabled: false })
+    startP2pRpcServer(service, provider, { clubFilterEnabled: () => false })
     setPeerPermissions('peer-1', createViewPermissions())
     setPeerAuthorizedClubs('peer-1', ['Club A'])
 

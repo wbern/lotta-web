@@ -1,5 +1,6 @@
 import { generateClubCodeMap } from '../domain/club-codes'
 import type { DataProvider } from './data-provider'
+import { getCurrentPageUpdates } from './p2p-broadcast'
 import { clearCurrentActor, setCurrentActor } from './peer-actor'
 import type { SetResultCommand } from './result-command'
 import { createCommandDeps, handleSetResult } from './result-command'
@@ -91,6 +92,7 @@ export function createFullPermissions(): RpcPermissions {
     'standings.getChess4': true,
     'commands.setResult': true,
     'auth.redeemClubCode': true,
+    'pages.getCurrent': true,
   }
 }
 
@@ -107,6 +109,7 @@ export function createViewPermissions(): RpcPermissions {
     'clubs.list': true,
     'settings.get': true,
     'auth.redeemClubCode': true,
+    'pages.getCurrent': true,
   }
 }
 
@@ -114,16 +117,49 @@ interface RpcServerOptions {
   onMutation?: () => void
   clubCodeSecret?: string
   getAllClubEntries?: () => string[]
-  clubFilterEnabled?: boolean
+  clubFilterEnabled?: () => boolean
   getPeerLabel?: (peerId: string) => string | undefined
   onClubCodeRateLimit?: () => void
 }
 
-const ADMIN_ONLY_PERMISSIONS = ['tournamentPlayers.update', 'rounds.pairNext']
+// Peers with any of these permissions are acting as referees/admins, not
+// spectators — they bypass club-code scoping even when the host has enabled
+// the club filter for spectator viewers.
+export const WRITE_PERMISSIONS: readonly string[] = [
+  'results.set',
+  'results.addGame',
+  'results.updateGame',
+  'results.deleteGame',
+  'results.deleteGames',
+  'commands.setResult',
+  'tournamentPlayers.add',
+  'tournamentPlayers.addMany',
+  'tournamentPlayers.update',
+  'tournamentPlayers.remove',
+  'tournamentPlayers.removeMany',
+  'rounds.pairNext',
+  'rounds.unpairLast',
+]
 
-function isClubScopedRole(perms: RpcPermissions | undefined): boolean {
+// Everything in createFullPermissions must be partitioned into WRITE_PERMISSIONS
+// or this list. The partition is asserted in unit tests so that new methods
+// cannot silently slip through and be misclassified as spectator-only.
+export const NON_WRITE_PERMISSIONS: readonly string[] = [
+  'tournaments.list',
+  'tournaments.get',
+  'tournamentPlayers.list',
+  'rounds.list',
+  'rounds.get',
+  'standings.get',
+  'standings.getClub',
+  'standings.getChess4',
+  'auth.redeemClubCode',
+  'pages.getCurrent',
+]
+
+function isSpectatorRole(perms: RpcPermissions | undefined): boolean {
   if (!perms) return false
-  return !ADMIN_ONLY_PERMISSIONS.some((m) => perms[m] === true)
+  return !WRITE_PERMISSIONS.some((m) => perms[m] === true)
 }
 
 function getProviderForPeer(
@@ -132,9 +168,13 @@ function getProviderForPeer(
   clubFilterEnabled: boolean,
 ): DataProvider {
   const perms = peerPermissions.get(peerId)
-  if (!isClubScopedRole(perms)) return base
+  const authorizedClubs = peerAuthorizedClubs.get(peerId)
+  // Referees/admins without an explicit club-code scope see everything. Any
+  // peer that has redeemed a code keeps its scope as a defensive check, even
+  // if they also hold write permissions.
+  if (!isSpectatorRole(perms) && authorizedClubs === undefined) return base
   if (!clubFilterEnabled) return base
-  return createViewScopedProvider(base, peerAuthorizedClubs.get(peerId) ?? [])
+  return createViewScopedProvider(base, authorizedClubs ?? [])
 }
 
 function isAllowed(method: string, peerId: string): boolean {
@@ -157,7 +197,7 @@ export function startP2pRpcServer(
         return
       }
 
-      const clubFilterEnabled = options?.clubFilterEnabled ?? true
+      const clubFilterEnabled = options?.clubFilterEnabled?.() ?? true
       const peerProvider = getProviderForPeer(provider, peerId, clubFilterEnabled)
 
       let result: unknown
@@ -167,6 +207,8 @@ export function startP2pRpcServer(
         const outcome = await handleSetResult(req.args[0] as SetResultCommand, commandDeps)
         result = outcome
         isMutation = outcome.status === 'applied'
+      } else if (req.method === 'pages.getCurrent') {
+        result = await getCurrentPageUpdates()
       } else if (req.method === 'auth.redeemClubCode') {
         const rawCode = String(req.args[0] ?? '').replace(/[-\s]/g, '')
         const secret = options?.clubCodeSecret

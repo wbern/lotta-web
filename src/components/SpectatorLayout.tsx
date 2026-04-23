@@ -129,12 +129,21 @@ export function SpectatorLayout() {
               const whiteAuth = game.whitePlayer?.club != null
               const blackAuth = game.blackPlayer?.club != null
               return (
-                <tr key={game.boardNr} className={isBye ? 'spectator-bye-row' : undefined}>
+                <tr
+                  key={game.boardNr}
+                  className={isBye ? 'spectator-bye-row' : undefined}
+                  data-testid={`spectator-row-${game.boardNr}`}
+                >
                   <td className="spectator-board-cell">{game.boardNr}</td>
                   <td className={whiteAuth ? 'spectator-club-player' : undefined}>
                     {game.whitePlayer?.name ?? 'BYE'}
                   </td>
-                  <td className="spectator-result-cell">{game.resultDisplay}</td>
+                  <td
+                    className="spectator-result-cell"
+                    data-testid={`spectator-result-${game.boardNr}`}
+                  >
+                    {game.resultDisplay}
+                  </td>
                   <td className={blackAuth ? 'spectator-club-player' : undefined}>
                     {game.blackPlayer?.name ?? 'BYE'}
                   </td>

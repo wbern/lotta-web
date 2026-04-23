@@ -112,6 +112,52 @@ export async function broadcastAfterRestore(): Promise<void> {
   if (standingsInput) broadcastStandings(standingsInput)
 }
 
+/**
+ * Build the full set of PageUpdate messages that together represent the
+ * current tournament state for a given round. Shared by the host-push path
+ * (sendCurrentStateToPeer) and the client-pull bootstrap (getCurrentPageUpdates).
+ */
+async function buildCurrentStateMessages(
+  tournamentId: number,
+  roundNr: number,
+): Promise<PageUpdateMessage[]> {
+  const messages: PageUpdateMessage[] = []
+
+  const pairingsInput = buildPairingsInput(tournamentId, roundNr)
+  if (pairingsInput) {
+    messages.push(
+      buildMessage(
+        'pairings',
+        pairingsInput.tournamentName,
+        roundNr,
+        publishPairings(pairingsInput),
+      ),
+    )
+    messages.push(
+      buildMessage(
+        'refereePairings',
+        pairingsInput.tournamentName,
+        roundNr,
+        publishRefereePairings({ ...pairingsInput, tournamentId }),
+      ),
+    )
+  }
+
+  const standingsInput = await buildStandingsInput(tournamentId, roundNr)
+  if (standingsInput) {
+    messages.push(
+      buildMessage(
+        'standings',
+        standingsInput.tournamentName,
+        roundNr,
+        publishStandings(standingsInput),
+      ),
+    )
+  }
+
+  return messages
+}
+
 /** Send current tournament state to a specific peer (for late joiners). */
 export async function sendCurrentStateToPeer(
   peerId: string,
@@ -122,33 +168,39 @@ export async function sendCurrentStateToPeer(
   if (!isP2PActive()) return
 
   const service = getP2PService()
+  const messages = await buildCurrentStateMessages(tournamentId, roundNr)
+  for (const msg of messages) {
+    service.sendPageUpdateTo(msg, peerId)
+  }
+}
 
-  const pairingsInput = buildPairingsInput(tournamentId, roundNr)
-  if (pairingsInput) {
-    const html = publishPairings(pairingsInput)
-    service.sendPageUpdateTo(
-      buildMessage('pairings', pairingsInput.tournamentName, roundNr, html),
-      peerId,
+/**
+ * Return the full set of PageUpdate messages representing the host's current
+ * live state. Used by the client-pull bootstrap RPC (lt-zqe) so viewers can
+ * recover state without relying on host push events. Resolves the live
+ * tournament/round from live-context; returns [] if no live context, no
+ * rounds exist, or P2P is inactive. Falls back to the latest remaining round
+ * if the previously-selected round is gone.
+ */
+export async function getCurrentPageUpdates(): Promise<PageUpdateMessage[]> {
+  if (!isP2PActive()) return []
+  const ctx = getLiveContext()
+  if (!ctx) return []
+
+  const db = getDatabaseService()
+  const rounds = db.games.listRounds(ctx.tournamentId)
+  if (rounds.length === 0) return []
+
+  const roundNrs = rounds.map((r) => r.roundNr)
+  const latest = roundNrs[roundNrs.length - 1]
+  const roundNr = ctx.round != null && roundNrs.includes(ctx.round) ? ctx.round : latest
+  if (import.meta.env.DEV && ctx.round != null && roundNr !== ctx.round) {
+    console.warn(
+      `getCurrentPageUpdates: ctx.round=${ctx.round} not in rounds, falling back to ${roundNr}`,
     )
   }
 
-  // Send referee pairings for late-joining referees
-  if (pairingsInput) {
-    const refHtml = publishRefereePairings({ ...pairingsInput, tournamentId })
-    service.sendPageUpdateTo(
-      buildMessage('refereePairings', pairingsInput.tournamentName, roundNr, refHtml),
-      peerId,
-    )
-  }
-
-  const standingsInput = await buildStandingsInput(tournamentId, roundNr)
-  if (standingsInput) {
-    const html = publishStandings(standingsInput)
-    service.sendPageUpdateTo(
-      buildMessage('standings', standingsInput.tournamentName, roundNr, html),
-      peerId,
-    )
-  }
+  return buildCurrentStateMessages(ctx.tournamentId, roundNr)
 }
 
 /** Handle a result submission from a referee peer. */

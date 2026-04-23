@@ -12,6 +12,7 @@ import type {
   TournamentDto,
   TournamentListItemDto,
 } from '../types/api'
+import type { PageUpdateMessage } from '../types/p2p'
 import type { CommandOutcome, SetResultCommand } from './result-command'
 
 export interface DataProvider {
@@ -88,6 +89,9 @@ export interface DataProvider {
   }
   commands?: {
     setResult(cmd: SetResultCommand): Promise<CommandOutcome>
+  }
+  pages?: {
+    getCurrent(): Promise<PageUpdateMessage[]>
   }
 }
 
