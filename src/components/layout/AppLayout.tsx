@@ -177,7 +177,21 @@ export function AppLayout() {
     }
   }
 
+  const [alphaPrintOptions, setAlphaPrintOptions] = useState({
+    groupByClass: true,
+    compact: false,
+  })
+
   const handlePrint = (what: string) => {
+    const [baseName, query = ''] = what.split('?')
+    if (baseName === 'alphabetical') {
+      const params = new URLSearchParams(query)
+      setAlphaPrintOptions({
+        groupByClass: params.get('groupByClass') !== '0',
+        compact: params.get('compact') === '1',
+      })
+    }
+
     // Switch to the appropriate tab first, then print
     const tabMap: Record<string, string> = {
       pairings: 'pairings',
@@ -187,13 +201,17 @@ export function AppLayout() {
       'club-standings': 'club-standings',
       'chess4-standings': 'chess4-standings',
     }
-    const tab = tabMap[what]
+    const tab = tabMap[baseName]
     if (tab && tab !== currentTab) {
       navigate({ to: '/', search: { tournamentId, round: currentRound, tab } })
       // Small delay to let the tab render before printing
       setTimeout(() => window.print(), 200)
     } else {
-      window.print()
+      // Even on the same tab we must defer, otherwise window.print() snapshots
+      // the DOM before React commits the setAlphaPrintOptions above — the
+      // preview would show the previous run's options instead of the current
+      // checkbox state.
+      setTimeout(() => window.print(), 50)
     }
   }
 
@@ -452,6 +470,8 @@ export function AppLayout() {
         showGroup={tournament?.showGroup}
         pointsPerGame={tournament?.pointsPerGame}
         maxPointsImmediately={settings?.maxPointsImmediately}
+        alphaPrintGroupByClass={alphaPrintOptions.groupByClass}
+        alphaPrintCompact={alphaPrintOptions.compact}
       />
       <StatusBar
         tournament={tournament}

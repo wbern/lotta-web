@@ -25,6 +25,8 @@ interface Props {
   showGroup?: boolean
   pointsPerGame?: number
   maxPointsImmediately?: boolean
+  alphaPrintGroupByClass?: boolean
+  alphaPrintCompact?: boolean
 }
 
 export function TabPanel({
@@ -41,6 +43,8 @@ export function TabPanel({
   showGroup,
   pointsPerGame,
   maxPointsImmediately,
+  alphaPrintGroupByClass,
+  alphaPrintCompact,
 }: Props) {
   const tabs = useMemo(() => {
     const base: { key: string; label: string }[] = [
@@ -108,8 +112,11 @@ export function TabPanel({
             {activeTab === 'alphabetical' && (
               <AlphabeticalPairingTab
                 tournamentId={tournamentId}
+                tournamentName={tournamentName}
                 rounds={rounds}
                 activeRound={round}
+                printGroupByClass={alphaPrintGroupByClass}
+                printCompact={alphaPrintCompact}
               />
             )}
             {activeTab === 'standings' && (

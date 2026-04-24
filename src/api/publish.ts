@@ -45,14 +45,33 @@ export async function publishPairingsHtml(tournamentId: number, round?: number):
   return htmlBlob(publishPairings(input))
 }
 
+interface AlphabeticalPublishOptions {
+  groupByClass?: boolean
+  columns?: number
+  compact?: boolean
+}
+
 async function publishAlphabeticalPairingsHtml(
   tournamentId: number,
-  round?: number,
+  round: number | undefined,
+  options: AlphabeticalPublishOptions,
 ): Promise<Blob> {
   const roundNr = resolveRound(tournamentId, round)
   const input = buildAlphabeticalPairingsInput(tournamentId, roundNr)
   if (!input) throw new Error(`Tournament ${tournamentId} or round ${roundNr} not found`)
-  return htmlBlob(publishAlphabeticalPairings(input))
+  return htmlBlob(publishAlphabeticalPairings({ ...input, ...options }))
+}
+
+function parseAlphabeticalOptions(query: string): AlphabeticalPublishOptions {
+  const params = new URLSearchParams(query)
+  const options: AlphabeticalPublishOptions = {}
+  const columns = params.get('columns')
+  if (columns != null) options.columns = Number(columns)
+  const groupByClass = params.get('groupByClass')
+  if (groupByClass != null) options.groupByClass = groupByClass === '1'
+  const compact = params.get('compact')
+  if (compact != null) options.compact = compact === '1'
+  return options
 }
 
 export async function publishStandingsHtml(tournamentId: number, round?: number): Promise<Blob> {
@@ -212,7 +231,7 @@ export async function publishHtml(
   what: string,
   round?: number,
 ): Promise<Blob> {
-  const baseName = what.split('?')[0]
+  const [baseName, query = ''] = what.split('?')
 
   switch (baseName) {
     case 'pairings':
@@ -228,7 +247,7 @@ export async function publishHtml(
     case 'cross-table':
       return publishCrossTableHtml(tournamentId)
     case 'alphabetical':
-      return publishAlphabeticalPairingsHtml(tournamentId, round)
+      return publishAlphabeticalPairingsHtml(tournamentId, round, parseAlphabeticalOptions(query))
     default:
       throw new Error(`Unknown publish type: ${what}`)
   }

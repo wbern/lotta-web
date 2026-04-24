@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react'
+import { buildAlphabeticalPairingsInput } from '../../api/publish-data'
 import { useTableSort } from '../../hooks/useTableSort'
 import { sv } from '../../lib/swedish-text'
 import type { RoundDto } from '../../types/api'
@@ -7,8 +8,13 @@ import { SortableHeader } from '../SortableHeader'
 
 interface Props {
   tournamentId: number
+  tournamentName?: string
   rounds: RoundDto[]
   activeRound?: number
+  /** When true (default), each class starts on its own page when printing. */
+  printGroupByClass?: boolean
+  /** When true, apply compact typography/padding in the print view. */
+  printCompact?: boolean
 }
 
 interface PlayerRow {
@@ -17,10 +23,25 @@ interface PlayerRow {
   board: string
 }
 
-export function AlphabeticalPairingTab({ rounds, activeRound }: Props) {
+export function AlphabeticalPairingTab({
+  tournamentId,
+  tournamentName,
+  rounds,
+  activeRound,
+  printGroupByClass = true,
+  printCompact = false,
+}: Props) {
   // Use the active round, or latest round if not specified
   const roundNr = activeRound ?? (rounds.length > 0 ? rounds[rounds.length - 1].roundNr : undefined)
   const round = rounds.find((r) => r.roundNr === roundNr)
+
+  // Grouped-by-class view used only when printing. Same data source as the
+  // downloaded HTML publish, so screen and paper stay consistent.
+  const printClasses = useMemo(() => {
+    if (roundNr == null) return []
+    const grouped = buildAlphabeticalPairingsInput(tournamentId, roundNr)
+    return grouped?.classes ?? []
+  }, [tournamentId, roundNr])
 
   const playerRows = useMemo(() => {
     if (!round) return []
@@ -76,41 +97,110 @@ export function AlphabeticalPairingTab({ rounds, activeRound }: Props) {
   }
 
   return (
-    <div className="table-scroll" data-testid="scroll-container">
-      <table className="data-table" data-testid="data-table">
-        <thead>
-          <tr>
-            <SortableHeader
-              column="name"
-              label={sv.columns.name}
-              sort={sort}
-              onToggle={toggleSort}
-            />
-            <SortableHeader
-              column="club"
-              label={sv.columns.club}
-              sort={sort}
-              onToggle={toggleSort}
-            />
-            <SortableHeader
-              column="board"
-              label={sv.columns.board}
-              sort={sort}
-              onToggle={toggleSort}
-              style={{ textAlign: 'center' }}
-            />
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((row, i) => (
-            <tr key={i}>
-              <td>{row.name}</td>
-              <td>{row.club}</td>
-              <td style={{ textAlign: 'center' }}>{row.board}</td>
+    <>
+      <div className="table-scroll screen-only" data-testid="scroll-container">
+        <table className="data-table" data-testid="data-table">
+          <thead>
+            <tr>
+              <SortableHeader
+                column="name"
+                label={sv.columns.name}
+                sort={sort}
+                onToggle={toggleSort}
+              />
+              <SortableHeader
+                column="club"
+                label={sv.columns.club}
+                sort={sort}
+                onToggle={toggleSort}
+              />
+              <SortableHeader
+                column="board"
+                label={sv.columns.board}
+                sort={sort}
+                onToggle={toggleSort}
+                style={{ textAlign: 'center' }}
+              />
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {sorted.map((row, i) => (
+              <tr key={i}>
+                <td>{row.name}</td>
+                <td>{row.club}</td>
+                <td style={{ textAlign: 'center' }}>{row.board}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className={`print-only${printCompact ? ' CP_compact' : ''}`} aria-hidden="true">
+        {printGroupByClass ? (
+          printClasses.map((klass) => (
+            <div key={klass.className} className="CP_AlphabeticalClass">
+              <h2>
+                {tournamentName ? `${tournamentName} - ` : ''}Alfabetisk lottning rond {roundNr}
+              </h2>
+              {klass.className && <h3>{klass.className}</h3>}
+              <table className="CP_Table">
+                <tbody>
+                  <tr className="CP_TableHeader">
+                    <td>Namn</td>
+                    <td style={{ textAlign: 'center' }}>Bord</td>
+                    <td>Motståndare</td>
+                  </tr>
+                  {klass.players.map((p) => {
+                    const oppName = p.opponent
+                      ? `${p.opponent.firstName} ${p.opponent.lastName}`
+                      : 'frirond'
+                    return (
+                      <tr key={`${p.firstName}-${p.lastName}-${p.lotNr}`} className="CP_Row">
+                        <td className="CP_Player">
+                          {p.firstName} {p.lastName}
+                        </td>
+                        <td className="CP_Board">
+                          {p.lotNr} {p.color}
+                        </td>
+                        <td className="CP_Player">{oppName}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ))
+        ) : (
+          <>
+            <h2>
+              {tournamentName ? `${tournamentName} - ` : ''}Alfabetisk lottning rond {roundNr}
+            </h2>
+            <div className="CP_AlphabeticalFlat">
+              {printClasses.map((klass) => (
+                <div key={klass.className}>
+                  {klass.className && <h3>{klass.className}</h3>}
+                  {klass.players.map((p) => {
+                    const oppName = p.opponent
+                      ? `${p.opponent.firstName} ${p.opponent.lastName}`
+                      : 'frirond'
+                    return (
+                      <div
+                        key={`${p.firstName}-${p.lastName}-${p.lotNr}`}
+                        className="CP_AlphabeticalRow"
+                      >
+                        {p.firstName} {p.lastName}{' '}
+                        <span className="CP_RowBoard">
+                          {p.lotNr} {p.color}
+                        </span>
+                        , <span className="CP_RowOpp">{oppName}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </>
   )
 }

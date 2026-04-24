@@ -67,6 +67,27 @@ describe('PrintDialog', () => {
     expect(disabled('print-alphabetical')).toBe(true)
   })
 
+  it('prints alphabetical with the selected options', () => {
+    const onPrint = vi.fn()
+    render(
+      <PrintDialog
+        open
+        hasRound
+        hasTournament
+        chess4={false}
+        category="lotta"
+        onClose={vi.fn()}
+        onPrint={onPrint}
+      />,
+    )
+
+    fireEvent.click(screen.getByTestId('print-alphabetical-group-by-class'))
+    fireEvent.click(screen.getByTestId('print-alphabetical-compact'))
+    fireEvent.click(screen.getByTestId('print-alphabetical'))
+
+    expect(onPrint).toHaveBeenCalledWith('alphabetical?groupByClass=0&compact=1')
+  })
+
   it('shows pairing print options when category is lotta', () => {
     render(
       <PrintDialog

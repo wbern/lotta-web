@@ -135,8 +135,11 @@ describe('publishAlphabeticalPairings', () => {
     expect(html).toContain('<!DOCTYPE html>')
     expect(html).toContain('Höstturneringen')
     expect(html).toContain('rond 3')
-    expect(html).toContain('Kalle Testsson 23V, Örjan Efternamn 25S')
-    expect(html).toContain('Örjan Efternamn 25S, Kalle Testsson 23V')
+    // Each player appears as a table row with Name / Board / Opponent columns.
+    expect(html).toContain('<td class="CP_Player">Kalle Testsson</td>')
+    expect(html).toContain('<td class="CP_Board">23 V</td>')
+    expect(html).toContain('<td class="CP_Player">Örjan Efternamn</td>')
+    expect(html).toContain('<td class="CP_Board">25 S</td>')
   })
 
   it('starts each class on its own page when printing', () => {
@@ -176,7 +179,91 @@ describe('publishAlphabeticalPairings', () => {
     expect(html).toContain('B-klassen')
     // Each class section must carry a page-break rule so organizers can hand one printout per class.
     // The first class starts naturally at page 1; the rule applies uniformly.
+    // Both modern and legacy forms are required — Safari/WebKit print paths ignore the modern-only rule.
     expect(html).toMatch(/\.CP_AlphabeticalClass[^}]*break-before\s*:\s*page/)
+    expect(html).toMatch(/\.CP_AlphabeticalClass[^}]*page-break-before\s*:\s*always/)
+    expect(html).toMatch(/\.CP_AlphabeticalClass[^}]*break-inside\s*:\s*avoid/)
+  })
+
+  it('emits a flat CSS-column layout when groupByClass is false', () => {
+    const input: AlphabeticalPairingsPublishInput = {
+      tournamentName: 'Test',
+      roundNr: 1,
+      groupByClass: false,
+      columns: 3,
+      classes: [
+        {
+          className: 'A-klassen',
+          players: [
+            {
+              firstName: 'Anna',
+              lastName: 'Andersson',
+              lotNr: 1,
+              color: 'V',
+              opponent: { firstName: 'Bo', lastName: 'Björk', lotNr: 2, color: 'S' },
+            },
+          ],
+        },
+      ],
+    }
+
+    const html = publishAlphabeticalPairings(input)
+    expect(html).toContain('class="CP_AlphabeticalFlat"')
+    expect(html).toContain('column-count: 3')
+    expect(html).not.toContain('class="CP_AlphabeticalClass"')
+    // Row uses the flat div format, not a table
+    expect(html).toContain('class="CP_AlphabeticalRow"')
+  })
+
+  it('clamps the column count to the 1..8 range', () => {
+    const base: AlphabeticalPairingsPublishInput = {
+      tournamentName: 'Test',
+      roundNr: 1,
+      groupByClass: false,
+      classes: [
+        {
+          className: '',
+          players: [
+            {
+              firstName: 'Anna',
+              lastName: 'Andersson',
+              lotNr: 1,
+              color: 'V',
+              opponent: null,
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(publishAlphabeticalPairings({ ...base, columns: 0 })).toContain('column-count: 1')
+    expect(publishAlphabeticalPairings({ ...base, columns: 99 })).toContain('column-count: 8')
+  })
+
+  it('adds the CP_compact body class when compact is on', () => {
+    const input: AlphabeticalPairingsPublishInput = {
+      tournamentName: 'Test',
+      roundNr: 1,
+      compact: true,
+      classes: [
+        {
+          className: '',
+          players: [
+            {
+              firstName: 'Anna',
+              lastName: 'Andersson',
+              lotNr: 1,
+              color: 'V',
+              opponent: null,
+            },
+          ],
+        },
+      ],
+    }
+
+    const html = publishAlphabeticalPairings(input)
+    expect(html).toContain('<body class="CP_compact">')
+    expect(html).toMatch(/\.CP_compact\s*\{[^}]*font-size/)
   })
 })
 

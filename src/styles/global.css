@@ -54,6 +54,16 @@
   --color-badge-referee-text: #e65100;
   --color-badge-organizer-bg: #e8f5e9;
   --color-badge-organizer-text: #2e7d32;
+  /* Print-specific palette — intentionally paper-friendly and
+     invariant across light/dark themes (paper is always white). */
+  --color-print-surface: #ffffff;
+  --color-print-header-bg: #2c3e50;
+  --color-print-header-text: #ffffff;
+  --color-print-heading: #1a1a1a;
+  --color-print-text: #212529;
+  --color-print-text-muted: #495057;
+  --color-print-row-alt: #f8f9fa;
+  --color-print-border: #e9ecef;
   --font-family: "Hanken Grotesk", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   --font-size-base: 1rem;
   --font-size-small: 1rem;
@@ -1270,6 +1280,13 @@ button.btn-danger {
 }
 
 /* Print styles */
+@page {
+  size: A4;
+  margin: 15mm;
+}
+.print-only {
+  display: none;
+}
 @media print {
   .menu-bar,
   .tournament-selector,
@@ -1293,6 +1310,146 @@ button.btn-danger {
   }
   .data-table th {
     position: static;
+  }
+  .screen-only {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-only h2 {
+    font-size: 20pt;
+    color: var(--color-print-heading);
+    margin: 0 0 20px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--color-print-header-bg);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .print-only h3 {
+    font-size: 13pt;
+    color: var(--color-print-header-bg);
+    margin: 24px 0 10px;
+    font-weight: 600;
+  }
+  .CP_AlphabeticalClass {
+    break-before: page;
+    page-break-before: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 32px;
+  }
+  .CP_AlphabeticalClass:first-of-type {
+    break-before: auto;
+    page-break-before: auto;
+  }
+  .CP_Table {
+    width: 100%;
+    max-width: 900px;
+    border-collapse: collapse;
+    margin: 0 0 20px;
+    background: var(--color-print-surface);
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Helvetica Neue",
+      Arial, sans-serif;
+  }
+  .CP_TableHeader {
+    background: var(--color-print-header-bg);
+    color: var(--color-print-header-text);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .CP_TableHeader td {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 9pt;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: none;
+  }
+  .CP_Row {
+    border-bottom: 1px solid var(--color-print-border);
+  }
+  .CP_Row:nth-child(even) {
+    background: var(--color-print-row-alt);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .CP_Row td {
+    padding: 8px 12px;
+    border: none;
+    font-size: 11pt;
+    vertical-align: middle;
+  }
+  .CP_Player {
+    text-align: left;
+    font-weight: 500;
+    color: var(--color-print-text);
+  }
+  .CP_Board {
+    text-align: center;
+    color: var(--color-print-text-muted);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .CP_AlphabeticalFlat {
+    /* The app tab always flows in a single column when printing — multi-column
+       is a publish-only option. */
+    column-gap: 24px;
+  }
+  .CP_AlphabeticalFlat h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+    column-span: none;
+    margin-top: 0;
+  }
+  .CP_AlphabeticalFlat h3 + h3 {
+    margin-top: 18px;
+  }
+  .CP_AlphabeticalRow {
+    padding: 4px 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    font-size: 11pt;
+    border-bottom: 1px solid var(--color-print-border);
+  }
+  .CP_AlphabeticalRow .CP_RowBoard {
+    color: var(--color-print-header-bg);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .CP_AlphabeticalRow .CP_RowOpp {
+    color: var(--color-print-text-muted);
+  }
+  .CP_compact {
+    font-size: 9pt;
+  }
+  .CP_compact h2 {
+    font-size: 15pt;
+    margin: 0 0 12px;
+    padding-bottom: 6px;
+    border-bottom-width: 2px;
+  }
+  .CP_compact h3 {
+    font-size: 10pt;
+    margin: 14px 0 6px;
+  }
+  .CP_compact .CP_TableHeader td {
+    padding: 5px 8px;
+    font-size: 8pt;
+  }
+  .CP_compact .CP_Row td {
+    padding: 3px 8px;
+    font-size: 9pt;
+  }
+  .CP_compact .CP_AlphabeticalClass {
+    margin-bottom: 18px;
+  }
+  .CP_compact .CP_AlphabeticalRow {
+    padding: 2px 0;
+    font-size: 9pt;
   }
 }
 

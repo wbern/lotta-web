@@ -21,10 +21,20 @@ export function PublishDialog({
   onPublish,
 }: Props) {
   const [alphaColumns, setAlphaColumns] = useState(2)
+  const [alphaGroupByClass, setAlphaGroupByClass] = useState(true)
+  const [alphaCompact, setAlphaCompact] = useState(false)
 
   const publish = (what: string) => {
     onPublish(what)
     onClose()
+  }
+
+  const publishAlphabetical = () => {
+    const params = new URLSearchParams()
+    params.set('columns', String(alphaColumns))
+    params.set('groupByClass', alphaGroupByClass ? '1' : '0')
+    params.set('compact', alphaCompact ? '1' : '0')
+    publish(`alphabetical?${params.toString()}`)
   }
 
   return (
@@ -58,7 +68,7 @@ export function PublishDialog({
             <button
               className="btn"
               data-testid="publish-alphabetical"
-              onClick={() => publish(`alphabetical?columns=${alphaColumns}`)}
+              onClick={publishAlphabetical}
               disabled={!hasRound}
               style={{ flex: 1 }}
             >
@@ -69,6 +79,7 @@ export function PublishDialog({
               data-testid="publish-alphabetical-columns"
               value={alphaColumns}
               onChange={(e) => setAlphaColumns(Number(e.target.value))}
+              disabled={alphaGroupByClass}
             >
               {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
                 <option key={n} value={n}>
@@ -76,6 +87,29 @@ export function PublishDialog({
                 </option>
               ))}
             </select>
+          </div>
+          <div
+            className="form-group"
+            style={{ flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}
+          >
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="checkbox"
+                data-testid="publish-alphabetical-group-by-class"
+                checked={alphaGroupByClass}
+                onChange={(e) => setAlphaGroupByClass(e.target.checked)}
+              />
+              Gruppera per klubb på egen sida
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="checkbox"
+                data-testid="publish-alphabetical-compact"
+                checked={alphaCompact}
+                onChange={(e) => setAlphaCompact(e.target.checked)}
+              />
+              Kompakt vy
+            </label>
           </div>
         </>
       )}

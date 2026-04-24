@@ -1,69 +1,172 @@
 import { formatResultLabel } from './scoring.ts'
 
 const CSS = `
+@page {
+  size: A4;
+  margin: 15mm;
+}
 body {
-  font-family: Verdana,Arial,Helvetica,sans-serif;
-  font-size: 10pt;
-  font-weight: bold;
-  color: black;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Helvetica Neue", Arial, sans-serif;
+  font-size: 11pt;
+  color: #212529;
   background-color: white;
+  margin: 0;
+  padding: 24px;
+  line-height: 1.45;
+}
+h2 {
+  font-size: 20pt;
+  color: #1a1a1a;
+  margin: 0 0 20px;
+  padding-bottom: 10px;
+  border-bottom: 3px solid #2c3e50;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+h3 {
+  font-size: 13pt;
+  color: #2c3e50;
+  margin: 24px 0 10px;
+  font-weight: 600;
 }
 .CP_Table {
-  font-family: Verdana,Arial,Helvetica,sans-serif;
-  font-size: 10pt;
-  background-color: white;
-  border: black solid 2px;
-  width: 850px;
-  margin-top: 12px;
+  width: 100%;
+  max-width: 900px;
+  border-collapse: collapse;
+  margin: 0 0 20px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .CP_TableHeader {
-  font-family: Verdana, Arial, Helvetica, sans-serif;
-  background-color: #F0F0F0;
+  background: #2c3e50;
+  color: white;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.CP_TableHeader td {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 9pt;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: none;
 }
 .CP_Row {
-  font-family: Verdana, Arial, Helvetica, sans-serif;
-  font-weight: bold;
-  text-align: center;
-  font-size: 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+.CP_Row:nth-child(even) {
+  background: #f8f9fa;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.CP_Row td {
+  padding: 8px 12px;
+  border: none;
+  font-size: 11pt;
+  vertical-align: middle;
 }
 .CP_Place {
   text-align: right;
-  padding-right: 15px;
-  font-size: 14px;
-  border-top: #808080 1px solid;
+  font-weight: 700;
+  color: #495057;
+  font-variant-numeric: tabular-nums;
+  width: 48px;
 }
 .CP_Player {
   text-align: left;
-  border-top: #808080 1px solid;
-  border-right: #808080 1px solid;
+  font-weight: 500;
+  color: #212529;
 }
-.CP_Group {
-  border-top: #808080 1px solid;
-  border-right: #808080 1px solid;
-}
-.CP_Rating {
-  border-top: #808080 1px solid;
-  border-right: #808080 1px solid;
+.CP_Group, .CP_Rating, .CP_Tiebreak {
+  text-align: center;
+  color: #495057;
+  font-variant-numeric: tabular-nums;
 }
 .CP_Score {
-  border-top: #808080 1px solid;
-  border-right: #808080 1px solid;
-  font-size: 14px;
+  text-align: center;
+  font-weight: 700;
+  color: #212529;
+  font-variant-numeric: tabular-nums;
 }
-.CP_Tiebreak {
-  border-top: #808080 1px solid;
-  border-right: #808080 1px solid;
+.CP_Board {
+  text-align: center;
+  color: #495057;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
 }
 .CP_AlphabeticalClass {
   break-before: page;
+  page-break-before: always;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  margin-bottom: 32px;
 }
 .CP_AlphabeticalClass:first-of-type {
   break-before: auto;
+  page-break-before: auto;
+}
+.CP_AlphabeticalFlat {
+  column-gap: 24px;
+}
+.CP_AlphabeticalFlat h3 {
+  break-after: avoid;
+  page-break-after: avoid;
+  column-span: none;
+  margin-top: 0;
+}
+.CP_AlphabeticalFlat h3 + h3 {
+  margin-top: 18px;
 }
 .CP_AlphabeticalRow {
-  font-family: Verdana, Arial, Helvetica, sans-serif;
-  font-size: 12pt;
+  padding: 4px 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  font-size: 11pt;
+  border-bottom: 1px solid #e9ecef;
+}
+.CP_AlphabeticalRow .CP_RowBoard {
+  color: #2c3e50;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.CP_AlphabeticalRow .CP_RowOpp {
+  color: #495057;
+}
+.CP_compact { font-size: 9pt; }
+.CP_compact h2 {
+  font-size: 15pt;
+  margin: 0 0 12px;
+  padding-bottom: 6px;
+  border-bottom-width: 2px;
+}
+.CP_compact h3 {
+  font-size: 10pt;
+  margin: 14px 0 6px;
+}
+.CP_compact .CP_TableHeader td {
+  padding: 5px 8px;
+  font-size: 8pt;
+}
+.CP_compact .CP_Row td {
+  padding: 3px 8px;
+  font-size: 9pt;
+}
+.CP_compact .CP_AlphabeticalClass {
+  margin-bottom: 18px;
+}
+.CP_compact .CP_AlphabeticalRow {
   padding: 2px 0;
+  font-size: 9pt;
+}
+@media print {
+  body {
+    padding: 0;
+  }
+  .CP_Table {
+    box-shadow: none;
+  }
 }
 `
 
@@ -103,7 +206,8 @@ function getResultLabels(config: { chess4?: boolean; pointsPerGame?: number }): 
   }
 }
 
-function wrap(title: string, body: string): string {
+function wrap(title: string, body: string, bodyClass?: string): string {
+  const bodyAttr = bodyClass ? ` class="${bodyClass}"` : ''
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -113,7 +217,7 @@ function wrap(title: string, body: string): string {
 ${CSS}
 </style>
 </head>
-<body>
+<body${bodyAttr}>
 ${body}
 </body>
 </html>`
@@ -201,6 +305,12 @@ export function publishStandings(input: StandingsPublishInput): string {
 export interface AlphabeticalPairingsPublishInput {
   tournamentName: string
   roundNr: number
+  /** true = one page per class (default). false = flat list with CSS column-count. */
+  groupByClass?: boolean
+  /** Number of CSS columns for the flat layout. Ignored when groupByClass is true. */
+  columns?: number
+  /** Smaller font/padding so large classes fit on fewer pages. */
+  compact?: boolean
   classes: {
     className: string
     players: {
@@ -219,27 +329,68 @@ export interface AlphabeticalPairingsPublishInput {
 }
 
 export function publishAlphabeticalPairings(input: AlphabeticalPairingsPublishInput): string {
-  let body = ''
-  body += `<h2>${esc(input.tournamentName)} - Alfabetisk lottning rond ${input.roundNr}</h2>\n`
+  const groupByClass = input.groupByClass !== false
+  const columns = Math.max(1, Math.min(8, input.columns ?? 1))
+  const compact = !!input.compact
 
-  for (const klass of input.classes) {
-    body += '<div class="CP_AlphabeticalClass">\n'
-    if (klass.className) {
-      body += `<h3>${esc(klass.className)}</h3>\n`
+  const title = `${esc(input.tournamentName)} - Alfabetisk lottning rond ${input.roundNr}`
+  let body = ''
+
+  if (groupByClass) {
+    // Title lives INSIDE each class div so it repeats on every page —
+    // each handout can stand alone for the receiving club.
+    for (const klass of input.classes) {
+      body += '<div class="CP_AlphabeticalClass">\n'
+      body += `<h2>${title}</h2>\n`
+      if (klass.className) {
+        body += `<h3>${esc(klass.className)}</h3>\n`
+      }
+      body += '<table class="CP_Table">\n'
+      body +=
+        '<tr class="CP_TableHeader"><td>Namn</td><td style="text-align:center">Bord</td><td>Motståndare</td></tr>\n'
+      for (const p of klass.players) {
+        const selfName = `${esc(p.firstName)} ${esc(p.lastName)}`
+        const selfBoard = `${p.lotNr} ${p.color}`
+        const oppName = p.opponent
+          ? `${esc(p.opponent.firstName)} ${esc(p.opponent.lastName)}`
+          : 'frirond'
+        body += '<tr class="CP_Row">'
+        body += `<td class="CP_Player">${selfName}</td>`
+        body += `<td class="CP_Board">${selfBoard}</td>`
+        body += `<td class="CP_Player">${oppName}</td>`
+        body += '</tr>\n'
+      }
+      body += '</table>\n'
+      body += '</div>\n'
     }
-    for (const p of klass.players) {
-      const self = `${esc(p.firstName)} ${esc(p.lastName)} ${p.lotNr}${p.color}`
-      if (p.opponent) {
-        const opp = `${esc(p.opponent.firstName)} ${esc(p.opponent.lastName)} ${p.opponent.lotNr}${p.opponent.color}`
-        body += `<div class="CP_AlphabeticalRow">${self}, ${opp}</div>\n`
-      } else {
-        body += `<div class="CP_AlphabeticalRow">${self}, frirond</div>\n`
+  } else {
+    // Flat layout is a single continuous flow, so one title at the top.
+    body += `<h2>${title}</h2>\n`
+    body += `<div class="CP_AlphabeticalFlat" style="column-count: ${columns}">\n`
+    for (const klass of input.classes) {
+      if (klass.className) {
+        body += `<h3>${esc(klass.className)}</h3>\n`
+      }
+      for (const p of klass.players) {
+        const selfName = `${esc(p.firstName)} ${esc(p.lastName)}`
+        const selfBoard = `${p.lotNr} ${p.color}`
+        const oppName = p.opponent
+          ? `${esc(p.opponent.firstName)} ${esc(p.opponent.lastName)}`
+          : 'frirond'
+        body += '<div class="CP_AlphabeticalRow">'
+        body += `${selfName} <span class="CP_RowBoard">${selfBoard}</span>`
+        body += `, <span class="CP_RowOpp">${oppName}</span>`
+        body += '</div>\n'
       }
     }
     body += '</div>\n'
   }
 
-  return wrap('Alfabetisk lottning - ' + input.tournamentName, body)
+  return wrap(
+    'Alfabetisk lottning - ' + input.tournamentName,
+    body,
+    compact ? 'CP_compact' : undefined,
+  )
 }
 
 export interface PlayerListPublishInput {

@@ -151,24 +151,48 @@ describe('publish API (local)', () => {
     expect(playersHtml).toContain('Spelarlista')
   })
 
-  it('publishHtml alphabetical uses per-player format with lotNr and color', async () => {
+  it('publishHtml alphabetical default renders table per class with real lotNrs', async () => {
     await pairNextRound(tournamentId)
 
     const blob = await publishHtml(tournamentId, 'alphabetical', 1)
     const html = await blob.text()
 
-    // Should use the new format, not the regular pairings table header
-    expect(html).not.toContain('<th>Bord</th>')
-    // Should contain per-class page-break CSS hook
     expect(html).toContain('CP_AlphabeticalClass')
     // Must surface the real lot numbers assigned at pairing time, not the
     // 2147483647 sentinel returned by tournamentPlayers.list().
     expect(html).not.toContain('2147483647')
     // Ratings 1800, 1700, 1600, 1500 → lotNrs 1, 2, 3, 4 by rating-desc.
-    expect(html).toMatch(/Anna Andersson 1[VS],/)
-    expect(html).toMatch(/Bo Björk 2[VS],/)
-    expect(html).toMatch(/Cilla Carlsson 3[VS],/)
-    expect(html).toMatch(/Dan Dahl 4[VS],/)
+    expect(html).toMatch(
+      /<td class="CP_Player">Anna Andersson<\/td><td class="CP_Board">1 [VS]<\/td>/,
+    )
+    expect(html).toMatch(/<td class="CP_Player">Bo Björk<\/td><td class="CP_Board">2 [VS]<\/td>/)
+    expect(html).toMatch(
+      /<td class="CP_Player">Cilla Carlsson<\/td><td class="CP_Board">3 [VS]<\/td>/,
+    )
+    expect(html).toMatch(/<td class="CP_Player">Dan Dahl<\/td><td class="CP_Board">4 [VS]<\/td>/)
+  })
+
+  it('publishHtml alphabetical honors groupByClass=0 + columns query params', async () => {
+    await pairNextRound(tournamentId)
+
+    const blob = await publishHtml(tournamentId, 'alphabetical?groupByClass=0&columns=3', 1)
+    const html = await blob.text()
+
+    expect(html).toContain('CP_AlphabeticalFlat')
+    expect(html).toContain('column-count: 3')
+    // The per-class wrapper div should not be emitted in the flat layout
+    // (the class name may still appear inside the inline CSS block)
+    expect(html).not.toContain('class="CP_AlphabeticalClass"')
+    expect(html).toMatch(/Anna Andersson <span class="CP_RowBoard">1 [VS]<\/span>/)
+  })
+
+  it('publishHtml alphabetical applies CP_compact when compact=1', async () => {
+    await pairNextRound(tournamentId)
+
+    const blob = await publishHtml(tournamentId, 'alphabetical?compact=1', 1)
+    const html = await blob.text()
+
+    expect(html).toContain('<body class="CP_compact">')
   })
 
   it('publishPairingsHtml throws with no rounds', async () => {

@@ -30,7 +30,7 @@ describe('PublishDialog', () => {
       expect(onPublish).toHaveBeenCalledWith('pairings')
     })
 
-    it('publishes alphabetical with the selected column count', () => {
+    it('publishes alphabetical with the selected options', () => {
       const onPublish = vi.fn()
       render(
         <PublishDialog
@@ -44,12 +44,55 @@ describe('PublishDialog', () => {
         />,
       )
 
+      // Turn off per-class-per-page so the columns dropdown becomes active
+      fireEvent.click(screen.getByTestId('publish-alphabetical-group-by-class'))
       fireEvent.change(screen.getByTestId('publish-alphabetical-columns'), {
         target: { value: '3' },
       })
+      fireEvent.click(screen.getByTestId('publish-alphabetical-compact'))
       fireEvent.click(screen.getByTestId('publish-alphabetical'))
 
-      expect(onPublish).toHaveBeenCalledWith('alphabetical?columns=3')
+      expect(onPublish).toHaveBeenCalledWith('alphabetical?columns=3&groupByClass=0&compact=1')
+    })
+
+    it('disables the columns dropdown while grouping per class is on', () => {
+      render(
+        <PublishDialog
+          open
+          hasRound
+          hasTournament
+          chess4={false}
+          category="lotta"
+          onClose={vi.fn()}
+          onPublish={vi.fn()}
+        />,
+      )
+
+      const select = screen.getByTestId('publish-alphabetical-columns') as HTMLSelectElement
+      // Default: group-by-class is on, so the dropdown is disabled
+      expect(select.disabled).toBe(true)
+
+      fireEvent.click(screen.getByTestId('publish-alphabetical-group-by-class'))
+      expect(select.disabled).toBe(false)
+    })
+
+    it('defaults to group-by-class on + compact off', () => {
+      const onPublish = vi.fn()
+      render(
+        <PublishDialog
+          open
+          hasRound
+          hasTournament
+          chess4={false}
+          category="lotta"
+          onClose={vi.fn()}
+          onPublish={onPublish}
+        />,
+      )
+
+      fireEvent.click(screen.getByTestId('publish-alphabetical'))
+
+      expect(onPublish).toHaveBeenCalledWith('alphabetical?columns=2&groupByClass=1&compact=0')
     })
 
     it('closes the dialog after publishing', () => {
