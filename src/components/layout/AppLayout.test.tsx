@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AppLayout } from './AppLayout'
 
@@ -14,8 +14,12 @@ vi.mock('./TabPanel', () => ({
   },
 }))
 
+let menuBarProps: Record<string, unknown> = {}
 vi.mock('./MenuBar', () => ({
-  MenuBar: () => <div data-testid="menu-bar" />,
+  MenuBar: (props: Record<string, unknown>) => {
+    menuBarProps = props
+    return <div data-testid="menu-bar" />
+  },
 }))
 
 vi.mock('./TournamentSelector', () => ({
@@ -130,5 +134,39 @@ describe('AppLayout round prop', () => {
     render(<AppLayout />)
 
     expect(tabPanelProps.round).toBe(2)
+  })
+})
+
+describe('AppLayout alphabetical print options', () => {
+  it('defers window.print so the options state commits before the snapshot', () => {
+    mockSearch.tournamentId = 1
+    mockSearch.tab = 'alphabetical'
+    const printSpy = vi.fn()
+    const originalPrint = window.print
+    window.print = printSpy
+    vi.useFakeTimers()
+
+    try {
+      render(<AppLayout />)
+
+      const onPrint = menuBarProps.onPrint as (what: string) => void
+      act(() => {
+        onPrint('alphabetical?groupByClass=0&compact=1')
+      })
+
+      // Must NOT print synchronously — React state would not be committed yet,
+      // and the preview would reflect the previous run's options.
+      expect(printSpy).not.toHaveBeenCalled()
+
+      act(() => {
+        vi.runAllTimers()
+      })
+      expect(printSpy).toHaveBeenCalledTimes(1)
+      expect(tabPanelProps.alphaPrintGroupByClass).toBe(false)
+      expect(tabPanelProps.alphaPrintCompact).toBe(true)
+    } finally {
+      vi.useRealTimers()
+      window.print = originalPrint
+    }
   })
 })

@@ -75,7 +75,11 @@ export function buildAlphabeticalPairingsInput(
               }
             : null,
       }
-      const group = tournament.chess4 ? (self.club ?? '') : (self.playerGroup ?? '')
+      // The checkbox is labeled "Gruppera per klubb på egen sida" in both modes,
+      // so group by club. Non-chess4 tournaments previously grouped by
+      // playerGroup, which collapsed to a single section whenever all players
+      // shared the same group — making the checkbox look broken.
+      const group = self.club ?? ''
       const list = byGroup.get(group) ?? []
       list.push(row)
       byGroup.set(group, list)

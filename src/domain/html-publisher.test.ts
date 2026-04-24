@@ -185,6 +185,72 @@ describe('publishAlphabeticalPairings', () => {
     expect(html).toMatch(/\.CP_AlphabeticalClass[^}]*break-inside\s*:\s*avoid/)
   })
 
+  it('repeats the title inside every class so each handout stands alone', () => {
+    const input: AlphabeticalPairingsPublishInput = {
+      tournamentName: 'Höstturneringen',
+      roundNr: 2,
+      classes: [
+        {
+          className: 'A-klassen',
+          players: [
+            {
+              firstName: 'Anna',
+              lastName: 'Andersson',
+              lotNr: 1,
+              color: 'V',
+              opponent: { firstName: 'Bo', lastName: 'Björk', lotNr: 2, color: 'S' },
+            },
+          ],
+        },
+        {
+          className: 'B-klassen',
+          players: [
+            {
+              firstName: 'Cilla',
+              lastName: 'Carlsson',
+              lotNr: 3,
+              color: 'V',
+              opponent: { firstName: 'Dan', lastName: 'Dahl', lotNr: 4, color: 'S' },
+            },
+          ],
+        },
+      ],
+    }
+
+    const html = publishAlphabeticalPairings(input)
+    const titleOccurrences = html.match(/<h2>Höstturneringen - Alfabetisk lottning rond 2<\/h2>/g)
+    expect(titleOccurrences).not.toBeNull()
+    expect(titleOccurrences).toHaveLength(2)
+    // And each occurrence must live inside its own CP_AlphabeticalClass wrapper.
+    expect(html).toMatch(
+      /<div class="CP_AlphabeticalClass">\s*<h2>Höstturneringen - Alfabetisk lottning rond 2<\/h2>/,
+    )
+  })
+
+  it('emits a single top-level title in the flat layout', () => {
+    const input: AlphabeticalPairingsPublishInput = {
+      tournamentName: 'Höstturneringen',
+      roundNr: 2,
+      groupByClass: false,
+      classes: [
+        {
+          className: 'A',
+          players: [
+            { firstName: 'Anna', lastName: 'Andersson', lotNr: 1, color: 'V', opponent: null },
+          ],
+        },
+        {
+          className: 'B',
+          players: [{ firstName: 'Bo', lastName: 'Björk', lotNr: 2, color: 'V', opponent: null }],
+        },
+      ],
+    }
+
+    const html = publishAlphabeticalPairings(input)
+    const titleOccurrences = html.match(/<h2>Höstturneringen - Alfabetisk lottning rond 2<\/h2>/g)
+    expect(titleOccurrences).toHaveLength(1)
+  })
+
   it('emits a flat CSS-column layout when groupByClass is false', () => {
     const input: AlphabeticalPairingsPublishInput = {
       tournamentName: 'Test',

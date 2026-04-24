@@ -143,6 +143,55 @@ describe('publish-data builders', () => {
       expect(input!.classes.map((c) => c.className)).toEqual(['4A', '4B'])
     })
 
+    it('groups non-chess4 players by club so the per-page handout works', async () => {
+      const lund = service.clubs.create({ name: 'SK Lund' })
+      const malmo = service.clubs.create({ name: 'Malmö SS' })
+      // Overwrite the beforeEach seeds with clubbed players.
+      const t = service.tournaments.create({
+        name: 'Klubbturnering',
+        group: 'A',
+        pairingSystem: 'Monrad',
+        initialPairing: 'Rating',
+        nrOfRounds: 4,
+        barredPairing: false,
+        compensateWeakPlayerPP: false,
+        pointsPerGame: 1,
+        chess4: false,
+        ratingChoice: 'ELO',
+        showELO: true,
+        showGroup: true,
+      })
+      service.tournamentPlayers.add(t.id, {
+        firstName: 'Anna',
+        lastName: 'Andersson',
+        clubIndex: lund.id,
+        ratingI: 1800,
+      })
+      service.tournamentPlayers.add(t.id, {
+        firstName: 'Bo',
+        lastName: 'Björk',
+        clubIndex: malmo.id,
+        ratingI: 1700,
+      })
+      service.tournamentPlayers.add(t.id, {
+        firstName: 'Cilla',
+        lastName: 'Carlsson',
+        clubIndex: lund.id,
+        ratingI: 1600,
+      })
+      service.tournamentPlayers.add(t.id, {
+        firstName: 'Dan',
+        lastName: 'Dahl',
+        clubIndex: malmo.id,
+        ratingI: 1500,
+      })
+
+      await pairNextRound(t.id)
+
+      const input = buildAlphabeticalPairingsInput(t.id, 1)
+      expect(input!.classes.map((c) => c.className)).toEqual(['Malmö SS', 'SK Lund'])
+    })
+
     it('sorts players within a class by first name, not last name', async () => {
       const t = service.tournaments.create({
         name: 'Schack4an',
