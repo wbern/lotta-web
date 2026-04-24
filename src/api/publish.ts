@@ -66,7 +66,10 @@ function parseAlphabeticalOptions(query: string): AlphabeticalPublishOptions {
   const params = new URLSearchParams(query)
   const options: AlphabeticalPublishOptions = {}
   const columns = params.get('columns')
-  if (columns != null) options.columns = Number(columns)
+  if (columns != null) {
+    const n = Number(columns)
+    if (Number.isFinite(n)) options.columns = n
+  }
   const groupByClass = params.get('groupByClass')
   if (groupByClass != null) options.groupByClass = groupByClass === '1'
   const compact = params.get('compact')

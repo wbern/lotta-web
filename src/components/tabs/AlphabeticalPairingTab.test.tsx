@@ -143,6 +143,6 @@ describe('AlphabeticalPairingTab print view', () => {
   it('shows an empty state when there are no rounds', () => {
     render(<AlphabeticalPairingTab tournamentId={1} rounds={[]} />)
 
-    expect(screen.queryByText(/Alfabetisk lottning/)).toBeNull()
+    expect(screen.getByText('Inga ronder')).toBeTruthy()
   })
 })

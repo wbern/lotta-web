@@ -186,6 +186,17 @@ describe('publish API (local)', () => {
     expect(html).toMatch(/Anna Andersson <span class="CP_RowBoard">1 [VS]<\/span>/)
   })
 
+  it('publishHtml alphabetical ignores non-numeric columns values', async () => {
+    await pairNextRound(tournamentId)
+
+    const blob = await publishHtml(tournamentId, 'alphabetical?groupByClass=0&columns=foo', 1)
+    const html = await blob.text()
+
+    // Should fall back to the default (1 column) rather than emitting NaN.
+    expect(html).not.toContain('column-count: NaN')
+    expect(html).toContain('column-count: 1')
+  })
+
   it('publishHtml alphabetical applies CP_compact when compact=1', async () => {
     await pairNextRound(tournamentId)
 

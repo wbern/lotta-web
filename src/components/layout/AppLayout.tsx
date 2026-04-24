@@ -206,12 +206,13 @@ export function AppLayout() {
       navigate({ to: '/', search: { tournamentId, round: currentRound, tab } })
       // Small delay to let the tab render before printing
       setTimeout(() => window.print(), 200)
-    } else {
-      // Even on the same tab we must defer, otherwise window.print() snapshots
-      // the DOM before React commits the setAlphaPrintOptions above — the
-      // preview would show the previous run's options instead of the current
-      // checkbox state.
+    } else if (baseName === 'alphabetical') {
+      // Alphabetical prints read alphaPrintOptions, which we just scheduled
+      // an update for. Defer so React commits the state before window.print
+      // snapshots the DOM — otherwise the preview shows the previous options.
       setTimeout(() => window.print(), 50)
+    } else {
+      window.print()
     }
   }
 

@@ -137,7 +137,7 @@ export function AlphabeticalPairingTab({
       <div className={`print-only${printCompact ? ' CP_compact' : ''}`} aria-hidden="true">
         {printGroupByClass ? (
           printClasses.map((klass) => (
-            <div key={klass.className} className="CP_AlphabeticalClass">
+            <div key={klass.className || '__unclubbed__'} className="CP_AlphabeticalClass">
               <h2>
                 {tournamentName ? `${tournamentName} - ` : ''}Alfabetisk lottning rond {roundNr}
               </h2>
@@ -176,7 +176,7 @@ export function AlphabeticalPairingTab({
             </h2>
             <div className="CP_AlphabeticalFlat">
               {printClasses.map((klass) => (
-                <div key={klass.className}>
+                <div key={klass.className || '__unclubbed__'}>
                   {klass.className && <h3>{klass.className}</h3>}
                   {klass.players.map((p) => {
                     const oppName = p.opponent
