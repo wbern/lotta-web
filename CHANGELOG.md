@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/wbern/lotta/compare/v1.1.3...v1.2.0) (2026-04-24)
+
+
+### Features
+
+* **publish:** repeat title on each alphabetical pairings page ([b3130ce](https://github.com/wbern/lotta/commit/b3130ce42d93f5894eaab554f1f36ae01643dd98))
+
 ## [1.1.3](https://github.com/wbern/lotta/compare/v1.1.2...v1.1.3) (2026-04-23)
 
 
