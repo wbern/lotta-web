@@ -134,6 +134,10 @@ export async function broadcastAfterRestore(): Promise<void> {
  */
 export function broadcastAfterTournamentDelete(tournamentId: number): void {
   if (!isP2PActive()) return
+  const ctx = getLiveContext()
+  if (!ctx) return
+  const shared = ctx.sharedTournamentIds ?? [ctx.tournamentId]
+  if (!shared.includes(tournamentId)) return
   getP2PService().broadcastRoundManifest({
     tournamentId,
     roundNrs: [],

@@ -243,20 +243,53 @@ describe('broadcastAfterTournamentDelete', () => {
     } as unknown as ReturnType<typeof p2pProvider.getP2PService>)
   })
 
-  it('broadcasts an empty manifest for the deleted tournament so viewers prune their cache', async () => {
-    await broadcastAfterTournamentDelete(42)
+  afterEach(() => {
+    setLiveContext(null)
+  })
+
+  it('broadcasts an empty manifest when the deleted tournament is the live one', () => {
+    setLiveContext({ tournamentId: 42, round: 1, sharedTournamentIds: [42] })
+
+    broadcastAfterTournamentDelete(42)
 
     expect(mockBroadcastRoundManifest).toHaveBeenCalledWith(
       expect.objectContaining({ tournamentId: 42, roundNrs: [] }),
     )
   })
 
-  it('does nothing when P2P is not active', async () => {
+  it('broadcasts when the deleted tournament is in the shared set', () => {
+    setLiveContext({ tournamentId: 42, round: 1, sharedTournamentIds: [42, 43] })
+
+    broadcastAfterTournamentDelete(43)
+
+    expect(mockBroadcastRoundManifest).toHaveBeenCalledWith(
+      expect.objectContaining({ tournamentId: 43, roundNrs: [] }),
+    )
+  })
+
+  it('does nothing when the deleted tournament is unrelated to the live session', () => {
+    setLiveContext({ tournamentId: 42, round: 1, sharedTournamentIds: [42] })
+
+    broadcastAfterTournamentDelete(99)
+
+    expect(mockBroadcastRoundManifest).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when there is no live context', () => {
+    setLiveContext(null)
+
+    broadcastAfterTournamentDelete(42)
+
+    expect(mockBroadcastRoundManifest).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when P2P is not active', () => {
+    setLiveContext({ tournamentId: 42, round: 1, sharedTournamentIds: [42] })
     vi.mocked(p2pProvider.getP2PService).mockImplementation(() => {
       throw new Error('P2PService not initialized')
     })
 
-    await broadcastAfterTournamentDelete(42)
+    broadcastAfterTournamentDelete(42)
 
     expect(mockBroadcastRoundManifest).not.toHaveBeenCalled()
   })

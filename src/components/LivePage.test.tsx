@@ -1008,6 +1008,33 @@ describe('LivePage shared tournaments', () => {
     expect(mockSendViewerSelectCalls).toEqual([{ tournamentId: 9 }])
   })
 
+  it('labels options with the tournament name once a page update has been received', () => {
+    render(<LivePage roomCode="test" />)
+
+    act(() => {
+      mockOnSharedTournaments?.({
+        tournamentIds: [7, 9],
+        includeFutureTournaments: true,
+        timestamp: Date.now(),
+      })
+    })
+    act(() => {
+      mockOnPageUpdate?.({
+        pageType: 'pairings',
+        tournamentId: 7,
+        tournamentName: 'Spring Open',
+        roundNr: 1,
+        html: '<html>r1</html>',
+        timestamp: Date.now(),
+      })
+    })
+
+    const select = screen.getByTestId('shared-tournaments-select') as HTMLSelectElement
+    const optionTexts = Array.from(select.options).map((o) => o.text)
+    expect(optionTexts).toContain('Spring Open')
+    expect(optionTexts).toContain('Turnering 9')
+  })
+
   it('flashes the dropdown when a new tournament is added to the shared set', () => {
     render(<LivePage roomCode="test" />)
 

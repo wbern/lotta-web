@@ -261,6 +261,9 @@ function LivePageInner({
   const [chatEnabled, setChatEnabled] = useState(true)
   const [hostRefreshing, setHostRefreshing] = useState(false)
   const [sharedTournamentIds, setSharedTournamentIds] = useState<number[]>([])
+  const [tournamentNamesById, setTournamentNamesById] = useState<Map<number, string>>(
+    () => new Map(),
+  )
   const [selectedTournamentId, setSelectedTournamentId] = useState<number | null>(null)
   const [sharedSetFlashing, setSharedSetFlashing] = useState(false)
   const [showDiagnostics, setShowDiagnostics] = useState(false)
@@ -291,6 +294,15 @@ function LivePageInner({
 
   const handlePageUpdate = useCallback(
     (msg: PageUpdateMessage) => {
+      if (msg.tournamentName) {
+        setTournamentNamesById((prev) => {
+          if (prev.get(msg.tournamentId) === msg.tournamentName) return prev
+          const next = new Map(prev)
+          next.set(msg.tournamentId, msg.tournamentName)
+          return next
+        })
+      }
+
       // Drop stale updates for a tournament the viewer is no longer watching.
       // This matters during a handover — the host may have broadcast before
       // receiving our viewer-select message.
@@ -671,7 +683,7 @@ function LivePageInner({
             >
               {sharedTournamentIds.map((id) => (
                 <option key={id} value={id}>
-                  Turnering {id}
+                  {tournamentNamesById.get(id) ?? `Turnering ${id}`}
                 </option>
               ))}
             </select>
