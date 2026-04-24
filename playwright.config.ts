@@ -8,6 +8,7 @@ const hasBrowserStack = !!process.env.BROWSERSTACK_USERNAME
 // p2pPort — none of which are present in CI. Opt in locally with RUN_P2P_E2E=1
 // or implicitly via BrowserStack.
 const runningP2P = process.env.RUN_P2P_E2E === '1' || hasBrowserStack
+const runningStress = process.env.RUN_STRESS === '1'
 
 const p2pWebRtcLaunch = {
   args: [
@@ -88,6 +89,9 @@ export default defineConfig({
     { name: 'fix-screenshots', testMatch: 'fix-screenshots.spec.ts' },
     { name: 'keybind-demo', testMatch: 'keybind-demo.spec.ts' },
     { name: 'whats-new', testMatch: 'whats-new.spec.ts' },
+    ...(runningStress
+      ? [{ name: 'determinism-stress', testMatch: 'determinism-stress.spec.ts' }]
+      : []),
     ...(runningP2P
       ? [
           { name: 'p2p', testMatch: 'p2p.spec.ts', use: p2pUse },
