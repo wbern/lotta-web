@@ -47,6 +47,7 @@ function broadcastStandings(tournamentId: number, input: StandingsPublishInput):
 }
 
 function broadcastRoundManifest(tournamentId: number): void {
+  if (!isP2PActive()) return
   const roundNrs = getDatabaseService()
     .games.listRounds(tournamentId)
     .map((r) => r.roundNr)
@@ -131,7 +132,7 @@ export async function broadcastAfterRestore(): Promise<void> {
  * deleted. Viewers currently showing that tournament reconcile by dropping
  * all cached rounds; viewers on a different tournament ignore the manifest.
  */
-export async function broadcastAfterTournamentDelete(tournamentId: number): Promise<void> {
+export function broadcastAfterTournamentDelete(tournamentId: number): void {
   if (!isP2PActive()) return
   getP2PService().broadcastRoundManifest({
     tournamentId,

@@ -114,6 +114,11 @@ async function dismissBanner(page: Page): Promise<void> {
   }
 }
 
+// Snapshot markers:
+//   'skip:...'  — host state isn't comparable to viewer; awaitConvergence treats as converged
+//   'empty:...' — host shows nothing; converges with any other 'empty:...' on the viewer
+//   otherwise   — serialized table content, strict equality required
+// URL schema mirrors src/components/layout/AppLayout.tsx (tab= / tournamentId= query params).
 async function snapshotHost(hostPage: Page, liveTournamentId?: number): Promise<string> {
   const url = hostPage.url()
   const tabMatch = url.match(/[?&]tab=([^&]+)/)

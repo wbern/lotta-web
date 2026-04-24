@@ -61,9 +61,7 @@ export async function updateTournament(
 
 export async function deleteTournament(id: number): Promise<void> {
   await getDataProvider().tournaments.delete(id)
-  void broadcastAfterTournamentDelete(id).catch((e) =>
-    console.warn('broadcastAfterTournamentDelete failed:', e),
-  )
+  broadcastAfterTournamentDelete(id)
 }
 
 export async function exportTournamentPlayers(id: number): Promise<Blob> {

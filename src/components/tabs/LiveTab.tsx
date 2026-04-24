@@ -260,9 +260,10 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     const prevRound = roundRef.current
     tournamentIdRef.current = tournamentId
     roundRef.current = round
+    const includeFuture = includeFutureTournamentsRef.current
     setSharedTournamentIds((prev) => {
       if (prev.includes(tournamentId)) return prev
-      if (prev.length === 0 || includeFutureTournamentsRef.current) {
+      if (prev.length === 0 || includeFuture) {
         return [...prev, tournamentId]
       }
       return prev
