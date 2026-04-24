@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/wbern/lotta/compare/v1.2.1...v1.3.0) (2026-04-24)
+
+
+### Features
+
+* **publish:** add option to hide opponent's last name in alphabetical pairings ([ca0f57b](https://github.com/wbern/lotta/commit/ca0f57ba6871918bf59c0cce3a83180d793cbe9b))
+
 ## [1.2.1](https://github.com/wbern/lotta/compare/v1.2.0...v1.2.1) (2026-04-24)
 
 
