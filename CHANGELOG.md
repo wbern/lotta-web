@@ -1,3 +1,10 @@
+## [1.4.3](https://github.com/wbern/lotta/compare/v1.4.2...v1.4.3) (2026-04-25)
+
+
+### Bug Fixes
+
+* **player-form:** clarify reset button label ([9dfc428](https://github.com/wbern/lotta/commit/9dfc428755c697d403a818c81f6a506c2ebd86c9))
+
 ## [1.4.2](https://github.com/wbern/lotta/compare/v1.4.1...v1.4.2) (2026-04-25)
 
 
