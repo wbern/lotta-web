@@ -1,3 +1,11 @@
+## [1.4.5](https://github.com/wbern/lotta/compare/v1.4.4...v1.4.5) (2026-04-25)
+
+
+### Bug Fixes
+
+* **live:** gate live-context on isHosting and lock in title coverage ([dc130d6](https://github.com/wbern/lotta/commit/dc130d6c29f2ba914192ebec03856a3249ddeb0e))
+* **rounds:** focus pairings tab and latest round after seeding ([6969fe4](https://github.com/wbern/lotta/commit/6969fe4d7edb53fa25359e5781ad194bd10ddc33))
+
 ## [1.4.4](https://github.com/wbern/lotta/compare/v1.4.3...v1.4.4) (2026-04-25)
 
 
