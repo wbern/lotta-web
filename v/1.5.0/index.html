@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      ;(() => {
+                                                                          const saved = localStorage.getItem('theme')
+                                                                          if (saved && saved !== 'system') {
+                                                                            document.documentElement.setAttribute('data-theme', saved)
+                                                                            document.documentElement.style.colorScheme = saved
+                                                                          }
+                                                                        })()
+    </script>
+    <link
+      rel="preload"
+      href="/v/1.5.0/fonts/hanken-grotesk-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="icon" href="/v/1.5.0/favicon.ico" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/v/1.5.0/apple-touch-icon-180x180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0066cc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#4477aa" media="(prefers-color-scheme: dark)" />
+    <title>Lotta</title>
+    <script type="module" crossorigin src="/v/1.5.0/assets/index-C6qAqv71.js"></script>
+    <link rel="stylesheet" crossorigin href="/v/1.5.0/assets/index-sUHV7cYH.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
