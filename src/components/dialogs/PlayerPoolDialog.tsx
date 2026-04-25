@@ -14,6 +14,7 @@ import { SortableHeader } from '../SortableHeader'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Dialog } from './Dialog'
 import { PlayerEditor } from './PlayerEditor'
+import { samePlayer } from './playerForm'
 
 interface Props {
   open: boolean
@@ -50,22 +51,24 @@ export function PlayerPoolDialog({ open, onClose }: Props) {
   const deleteClub = useDeleteClub()
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-  const [editPlayer, setEditPlayer] = useState<Partial<PlayerDto>>(emptyPlayer)
+  const [editPlayer, setEditPlayer] = useState<Partial<PlayerDto>>({ ...emptyPlayer })
+  const [baseline, setBaseline] = useState<Partial<PlayerDto>>({ ...emptyPlayer })
   const [isNew, setIsNew] = useState(true)
   const [activeTab, setActiveTab] = useState<'edit' | 'pool'>('pool')
   const [nameError, setNameError] = useState('')
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [pendingPlayer, setPendingPlayer] = useState<PlayerDto | null>(null)
+
+  const isDirty = !samePlayer(editPlayer, baseline)
 
   const wasOpen = useRef(open)
   useEffect(() => {
     if (open && !wasOpen.current) {
       setSelectedIds(new Set())
       setEditPlayer({ ...emptyPlayer })
+      setBaseline({ ...emptyPlayer })
       setIsNew(true)
       setActiveTab('pool')
       setNameError('')
-      setHasUnsavedChanges(false)
       setPendingPlayer(null)
     }
     wasOpen.current = open
@@ -93,12 +96,14 @@ export function PlayerPoolDialog({ open, onClose }: Props) {
   const handleSelectPlayer = (p: PlayerDto, event: React.MouseEvent) => {
     shiftSelectClick(p.id, event)
     setEditPlayer({ ...p })
+    setBaseline({ ...p })
     setIsNew(false)
   }
 
   const handleNew = () => {
     setSelectedIds(new Set())
     setEditPlayer({ ...emptyPlayer })
+    setBaseline({ ...emptyPlayer })
     setIsNew(true)
   }
 
@@ -121,7 +126,10 @@ export function PlayerPoolDialog({ open, onClose }: Props) {
     if (singleSelected != null) {
       if (editPlayer.firstName || editPlayer.lastName) {
         setNameError('')
-        updatePlayer.mutate({ id: singleSelected, dto: editPlayer })
+        updatePlayer.mutate(
+          { id: singleSelected, dto: editPlayer },
+          { onSuccess: () => setBaseline({ ...editPlayer }) },
+        )
       } else {
         setNameError(sv.player.nameRequired)
       }
@@ -142,7 +150,7 @@ export function PlayerPoolDialog({ open, onClose }: Props) {
       width={800}
       height={520}
       noPadding
-      isDirty={!isNew || !!(editPlayer.firstName || editPlayer.lastName)}
+      isDirty={isDirty}
       footer={
         <>
           {activeTab === 'edit' && (
@@ -215,7 +223,6 @@ export function PlayerPoolDialog({ open, onClose }: Props) {
             clubs={clubs || []}
             onChange={(p) => {
               setEditPlayer(p)
-              setHasUnsavedChanges(true)
               if (nameError) setNameError('')
             }}
             nameError={nameError}
@@ -282,7 +289,7 @@ export function PlayerPoolDialog({ open, onClose }: Props) {
                 onMouseDown={shiftSelectMouseDown}
                 onClick={(e) => handleSelectPlayer(p, e)}
                 onDoubleClick={(e) => {
-                  if (hasUnsavedChanges && !selectedIds.has(p.id)) {
+                  if (isDirty && !selectedIds.has(p.id)) {
                     setPendingPlayer(p)
                     return
                   }
@@ -311,9 +318,9 @@ export function PlayerPoolDialog({ open, onClose }: Props) {
           if (pendingPlayer) {
             setSelectedIds(new Set([pendingPlayer.id]))
             setEditPlayer({ ...pendingPlayer })
+            setBaseline({ ...pendingPlayer })
             setIsNew(false)
             setActiveTab('edit')
-            setHasUnsavedChanges(false)
             setNameError('')
           }
           setPendingPlayer(null)

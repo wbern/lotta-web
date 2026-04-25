@@ -142,6 +142,33 @@ describe('PlayerPoolDialog discard-changes confirm', () => {
     expect(screen.queryByText('Osparade ändringar')).toBeNull()
     expect((screen.getByTestId('first-name-input') as HTMLInputElement).value).toBe('Anna')
   })
+
+  it('does not prompt when reverting edits back to the loaded player', () => {
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Anna Svensson'))
+    fireEvent.click(screen.getByText('Skapa eller editera spelare'))
+    fireEvent.change(screen.getByTestId('first-name-input'), { target: { value: 'Anna2' } })
+    fireEvent.change(screen.getByTestId('first-name-input'), { target: { value: 'Anna' } })
+
+    fireEvent.click(screen.getByText('Spelarpool'))
+    fireEvent.doubleClick(screen.getByText('Karl Nilsson'))
+
+    expect(screen.queryByText('Osparade ändringar')).toBeNull()
+  })
+
+  it('does not prompt after single-click loading a different player', () => {
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Skapa eller editera spelare'))
+    fireEvent.change(screen.getByTestId('first-name-input'), { target: { value: 'Pending' } })
+    fireEvent.click(screen.getByText('Spelarpool'))
+    fireEvent.click(screen.getByText('Anna Svensson'))
+
+    fireEvent.doubleClick(screen.getByText('Karl Nilsson'))
+
+    expect(screen.queryByText('Osparade ändringar')).toBeNull()
+  })
 })
 
 describe('PlayerPoolDialog reset on reopen', () => {

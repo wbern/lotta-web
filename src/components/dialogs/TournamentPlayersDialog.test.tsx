@@ -154,6 +154,33 @@ describe('TournamentPlayersDialog discard-changes confirm', () => {
     expect(screen.queryByText('Osparade ändringar')).toBeNull()
     expect((screen.getByTestId('first-name-input') as HTMLInputElement).value).toBe('Erik')
   })
+
+  it('does not prompt when reverting edits back to the loaded player', () => {
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Erik Johansson'))
+    fireEvent.click(screen.getByText('Skapa eller editera spelare'))
+    fireEvent.change(screen.getByTestId('first-name-input'), { target: { value: 'Erik2' } })
+    fireEvent.change(screen.getByTestId('first-name-input'), { target: { value: 'Erik' } })
+
+    fireEvent.click(screen.getByText('Turneringsspelare'))
+    fireEvent.doubleClick(screen.getByText('Lisa Persson'))
+
+    expect(screen.queryByText('Osparade ändringar')).toBeNull()
+  })
+
+  it('does not prompt after single-click loading a different player', () => {
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Skapa eller editera spelare'))
+    fireEvent.change(screen.getByTestId('first-name-input'), { target: { value: 'Pending' } })
+    fireEvent.click(screen.getByText('Turneringsspelare'))
+    fireEvent.click(screen.getByText('Erik Johansson'))
+
+    fireEvent.doubleClick(screen.getByText('Lisa Persson'))
+
+    expect(screen.queryByText('Osparade ändringar')).toBeNull()
+  })
 })
 
 describe('TournamentPlayersDialog reset on reopen', () => {

@@ -16,6 +16,7 @@ import { SortableHeader } from '../SortableHeader'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Dialog } from './Dialog'
 import { PlayerEditor } from './PlayerEditor'
+import { samePlayer } from './playerForm'
 
 interface Props {
   open: boolean
@@ -60,11 +61,13 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
   const [selectedTournamentPlayers, setSelectedTournamentPlayers] = useState<Set<number>>(new Set())
   const [selectedPoolPlayers, setSelectedPoolPlayers] = useState<Set<number>>(new Set())
   const [editPlayer, setEditPlayer] = useState<Partial<PlayerDto>>({ ...emptyPlayer })
+  const [baseline, setBaseline] = useState<Partial<PlayerDto>>({ ...emptyPlayer })
   const [isNew, setIsNew] = useState(true)
   const [activeTab, setActiveTab] = useState<'edit' | 'tournament' | 'pool'>('tournament')
   const [nameError, setNameError] = useState('')
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [pendingPlayer, setPendingPlayer] = useState<PlayerDto | null>(null)
+
+  const isDirty = !samePlayer(editPlayer, baseline)
 
   const wasOpen = useRef(open)
   useEffect(() => {
@@ -72,10 +75,10 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
       setSelectedTournamentPlayers(new Set())
       setSelectedPoolPlayers(new Set())
       setEditPlayer({ ...emptyPlayer })
+      setBaseline({ ...emptyPlayer })
       setIsNew(true)
       setActiveTab('tournament')
       setNameError('')
-      setHasUnsavedChanges(false)
       setPendingPlayer(null)
     }
     wasOpen.current = open
@@ -127,6 +130,7 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
     tournamentShiftSelect.handleClick(p.id, event)
     setSelectedPoolPlayers(new Set())
     setEditPlayer({ ...p })
+    setBaseline({ ...p })
     setIsNew(false)
   }
 
@@ -138,6 +142,7 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
   const handleNew = () => {
     setSelectedTournamentPlayers(new Set())
     setEditPlayer({ ...emptyPlayer })
+    setBaseline({ ...emptyPlayer })
     setIsNew(true)
   }
 
@@ -161,7 +166,10 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
     if (singleSelected != null) {
       if (editPlayer.firstName || editPlayer.lastName) {
         setNameError('')
-        updatePlayer.mutate({ playerId: singleSelected, dto: editPlayer })
+        updatePlayer.mutate(
+          { playerId: singleSelected, dto: editPlayer },
+          { onSuccess: () => setBaseline({ ...editPlayer }) },
+        )
       } else {
         setNameError(sv.player.nameRequired)
       }
@@ -202,7 +210,7 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
       width={800}
       height={520}
       noPadding
-      isDirty={!isNew || !!(editPlayer.firstName || editPlayer.lastName)}
+      isDirty={isDirty}
       footer={
         <>
           {activeTab === 'edit' && (
@@ -294,7 +302,6 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
             clubs={clubs || []}
             onChange={(p) => {
               setEditPlayer(p)
-              setHasUnsavedChanges(true)
               if (nameError) setNameError('')
             }}
             nameError={nameError}
@@ -363,7 +370,7 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
                   onMouseDown={tournamentShiftSelect.handleMouseDown}
                   onClick={(e) => handleSelectTournamentPlayer(p, e)}
                   onDoubleClick={(e) => {
-                    if (hasUnsavedChanges && !selectedTournamentPlayers.has(p.id)) {
+                    if (isDirty && !selectedTournamentPlayers.has(p.id)) {
                       setPendingPlayer(p)
                       return
                     }
@@ -450,9 +457,9 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
             setSelectedTournamentPlayers(new Set([pendingPlayer.id]))
             setSelectedPoolPlayers(new Set())
             setEditPlayer({ ...pendingPlayer })
+            setBaseline({ ...pendingPlayer })
             setIsNew(false)
             setActiveTab('edit')
-            setHasUnsavedChanges(false)
             setNameError('')
           }
           setPendingPlayer(null)
