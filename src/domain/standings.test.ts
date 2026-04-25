@@ -343,4 +343,37 @@ describe('calculateChess4Standings', () => {
       score: 0,
     })
   })
+
+  it('excludes clubs with zero participants in the tournament', () => {
+    const input: StandingsInput = {
+      roundNr: 1,
+      pointsPerGame: 2,
+      chess4: true,
+      compensateWeakPlayerPP: false,
+      selectedTiebreaks: [],
+      players: [
+        {
+          id: 1,
+          name: 'P1',
+          playerGroup: '',
+          club: 'SK Alfa',
+          clubId: 1,
+          rating: 1500,
+          manualTiebreak: 0,
+          lotNr: 1,
+        },
+      ],
+      games: [],
+    }
+
+    const clubs = [
+      { name: 'SK Alfa', chess4Members: 20 },
+      { name: 'SK Beta', chess4Members: 5 },
+      { name: 'SK Gamma', chess4Members: 12 },
+    ]
+
+    const standings = calculateChess4Standings(input, clubs)
+    expect(standings).toHaveLength(1)
+    expect(standings[0].club).toBe('SK Alfa')
+  })
 })

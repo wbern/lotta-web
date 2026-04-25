@@ -39,8 +39,13 @@ export function Chess4SetupTab({ tournamentId }: Props) {
     [playerCountByClub],
   )
 
+  const participatingClubs = useMemo(
+    () => (clubs || []).filter((c) => (playerCountByClub[c.name] || 0) > 0),
+    [clubs, playerCountByClub],
+  )
+
   const { sorted, sort, toggleSort } = useTableSort(
-    clubs || [],
+    participatingClubs,
     { column: 'club', direction: 'asc' },
     getValue,
   )

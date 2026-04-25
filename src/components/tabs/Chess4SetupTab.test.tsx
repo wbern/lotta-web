@@ -1,40 +1,54 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ClubDto, PlayerDto } from '../../types/api'
 import { Chess4SetupTab } from './Chess4SetupTab'
 
 const mockClubs: ClubDto[] = [
   { id: 1, name: 'SK Alfa', chess4Members: 0 },
   { id: 2, name: 'SK Beta', chess4Members: 4 },
+  { id: 3, name: 'SK Gamma', chess4Members: 8 },
 ]
+
+const basePlayer = {
+  ratingN: 1500,
+  ratingI: 0,
+  ratingQ: 0,
+  ratingB: 0,
+  ratingK: 0,
+  ratingKQ: 0,
+  ratingKB: 0,
+  title: '',
+  sex: null,
+  federation: '',
+  fideId: 0,
+  ssfId: 0,
+  birthdate: null,
+  playerGroup: '',
+  withdrawnFromRound: 0,
+  manualTiebreak: 0,
+}
 
 const mockPlayers: PlayerDto[] = [
   {
+    ...basePlayer,
     id: 1,
     lastName: 'Test',
     firstName: 'Player',
     club: 'SK Alfa',
     clubIndex: 1,
-    ratingN: 1500,
-    ratingI: 0,
-    ratingQ: 0,
-    ratingB: 0,
-    ratingK: 0,
-    ratingKQ: 0,
-    ratingKB: 0,
-    title: '',
-    sex: null,
-    federation: '',
-    fideId: 0,
-    ssfId: 0,
-    birthdate: null,
-    playerGroup: '',
-    withdrawnFromRound: 0,
-    manualTiebreak: 0,
     lotNr: 1,
+  },
+  {
+    ...basePlayer,
+    id: 2,
+    lastName: 'Other',
+    firstName: 'Player',
+    club: 'SK Beta',
+    clubIndex: 2,
+    lotNr: 2,
   },
 ]
 
@@ -57,6 +71,10 @@ function renderWithQuery(ui: React.ReactElement) {
 describe('Chess4SetupTab', () => {
   beforeEach(() => {
     mockMutate.mockClear()
+  })
+
+  afterEach(() => {
+    cleanup()
   })
 
   it('shows class size inputs directly without requiring double-click', () => {
@@ -94,5 +112,12 @@ describe('Chess4SetupTab', () => {
       id: 2,
       dto: expect.objectContaining({ chess4Members: 0 }),
     })
+  })
+
+  it('hides clubs with no participants in the current tournament', () => {
+    renderWithQuery(<Chess4SetupTab tournamentId={1} />)
+    expect(screen.getByText('SK Alfa')).toBeTruthy()
+    expect(screen.getByText('SK Beta')).toBeTruthy()
+    expect(screen.queryByText('SK Gamma')).toBeNull()
   })
 })

@@ -331,11 +331,13 @@ export function calculateChess4Standings(
     clubData.points += playerScores.get(p.id) ?? 0
   }
 
-  const entries = [...clubMap.entries()].map(([name, data]) => {
-    const members = Math.max(10, data.chess4Members)
-    const score = Math.round((40 / members) * data.points)
-    return { club: name, playerCount: data.playerCount, chess4Members: data.chess4Members, score }
-  })
+  const entries = [...clubMap.entries()]
+    .filter(([, data]) => data.playerCount > 0)
+    .map(([name, data]) => {
+      const members = Math.max(10, data.chess4Members)
+      const score = Math.round((40 / members) * data.points)
+      return { club: name, playerCount: data.playerCount, chess4Members: data.chess4Members, score }
+    })
 
   entries.sort((a, b) => b.score - a.score)
 
