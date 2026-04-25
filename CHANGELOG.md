@@ -1,3 +1,10 @@
+## [1.4.4](https://github.com/wbern/lotta/compare/v1.4.3...v1.4.4) (2026-04-25)
+
+
+### Bug Fixes
+
+* **chess4:** hide clubs with zero participants from setup and standings ([f05bf0c](https://github.com/wbern/lotta/commit/f05bf0c809b3e26fc1d8da022c821faf6fe149bf))
+
 ## [1.4.3](https://github.com/wbern/lotta/compare/v1.4.2...v1.4.3) (2026-04-25)
 
 
