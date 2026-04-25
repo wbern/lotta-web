@@ -355,6 +355,95 @@ describe('TournamentDialog scoring lock', () => {
   })
 })
 
+describe('TournamentDialog seeded lock', () => {
+  const seeded = {
+    ...baseTournament,
+    roundsPlayed: 1,
+    hasRecordedResults: false,
+  } as unknown as TournamentDto
+
+  it('locks pairing-system controls once round 1 has been paired', () => {
+    mockExisting.value = seeded
+    render(<TournamentDialog open tournamentId={1} onClose={vi.fn()} />)
+
+    const pairingSystem = screen.getByTestId(
+      'tournament-pairing-system-select',
+    ) as HTMLSelectElement
+    expect(pairingSystem.disabled).toBe(true)
+  })
+
+  it('locks initialPairing once round 1 has been paired', () => {
+    mockExisting.value = seeded
+    render(<TournamentDialog open tournamentId={1} onClose={vi.fn()} />)
+
+    const initialPairing = screen.getByTestId(
+      'tournament-initial-pairing-select',
+    ) as HTMLSelectElement
+    expect(initialPairing.disabled).toBe(true)
+  })
+
+  it('locks ratingChoice once round 1 has been paired', () => {
+    mockExisting.value = seeded
+    render(<TournamentDialog open tournamentId={1} onClose={vi.fn()} />)
+
+    const ratingChoice = screen.getByTestId('tournament-rating-choice-select') as HTMLSelectElement
+    expect(ratingChoice.disabled).toBe(true)
+  })
+
+  it('locks barredPairing once round 1 has been paired', () => {
+    mockExisting.value = seeded
+    render(<TournamentDialog open tournamentId={1} onClose={vi.fn()} />)
+
+    const barred = screen.getByTestId('tournament-barred-pairing-checkbox') as HTMLInputElement
+    expect(barred.disabled).toBe(true)
+  })
+
+  it('locks compensateWeakPlayerPP once round 1 has been paired', () => {
+    mockExisting.value = seeded
+    render(<TournamentDialog open tournamentId={1} onClose={vi.fn()} />)
+
+    const compensate = screen.getByTestId('tournament-compensate-weak-checkbox') as HTMLInputElement
+    expect(compensate.disabled).toBe(true)
+  })
+
+  it('disables tiebreak management once round 1 has been paired', () => {
+    mockExisting.value = { ...seeded, selectedTiebreaks: ['Buchholz'] } as unknown as TournamentDto
+    render(<TournamentDialog open tournamentId={1} onClose={vi.fn()} />)
+
+    const tiebreakAvailable = screen.getByTestId(
+      'tournament-tiebreak-available-list',
+    ) as HTMLSelectElement
+    expect(tiebreakAvailable.disabled).toBe(true)
+  })
+
+  it('constrains nrOfRounds min to roundsPlayed once paired', () => {
+    mockExisting.value = { ...seeded, roundsPlayed: 3 } as unknown as TournamentDto
+    render(<TournamentDialog open tournamentId={1} onClose={vi.fn()} />)
+
+    const rounds = screen.getByTestId('tournament-nr-of-rounds-input') as HTMLInputElement
+    expect(rounds.min).toBe('3')
+  })
+
+  it('leaves all settings editable in draft state', () => {
+    mockExisting.value = {
+      ...baseTournament,
+      roundsPlayed: 0,
+      hasRecordedResults: false,
+    } as unknown as TournamentDto
+    render(<TournamentDialog open tournamentId={1} onClose={vi.fn()} />)
+
+    expect(
+      (screen.getByTestId('tournament-pairing-system-select') as HTMLSelectElement).disabled,
+    ).toBe(false)
+    expect(
+      (screen.getByTestId('tournament-initial-pairing-select') as HTMLSelectElement).disabled,
+    ).toBe(false)
+    expect(
+      (screen.getByTestId('tournament-barred-pairing-checkbox') as HTMLInputElement).disabled,
+    ).toBe(false)
+  })
+})
+
 describe('TournamentDialog overlay close', () => {
   it('closes when clicking overlay with empty form', () => {
     const onClose = vi.fn()

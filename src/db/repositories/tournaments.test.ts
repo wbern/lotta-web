@@ -203,6 +203,370 @@ describe('TournamentRepository', () => {
     expect(updated.nrOfRounds).toBe(9)
   })
 
+  it('blocks scoring-system change once round 1 is paired (seeded, no results yet)', () => {
+    const created = tournaments.create({
+      name: 'Locked',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 7,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+    })
+
+    // Paired but no result recorded yet — `seeded` state
+    db.run(
+      `INSERT INTO tournamentgames (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore, whiteplayerlotnr, blackplayerlotnr)
+       VALUES (?, 1, 1, NULL, NULL, 0, 0.0, 0.0, 1, 2)`,
+      [created.id],
+    )
+
+    expect(() =>
+      tournaments.update(created.id, {
+        name: 'Locked',
+        group: 'A',
+        pairingSystem: 'Monrad',
+        initialPairing: 'Slumpad',
+        nrOfRounds: 7,
+        barredPairing: false,
+        compensateWeakPlayerPP: false,
+        pointsPerGame: 4,
+        chess4: true,
+        ratingChoice: 'ELO',
+        showELO: true,
+        showGroup: true,
+      }),
+    ).toThrow(/poängsystem/i)
+  })
+
+  it('blocks pairingSystem change once round 1 is paired', () => {
+    const created = tournaments.create({
+      name: 'Locked',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 7,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+    })
+
+    db.run(
+      `INSERT INTO tournamentgames (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore, whiteplayerlotnr, blackplayerlotnr)
+       VALUES (?, 1, 1, NULL, NULL, 0, 0.0, 0.0, 1, 2)`,
+      [created.id],
+    )
+
+    expect(() =>
+      tournaments.update(created.id, {
+        name: 'Locked',
+        group: 'A',
+        pairingSystem: 'Berger',
+        initialPairing: 'Slumpad',
+        nrOfRounds: 7,
+        barredPairing: false,
+        compensateWeakPlayerPP: false,
+        pointsPerGame: 1,
+        chess4: false,
+        ratingChoice: 'ELO',
+        showELO: true,
+        showGroup: true,
+      }),
+    ).toThrow(/lottningssystem/i)
+  })
+
+  it('blocks barredPairing change once round 1 is paired', () => {
+    const created = tournaments.create({
+      name: 'Locked',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 7,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+    })
+
+    db.run(
+      `INSERT INTO tournamentgames (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore, whiteplayerlotnr, blackplayerlotnr)
+       VALUES (?, 1, 1, NULL, NULL, 0, 0.0, 0.0, 1, 2)`,
+      [created.id],
+    )
+
+    expect(() =>
+      tournaments.update(created.id, {
+        name: 'Locked',
+        group: 'A',
+        pairingSystem: 'Monrad',
+        initialPairing: 'Slumpad',
+        nrOfRounds: 7,
+        barredPairing: true,
+        compensateWeakPlayerPP: false,
+        pointsPerGame: 1,
+        chess4: false,
+        ratingChoice: 'ELO',
+        showELO: true,
+        showGroup: true,
+      }),
+    ).toThrow(/lottningsregler/i)
+  })
+
+  it('blocks compensateWeakPlayerPP change once round 1 is paired', () => {
+    const created = tournaments.create({
+      name: 'Locked',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 7,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+    })
+
+    db.run(
+      `INSERT INTO tournamentgames (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore, whiteplayerlotnr, blackplayerlotnr)
+       VALUES (?, 1, 1, NULL, NULL, 0, 0.0, 0.0, 1, 2)`,
+      [created.id],
+    )
+
+    expect(() =>
+      tournaments.update(created.id, {
+        name: 'Locked',
+        group: 'A',
+        pairingSystem: 'Monrad',
+        initialPairing: 'Slumpad',
+        nrOfRounds: 7,
+        barredPairing: false,
+        compensateWeakPlayerPP: true,
+        pointsPerGame: 1,
+        chess4: false,
+        ratingChoice: 'ELO',
+        showELO: true,
+        showGroup: true,
+      }),
+    ).toThrow(/kompensation/i)
+  })
+
+  it('blocks ratingChoice change once round 1 is paired', () => {
+    const created = tournaments.create({
+      name: 'Locked',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 7,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+    })
+
+    db.run(
+      `INSERT INTO tournamentgames (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore, whiteplayerlotnr, blackplayerlotnr)
+       VALUES (?, 1, 1, NULL, NULL, 0, 0.0, 0.0, 1, 2)`,
+      [created.id],
+    )
+
+    expect(() =>
+      tournaments.update(created.id, {
+        name: 'Locked',
+        group: 'A',
+        pairingSystem: 'Monrad',
+        initialPairing: 'Slumpad',
+        nrOfRounds: 7,
+        barredPairing: false,
+        compensateWeakPlayerPP: false,
+        pointsPerGame: 1,
+        chess4: false,
+        ratingChoice: 'Snabb-ELO',
+        showELO: true,
+        showGroup: true,
+      }),
+    ).toThrow(/rating/i)
+  })
+
+  it('blocks selectedTiebreaks change once round 1 is paired', () => {
+    const created = tournaments.create({
+      name: 'Locked',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 7,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+      selectedTiebreaks: ['Buchholz', 'Berger'],
+    })
+
+    db.run(
+      `INSERT INTO tournamentgames (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore, whiteplayerlotnr, blackplayerlotnr)
+       VALUES (?, 1, 1, NULL, NULL, 0, 0.0, 0.0, 1, 2)`,
+      [created.id],
+    )
+
+    expect(() =>
+      tournaments.update(created.id, {
+        name: 'Locked',
+        group: 'A',
+        pairingSystem: 'Monrad',
+        initialPairing: 'Slumpad',
+        nrOfRounds: 7,
+        barredPairing: false,
+        compensateWeakPlayerPP: false,
+        pointsPerGame: 1,
+        chess4: false,
+        ratingChoice: 'ELO',
+        showELO: true,
+        showGroup: true,
+        selectedTiebreaks: ['Berger', 'Buchholz'],
+      }),
+    ).toThrow(/särskiljning|tiebreak/i)
+  })
+
+  it('blocks reducing nrOfRounds below roundsPlayed', () => {
+    const created = tournaments.create({
+      name: 'Locked',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 7,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+    })
+
+    // Two rounds paired
+    db.run(
+      `INSERT INTO tournamentgames (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore, whiteplayerlotnr, blackplayerlotnr)
+       VALUES (?, 1, 1, NULL, NULL, 0, 0.0, 0.0, 1, 2),
+              (?, 2, 1, NULL, NULL, 0, 0.0, 0.0, 1, 2)`,
+      [created.id, created.id],
+    )
+
+    expect(() =>
+      tournaments.update(created.id, {
+        name: 'Locked',
+        group: 'A',
+        pairingSystem: 'Monrad',
+        initialPairing: 'Slumpad',
+        nrOfRounds: 1,
+        barredPairing: false,
+        compensateWeakPlayerPP: false,
+        pointsPerGame: 1,
+        chess4: false,
+        ratingChoice: 'ELO',
+        showELO: true,
+        showGroup: true,
+      }),
+    ).toThrow(/antal ronder/i)
+  })
+
+  it('allows increasing nrOfRounds after round 1 is paired', () => {
+    const created = tournaments.create({
+      name: 'Locked',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 7,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+    })
+
+    db.run(
+      `INSERT INTO tournamentgames (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore, whiteplayerlotnr, blackplayerlotnr)
+       VALUES (?, 1, 1, NULL, NULL, 0, 0.0, 0.0, 1, 2)`,
+      [created.id],
+    )
+
+    const updated = tournaments.update(created.id, {
+      name: 'Locked',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 9,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+    })
+    expect(updated.nrOfRounds).toBe(9)
+  })
+
+  it('blocks initialPairing change once round 1 is paired', () => {
+    const created = tournaments.create({
+      name: 'Locked',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 7,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+    })
+
+    db.run(
+      `INSERT INTO tournamentgames (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore, whiteplayerlotnr, blackplayerlotnr)
+       VALUES (?, 1, 1, NULL, NULL, 0, 0.0, 0.0, 1, 2)`,
+      [created.id],
+    )
+
+    expect(() =>
+      tournaments.update(created.id, {
+        name: 'Locked',
+        group: 'A',
+        pairingSystem: 'Monrad',
+        initialPairing: 'Rating',
+        nrOfRounds: 7,
+        barredPairing: false,
+        compensateWeakPlayerPP: false,
+        pointsPerGame: 1,
+        chess4: false,
+        ratingChoice: 'ELO',
+        showELO: true,
+        showGroup: true,
+      }),
+    ).toThrow(/startlottning/i)
+  })
+
   it('deletes a tournament and its related data', () => {
     const created = tournaments.create({
       name: 'Höstturneringen',

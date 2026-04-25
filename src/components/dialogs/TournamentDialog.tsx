@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { generateRandomName } from '../../domain/random-name'
+import { isFieldLocked, tournamentLockState } from '../../domain/tournament-lock'
 import { useCreateTournament, useTournament, useUpdateTournament } from '../../hooks/useTournaments'
 import { sv } from '../../lib/swedish-text'
 import type { CreateTournamentRequest } from '../../types/api'
@@ -92,7 +93,8 @@ export function TournamentDialog({
   const [saveError, setSaveError] = useState('')
 
   const isEdit = tournamentId != null
-  const scoringLocked = isEdit && existing?.hasRecordedResults === true
+  const lockState = isEdit && existing ? tournamentLockState(existing) : 'draft'
+  const scoringLocked = isFieldLocked('chess4', lockState)
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -412,7 +414,8 @@ export function TournamentDialog({
                   marginTop: 4,
                 }}
               >
-                Kan inte ändra poängsystem efter att resultat har registrerats.
+                Poängsystem och övriga lottningsinställningar är låsta efter att rond 1 har lottats.
+                Duplicera turneringen för att ändra dessa.
               </div>
             )}
           </div>
@@ -420,9 +423,10 @@ export function TournamentDialog({
           <div className="form-group">
             <label>{sv.tournament.pairingSystem}</label>
             <select
+              data-testid="tournament-pairing-system-select"
               value={form.pairingSystem}
               onChange={(e) => update({ pairingSystem: e.target.value })}
-              disabled={form.chess4}
+              disabled={form.chess4 || isFieldLocked('pairingSystem', lockState)}
             >
               <option value="Monrad">Monrad</option>
               <option value="Berger">Berger</option>
@@ -433,9 +437,10 @@ export function TournamentDialog({
           <div className="form-group">
             <label>{sv.tournament.initialPairing}</label>
             <select
+              data-testid="tournament-initial-pairing-select"
               value={form.initialPairing}
               onChange={(e) => update({ initialPairing: e.target.value })}
-              disabled={form.chess4}
+              disabled={form.chess4 || isFieldLocked('initialPairing', lockState)}
             >
               <option value="Slumpad">Slumpad</option>
               <option value="Rating">Rating</option>
@@ -446,9 +451,10 @@ export function TournamentDialog({
             <div className="form-group" style={{ flex: 1 }}>
               <label>{sv.tournament.ratingChoice}</label>
               <select
+                data-testid="tournament-rating-choice-select"
                 value={form.ratingChoice}
                 onChange={(e) => update({ ratingChoice: e.target.value })}
-                disabled={form.chess4}
+                disabled={form.chess4 || isFieldLocked('ratingChoice', lockState)}
               >
                 {RATING_CHOICES.map((r) => (
                   <option key={r} value={r}>
@@ -496,9 +502,10 @@ export function TournamentDialog({
           <div className="form-group">
             <label>{sv.tournament.nrOfRounds}</label>
             <input
+              data-testid="tournament-nr-of-rounds-input"
               type="number"
               value={form.nrOfRounds}
-              min={1}
+              min={Math.max(1, existing?.roundsPlayed ?? 0)}
               onChange={(e) => update({ nrOfRounds: Number(e.target.value) })}
               style={{ width: 80 }}
             />
@@ -511,6 +518,7 @@ export function TournamentDialog({
               <div className="tiebreak-list-container">
                 <div className="tiebreak-list-label">{sv.tournament.availableTiebreaks}</div>
                 <select
+                  data-testid="tournament-tiebreak-available-list"
                   className="tiebreak-list"
                   size={8}
                   value={selectedAvailable || ''}
@@ -519,7 +527,7 @@ export function TournamentDialog({
                     setSelectedChosen(null)
                   }}
                   onDoubleClick={addTiebreak}
-                  disabled={form.chess4}
+                  disabled={form.chess4 || isFieldLocked('selectedTiebreaks', lockState)}
                 >
                   {availableTiebreaks.map((t) => (
                     <option key={t} value={t}>
@@ -533,14 +541,20 @@ export function TournamentDialog({
                 <button
                   className="btn"
                   onClick={addTiebreak}
-                  disabled={form.chess4 || !selectedAvailable}
+                  disabled={
+                    form.chess4 ||
+                    !selectedAvailable ||
+                    isFieldLocked('selectedTiebreaks', lockState)
+                  }
                 >
                   &gt;&gt;
                 </button>
                 <button
                   className="btn"
                   onClick={removeTiebreak}
-                  disabled={form.chess4 || !selectedChosen}
+                  disabled={
+                    form.chess4 || !selectedChosen || isFieldLocked('selectedTiebreaks', lockState)
+                  }
                 >
                   &lt;&lt;
                 </button>
@@ -549,6 +563,7 @@ export function TournamentDialog({
               <div className="tiebreak-list-container">
                 <div className="tiebreak-list-label">{sv.tournament.selectedTiebreaks}</div>
                 <select
+                  data-testid="tournament-tiebreak-selected-list"
                   className="tiebreak-list"
                   size={8}
                   value={selectedChosen || ''}
@@ -557,7 +572,7 @@ export function TournamentDialog({
                     setSelectedAvailable(null)
                   }}
                   onDoubleClick={removeTiebreak}
-                  disabled={form.chess4}
+                  disabled={form.chess4 || isFieldLocked('selectedTiebreaks', lockState)}
                 >
                   {selectedTiebreaks.map((t) => (
                     <option key={t} value={t}>
@@ -571,14 +586,18 @@ export function TournamentDialog({
                 <button
                   className="btn"
                   onClick={() => moveTiebreak(-1)}
-                  disabled={form.chess4 || !selectedChosen}
+                  disabled={
+                    form.chess4 || !selectedChosen || isFieldLocked('selectedTiebreaks', lockState)
+                  }
                 >
                   Upp
                 </button>
                 <button
                   className="btn"
                   onClick={() => moveTiebreak(1)}
-                  disabled={form.chess4 || !selectedChosen}
+                  disabled={
+                    form.chess4 || !selectedChosen || isFieldLocked('selectedTiebreaks', lockState)
+                  }
                 >
                   Ner
                 </button>
@@ -588,18 +607,21 @@ export function TournamentDialog({
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
             <input
+              data-testid="tournament-barred-pairing-checkbox"
               type="checkbox"
               checked={form.barredPairing}
               onChange={(e) => update({ barredPairing: e.target.checked })}
+              disabled={isFieldLocked('barredPairing', lockState)}
             />
             {sv.tournament.barredPairing}
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
             <input
+              data-testid="tournament-compensate-weak-checkbox"
               type="checkbox"
               checked={form.compensateWeakPlayerPP}
               onChange={(e) => update({ compensateWeakPlayerPP: e.target.checked })}
-              disabled={form.chess4}
+              disabled={form.chess4 || isFieldLocked('compensateWeakPlayerPP', lockState)}
             />
             {sv.tournament.compensateWeak}
           </label>

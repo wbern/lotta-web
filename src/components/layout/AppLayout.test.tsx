@@ -35,7 +35,13 @@ vi.mock('../dialogs/TournamentDialog', () => ({ TournamentDialog: () => null }))
 vi.mock('../dialogs/SettingsDialog', () => ({ SettingsDialog: () => null }))
 vi.mock('../dialogs/PlayerPoolDialog', () => ({ PlayerPoolDialog: () => null }))
 vi.mock('../dialogs/TournamentPlayersDialog', () => ({ TournamentPlayersDialog: () => null }))
-vi.mock('../dialogs/ConfirmDialog', () => ({ ConfirmDialog: () => null }))
+const confirmDialogProps: Record<string, unknown>[] = []
+vi.mock('../dialogs/ConfirmDialog', () => ({
+  ConfirmDialog: (props: Record<string, unknown>) => {
+    confirmDialogProps.push(props)
+    return null
+  },
+}))
 vi.mock('../dialogs/EditBoardDialog', () => ({ EditBoardDialog: () => null }))
 vi.mock('../dialogs/BackupExportDialog', () => ({ BackupExportDialog: () => null }))
 vi.mock('../dialogs/BackupRestoreDialog', () => ({ BackupRestoreDialog: () => null }))
@@ -57,9 +63,11 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }))
 
+const DEFAULT_TOURNAMENT: Record<string, unknown> = { id: 1, name: 'Test' }
+let currentTournament: Record<string, unknown> = { ...DEFAULT_TOURNAMENT }
 vi.mock('../../hooks/useTournaments', () => ({
-  useTournaments: () => ({ data: [{ id: 1, name: 'Test' }] }),
-  useTournament: () => ({ data: { id: 1, name: 'Test' } }),
+  useTournaments: () => ({ data: [currentTournament] }),
+  useTournament: () => ({ data: currentTournament }),
   useDeleteTournament: () => ({ mutate: vi.fn() }),
 }))
 
@@ -115,6 +123,9 @@ afterEach(() => {
   mockSearch.round = undefined
   mockSearch.tab = undefined
   mockSearch.tournamentId = 1
+  // Reset tournament fixture (fresh object each test, no shared mutable state)
+  currentTournament = { ...DEFAULT_TOURNAMENT }
+  confirmDialogProps.length = 0
 })
 
 describe('AppLayout round prop', () => {
@@ -157,6 +168,57 @@ describe('AppLayout pairing focus', () => {
       to: '/',
       search: { tournamentId: 1, round: undefined, tab: 'pairings' },
     })
+  })
+})
+
+describe('AppLayout delete tournament gate', () => {
+  const findDeleteDialog = () =>
+    confirmDialogProps.find((p) => p.open === true && p.title === 'Radera turnering')
+
+  it('requires typed name confirmation when tournament is past draft', () => {
+    mockSearch.tournamentId = 1
+    currentTournament = {
+      id: 1,
+      name: 'Skol-DM 2026',
+      group: 'A',
+      roundsPlayed: 1,
+      hasRecordedResults: false,
+      nrOfRounds: 7,
+    }
+
+    render(<AppLayout />)
+
+    const onDelete = menuBarProps.onDeleteTournament as () => void
+    act(() => {
+      onDelete()
+    })
+
+    const deleteDialog = findDeleteDialog()
+    expect(deleteDialog).toBeDefined()
+    expect(deleteDialog?.confirmText).toBe('Skol-DM 2026 A')
+  })
+
+  it('does not require typed confirmation for draft tournaments', () => {
+    mockSearch.tournamentId = 1
+    currentTournament = {
+      id: 1,
+      name: 'Skol-DM 2026',
+      group: 'A',
+      roundsPlayed: 0,
+      hasRecordedResults: false,
+      nrOfRounds: 7,
+    }
+
+    render(<AppLayout />)
+
+    const onDelete = menuBarProps.onDeleteTournament as () => void
+    act(() => {
+      onDelete()
+    })
+
+    const deleteDialog = findDeleteDialog()
+    expect(deleteDialog).toBeDefined()
+    expect(deleteDialog?.confirmText).toBeUndefined()
   })
 })
 

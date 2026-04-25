@@ -10,6 +10,7 @@ import {
 import { publishHtml } from '../../api/publish'
 import { deleteGame } from '../../api/results'
 import { exportTournamentPlayers, importPlayers } from '../../api/tournaments'
+import { tournamentLockState } from '../../domain/tournament-lock'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 import { useLiveStatus } from '../../hooks/useLiveStatus'
 import { useRounds, useUnpairLastRound } from '../../hooks/useRounds'
@@ -176,6 +177,11 @@ export function AppLayout() {
       })
     }
   }
+
+  const tournamentFullName = tournament
+    ? `${tournament.name}${tournament.group ? ' ' + tournament.group : ''}`
+    : ''
+  const tournamentIsLocked = !!tournament && tournamentLockState(tournament) !== 'draft'
 
   const [alphaPrintOptions, setAlphaPrintOptions] = useState({
     groupByClass: true,
@@ -525,7 +531,12 @@ export function AppLayout() {
       <ConfirmDialog
         open={showDeleteConfirm}
         title="Radera turnering"
-        message={`Är du säker på att du vill ta bort turneringen ${tournament?.name || ''}${tournament?.group ? ' ' + tournament.group : ''}?`}
+        message={
+          tournamentIsLocked
+            ? `Turneringen ${tournamentFullName} är lottad. All data (lottningar, resultat, spelare) raderas permanent och kan inte återställas.`
+            : `Är du säker på att du vill ta bort turneringen ${tournamentFullName}?`
+        }
+        confirmText={tournamentIsLocked ? tournamentFullName : undefined}
         onConfirm={confirmDelete}
         onCancel={() => setShowDeleteConfirm(false)}
       />
