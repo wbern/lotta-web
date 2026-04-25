@@ -279,13 +279,14 @@ export function LiveTab({ tournamentName, tournamentId, round }: Props) {
     }
   }, [tournamentId, round])
   useEffect(() => {
+    if (!isHosting) return
     setLiveContext({
       tournamentId,
       round: round ?? null,
       sharedTournamentIds,
       includeFutureTournaments,
     })
-  }, [tournamentId, round, sharedTournamentIds, includeFutureTournaments])
+  }, [isHosting, tournamentId, round, sharedTournamentIds, includeFutureTournaments])
   useEffect(() => {
     if (!serviceRef.current) return
     for (const peer of serviceRef.current.getPeers()) {

@@ -95,4 +95,20 @@ describe('useDocumentTitle', () => {
     rerender({ enabled: false })
     expect(document.title).toBe('Lotta')
   })
+
+  it('captures the current title lazily when transitioning from disabled to enabled', () => {
+    document.title = 'Lotta'
+    const { rerender, unmount } = renderHook(
+      ({ enabled }) => useDocumentTitle(2, 'Live: Höstturneringen', enabled),
+      { initialProps: { enabled: false } },
+    )
+    expect(document.title).toBe('Lotta')
+
+    document.title = 'Some other owner'
+    rerender({ enabled: true })
+    expect(document.title).toBe('(2) Live: Höstturneringen')
+
+    unmount()
+    expect(document.title).toBe('Some other owner')
+  })
 })

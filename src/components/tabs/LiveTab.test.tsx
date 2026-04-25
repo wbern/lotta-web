@@ -604,6 +604,58 @@ describe('LiveTab', () => {
     expect(ctx?.includeFutureTournaments).toBe(false)
   })
 
+  it('does not populate live-context until the user starts hosting', async () => {
+    const { getLiveContext, setLiveContext } = await import('../../api/live-context')
+    setLiveContext(null)
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { rerender } = render(
+      <QueryClientProvider client={qc}>
+        <LiveTab tournamentName="A" tournamentId={7} round={2} />
+      </QueryClientProvider>,
+    )
+
+    // Mounting LiveTab without hosting must not advertise a live context.
+    expect(getLiveContext()).toBeNull()
+
+    // Re-renders that change the tracked deps (tournament/round) must not
+    // backfill the context either — a non-hosting host has no business
+    // claiming a live tournament.
+    rerender(
+      <QueryClientProvider client={qc}>
+        <LiveTab tournamentName="B" tournamentId={9} round={3} />
+      </QueryClientProvider>,
+    )
+    expect(getLiveContext()).toBeNull()
+
+    // Once hosting starts, the context appears as before.
+    fireEvent.click(screen.getByText('Starta Live'))
+    expect(getLiveContext()?.tournamentId).toBe(9)
+  })
+
+  it('clears live-context when hosting stops, and keeps it cleared on later rerenders', async () => {
+    const { getLiveContext } = await import('../../api/live-context')
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { rerender } = render(
+      <QueryClientProvider client={qc}>
+        <LiveTab tournamentName="A" tournamentId={7} round={2} />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(screen.getByText('Starta Live'))
+    expect(getLiveContext()?.tournamentId).toBe(7)
+
+    fireEvent.click(screen.getByText('Stoppa Live'))
+    expect(getLiveContext()).toBeNull()
+
+    rerender(
+      <QueryClientProvider client={qc}>
+        <LiveTab tournamentName="B" tournamentId={9} round={3} />
+      </QueryClientProvider>,
+    )
+    expect(getLiveContext()).toBeNull()
+  })
+
   it('sends the shared tournament set to each newly joined peer', async () => {
     const { sendSharedTournamentsToPeer } = await import('../../api/p2p-broadcast')
     const mockSend = vi.mocked(sendSharedTournamentsToPeer)

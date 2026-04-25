@@ -214,7 +214,56 @@ test.describe('Live session persistence', () => {
 })
 
 // ===========================================================================
-// 4. Per-club share dialog
+// 4. Document title
+// LiveTab is always mounted (display:none when inactive), so the title hook
+// must not take ownership unless the user is actually hosting. Otherwise the
+// tab title leaks "Live: <name>" into states where the user isn't sharing.
+// ===========================================================================
+test.describe('Live document title', () => {
+  test('stays "Lotta" before a tournament is selected', async ({ page }) => {
+    await page.goto('/')
+    await waitForApi(page)
+    await expect(page).toHaveTitle('Lotta')
+  })
+
+  test('stays "Lotta" while viewing the Live tab without hosting', async ({ page }) => {
+    await setupTournament(page)
+    await expect(page).toHaveTitle('Lotta')
+
+    await goToLiveTab(page)
+    await expect(page).toHaveTitle('Lotta')
+  })
+
+  test('becomes "Live: <tournament>" when hosting and restores on stop', async ({ page }) => {
+    await setupTournament(page)
+    await goToLiveTab(page)
+    await expect(page).toHaveTitle('Lotta')
+
+    await startHosting(page)
+    await expect(page).toHaveTitle('Live: Live-test')
+
+    await page.locator('button', { hasText: 'Stoppa Live' }).click()
+    await expect(page.locator('button', { hasText: 'Starta Live' })).toBeVisible()
+    await expect(page).toHaveTitle('Lotta')
+  })
+
+  test('keeps the hosting title when switching to another tab and back', async ({ page }) => {
+    await setupTournament(page)
+    await goToLiveTab(page)
+    await startHosting(page)
+    await expect(page).toHaveTitle('Live: Live-test')
+
+    await page.getByTestId('tab-headers').getByText('Lottning & resultat').click()
+    await expect(page.getByTestId('data-table')).toBeVisible()
+    await expect(page).toHaveTitle('Live: Live-test')
+
+    await goToLiveTab(page)
+    await expect(page).toHaveTitle('Live: Live-test')
+  })
+})
+
+// ===========================================================================
+// 5. Per-club share dialog
 // ===========================================================================
 test.describe('Live per-club share', () => {
   test.beforeEach(async ({ page }) => {
@@ -269,7 +318,7 @@ test.describe('Live per-club share', () => {
 })
 
 // ===========================================================================
-// 5. Mobile scroll — sharing surfaces must scroll when content overflows
+// 6. Mobile scroll — sharing surfaces must scroll when content overflows
 // ===========================================================================
 test.describe('Live sharing mobile scroll', () => {
   test('Delning sub-tab scroll root scrolls when content overflows on mobile', async ({ page }) => {
