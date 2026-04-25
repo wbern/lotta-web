@@ -94,7 +94,7 @@ describe('publishPairings', () => {
 })
 
 describe('publishAlphabeticalPairings', () => {
-  it('formats each player as "Name lotNrColor, Opponent lotNrColor"', () => {
+  it('formats each player as "Name boardNrColor, Opponent"', () => {
     const input: AlphabeticalPairingsPublishInput = {
       tournamentName: 'Höstturneringen',
       roundNr: 3,
@@ -105,24 +105,22 @@ describe('publishAlphabeticalPairings', () => {
             {
               firstName: 'Kalle',
               lastName: 'Testsson',
-              lotNr: 23,
+              boardNr: 7,
               color: 'V',
               opponent: {
                 firstName: 'Örjan',
                 lastName: 'Efternamn',
-                lotNr: 25,
                 color: 'S',
               },
             },
             {
               firstName: 'Örjan',
               lastName: 'Efternamn',
-              lotNr: 25,
+              boardNr: 7,
               color: 'S',
               opponent: {
                 firstName: 'Kalle',
                 lastName: 'Testsson',
-                lotNr: 23,
                 color: 'V',
               },
             },
@@ -137,9 +135,9 @@ describe('publishAlphabeticalPairings', () => {
     expect(html).toContain('rond 3')
     // Each player appears as a table row with Name / Board / Opponent columns.
     expect(html).toContain('<td class="CP_Player">Kalle Testsson</td>')
-    expect(html).toContain('<td class="CP_Board">23 V</td>')
+    expect(html).toContain('<td class="CP_Board">7 V</td>')
     expect(html).toContain('<td class="CP_Player">Örjan Efternamn</td>')
-    expect(html).toContain('<td class="CP_Board">25 S</td>')
+    expect(html).toContain('<td class="CP_Board">7 S</td>')
   })
 
   it('starts each class on its own page when printing', () => {
@@ -153,9 +151,9 @@ describe('publishAlphabeticalPairings', () => {
             {
               firstName: 'Anna',
               lastName: 'Andersson',
-              lotNr: 1,
+              boardNr: 1,
               color: 'V',
-              opponent: { firstName: 'Bo', lastName: 'Björk', lotNr: 2, color: 'S' },
+              opponent: { firstName: 'Bo', lastName: 'Björk', color: 'S' },
             },
           ],
         },
@@ -165,9 +163,9 @@ describe('publishAlphabeticalPairings', () => {
             {
               firstName: 'Cilla',
               lastName: 'Carlsson',
-              lotNr: 3,
+              boardNr: 2,
               color: 'V',
-              opponent: { firstName: 'Dan', lastName: 'Dahl', lotNr: 4, color: 'S' },
+              opponent: { firstName: 'Dan', lastName: 'Dahl', color: 'S' },
             },
           ],
         },
@@ -196,9 +194,9 @@ describe('publishAlphabeticalPairings', () => {
             {
               firstName: 'Anna',
               lastName: 'Andersson',
-              lotNr: 1,
+              boardNr: 1,
               color: 'V',
-              opponent: { firstName: 'Bo', lastName: 'Björk', lotNr: 2, color: 'S' },
+              opponent: { firstName: 'Bo', lastName: 'Björk', color: 'S' },
             },
           ],
         },
@@ -208,9 +206,9 @@ describe('publishAlphabeticalPairings', () => {
             {
               firstName: 'Cilla',
               lastName: 'Carlsson',
-              lotNr: 3,
+              boardNr: 2,
               color: 'V',
-              opponent: { firstName: 'Dan', lastName: 'Dahl', lotNr: 4, color: 'S' },
+              opponent: { firstName: 'Dan', lastName: 'Dahl', color: 'S' },
             },
           ],
         },
@@ -236,12 +234,12 @@ describe('publishAlphabeticalPairings', () => {
         {
           className: 'A',
           players: [
-            { firstName: 'Anna', lastName: 'Andersson', lotNr: 1, color: 'V', opponent: null },
+            { firstName: 'Anna', lastName: 'Andersson', boardNr: 1, color: 'V', opponent: null },
           ],
         },
         {
           className: 'B',
-          players: [{ firstName: 'Bo', lastName: 'Björk', lotNr: 2, color: 'V', opponent: null }],
+          players: [{ firstName: 'Bo', lastName: 'Björk', boardNr: 2, color: 'V', opponent: null }],
         },
       ],
     }
@@ -263,9 +261,9 @@ describe('publishAlphabeticalPairings', () => {
             {
               firstName: 'Anna',
               lastName: 'Andersson',
-              lotNr: 1,
+              boardNr: 1,
               color: 'V',
-              opponent: { firstName: 'Bo', lastName: 'Björk', lotNr: 2, color: 'S' },
+              opponent: { firstName: 'Bo', lastName: 'Björk', color: 'S' },
             },
           ],
         },
@@ -291,7 +289,7 @@ describe('publishAlphabeticalPairings', () => {
             {
               firstName: 'Anna',
               lastName: 'Andersson',
-              lotNr: 1,
+              boardNr: 1,
               color: 'V',
               opponent: null,
             },
@@ -317,9 +315,9 @@ describe('publishAlphabeticalPairings', () => {
             {
               firstName: 'Anna',
               lastName: 'Andersson',
-              lotNr: 1,
+              boardNr: 1,
               color: 'V',
-              opponent: { firstName: 'Bo', lastName: 'Björk', lotNr: 2, color: 'S' },
+              opponent: { firstName: 'Bo', lastName: 'Björk', color: 'S' },
             },
           ],
         },
@@ -346,7 +344,7 @@ describe('publishAlphabeticalPairings', () => {
             {
               firstName: 'Anna',
               lastName: 'Andersson',
-              lotNr: 1,
+              boardNr: 1,
               color: 'V',
               opponent: null,
             },
@@ -371,7 +369,7 @@ describe('publishAlphabeticalPairings', () => {
             {
               firstName: 'Anna',
               lastName: 'Andersson',
-              lotNr: 1,
+              boardNr: 1,
               color: 'V',
               opponent: null,
             },

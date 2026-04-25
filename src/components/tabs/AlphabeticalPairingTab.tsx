@@ -159,12 +159,15 @@ export function AlphabeticalPairingTab({
                         : `${p.opponent.firstName} ${p.opponent.lastName}`
                       : 'frirond'
                     return (
-                      <tr key={`${p.firstName}-${p.lastName}-${p.lotNr}`} className="CP_Row">
+                      <tr
+                        key={`${p.firstName}-${p.lastName}-${p.boardNr}-${p.color}`}
+                        className="CP_Row"
+                      >
                         <td className="CP_Player">
                           {p.firstName} {p.lastName}
                         </td>
                         <td className="CP_Board">
-                          {p.lotNr} {p.color}
+                          {p.boardNr} {p.color}
                         </td>
                         <td className="CP_Player">{oppName}</td>
                       </tr>
@@ -191,12 +194,12 @@ export function AlphabeticalPairingTab({
                       : 'frirond'
                     return (
                       <div
-                        key={`${p.firstName}-${p.lastName}-${p.lotNr}`}
+                        key={`${p.firstName}-${p.lastName}-${p.boardNr}-${p.color}`}
                         className="CP_AlphabeticalRow"
                       >
                         {p.firstName} {p.lastName}{' '}
                         <span className="CP_RowBoard">
-                          {p.lotNr} {p.color}
+                          {p.boardNr} {p.color}
                         </span>
                         , <span className="CP_RowOpp">{oppName}</span>
                       </div>

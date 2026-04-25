@@ -49,31 +49,23 @@ export function buildAlphabeticalPairingsInput(
   type PlayerRow = AlphabeticalPairingsPublishInput['classes'][number]['players'][number]
   const byGroup = new Map<string, PlayerRow[]>()
 
-  // Lot numbers live on the game record (assigned at pairing time), not on the
-  // tournament player record — player.lotNr is always the 2147483647 sentinel.
   for (const game of roundData.games) {
-    const addRow = (
-      selfSummary: { id: number; lotNr: number },
-      opponentSummary: { id: number; lotNr: number } | null,
-      selfColor: 'V' | 'S',
-    ) => {
-      const self = playerById.get(selfSummary.id)
+    const addRow = (selfId: number, opponentId: number | null, selfColor: 'V' | 'S') => {
+      const self = playerById.get(selfId)
       if (!self) return
-      const opponent = opponentSummary ? playerById.get(opponentSummary.id) : undefined
+      const opponent = opponentId != null ? playerById.get(opponentId) : undefined
       const row: PlayerRow = {
         firstName: self.firstName,
         lastName: self.lastName,
-        lotNr: selfSummary.lotNr,
+        boardNr: game.boardNr,
         color: selfColor,
-        opponent:
-          opponent && opponentSummary
-            ? {
-                firstName: opponent.firstName,
-                lastName: opponent.lastName,
-                lotNr: opponentSummary.lotNr,
-                color: selfColor === 'V' ? 'S' : 'V',
-              }
-            : null,
+        opponent: opponent
+          ? {
+              firstName: opponent.firstName,
+              lastName: opponent.lastName,
+              color: selfColor === 'V' ? 'S' : 'V',
+            }
+          : null,
       }
       // The checkbox is labeled "Gruppera per klubb på egen sida" in both modes,
       // so group by club. Non-chess4 tournaments previously grouped by
@@ -85,8 +77,8 @@ export function buildAlphabeticalPairingsInput(
       byGroup.set(group, list)
     }
 
-    if (game.whitePlayer) addRow(game.whitePlayer, game.blackPlayer, 'V')
-    if (game.blackPlayer) addRow(game.blackPlayer, game.whitePlayer, 'S')
+    if (game.whitePlayer) addRow(game.whitePlayer.id, game.blackPlayer?.id ?? null, 'V')
+    if (game.blackPlayer) addRow(game.blackPlayer.id, game.whitePlayer?.id ?? null, 'S')
   }
 
   const classes = Array.from(byGroup.entries())

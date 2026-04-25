@@ -318,12 +318,11 @@ export interface AlphabeticalPairingsPublishInput {
     players: {
       firstName: string
       lastName: string
-      lotNr: number
+      boardNr: number
       color: 'V' | 'S' | ''
       opponent: {
         firstName: string
         lastName: string
-        lotNr: number
         color: 'V' | 'S'
       } | null
     }[]
@@ -359,7 +358,7 @@ export function publishAlphabeticalPairings(input: AlphabeticalPairingsPublishIn
         '<tr class="CP_TableHeader"><td>Namn</td><td style="text-align:center">Bord</td><td>Motståndare</td></tr>\n'
       for (const p of klass.players) {
         const selfName = `${esc(p.firstName)} ${esc(p.lastName)}`
-        const selfBoard = `${p.lotNr} ${p.color}`
+        const selfBoard = `${p.boardNr} ${p.color}`
         body += '<tr class="CP_Row">'
         body += `<td class="CP_Player">${selfName}</td>`
         body += `<td class="CP_Board">${selfBoard}</td>`
@@ -379,7 +378,7 @@ export function publishAlphabeticalPairings(input: AlphabeticalPairingsPublishIn
       }
       for (const p of klass.players) {
         const selfName = `${esc(p.firstName)} ${esc(p.lastName)}`
-        const selfBoard = `${p.lotNr} ${p.color}`
+        const selfBoard = `${p.boardNr} ${p.color}`
         body += '<div class="CP_AlphabeticalRow">'
         body += `${selfName} <span class="CP_RowBoard">${selfBoard}</span>`
         body += `, <span class="CP_RowOpp">${formatOpponent(p.opponent)}</span>`

@@ -151,25 +151,28 @@ describe('publish API (local)', () => {
     expect(playersHtml).toContain('Spelarlista')
   })
 
-  it('publishHtml alphabetical default renders table per class with real lotNrs', async () => {
+  it('publishHtml alphabetical default renders table per class with real board numbers', async () => {
     await pairNextRound(tournamentId)
 
     const blob = await publishHtml(tournamentId, 'alphabetical', 1)
     const html = await blob.text()
 
     expect(html).toContain('CP_AlphabeticalClass')
-    // Must surface the real lot numbers assigned at pairing time, not the
-    // 2147483647 sentinel returned by tournamentPlayers.list().
     expect(html).not.toContain('2147483647')
-    // Ratings 1800, 1700, 1600, 1500 → lotNrs 1, 2, 3, 4 by rating-desc.
-    expect(html).toMatch(
-      /<td class="CP_Player">Anna Andersson<\/td><td class="CP_Board">1 [VS]<\/td>/,
-    )
-    expect(html).toMatch(/<td class="CP_Player">Bo Björk<\/td><td class="CP_Board">2 [VS]<\/td>/)
-    expect(html).toMatch(
-      /<td class="CP_Player">Cilla Carlsson<\/td><td class="CP_Board">3 [VS]<\/td>/,
-    )
-    expect(html).toMatch(/<td class="CP_Player">Dan Dahl<\/td><td class="CP_Board">4 [VS]<\/td>/)
+    // 4 players → 2 games on boards 1 and 2. Each player's row shows the
+    // board they actually sit at (must match the on-screen pairings list).
+    const round = service.games.getRound(tournamentId, 1)!
+    const boardByName = new Map<string, number>()
+    for (const g of round.games) {
+      if (g.whitePlayer) boardByName.set(g.whitePlayer.name, g.boardNr)
+      if (g.blackPlayer) boardByName.set(g.blackPlayer.name, g.boardNr)
+    }
+    for (const [name, board] of boardByName) {
+      const re = new RegExp(
+        `<td class="CP_Player">${name}</td><td class="CP_Board">${board} [VS]</td>`,
+      )
+      expect(html).toMatch(re)
+    }
   })
 
   it('publishHtml alphabetical honors groupByClass=0 + columns query params', async () => {
@@ -183,7 +186,14 @@ describe('publish API (local)', () => {
     // The per-class wrapper div should not be emitted in the flat layout
     // (the class name may still appear inside the inline CSS block)
     expect(html).not.toContain('class="CP_AlphabeticalClass"')
-    expect(html).toMatch(/Anna Andersson <span class="CP_RowBoard">1 [VS]<\/span>/)
+    const annaBoard = service.games
+      .getRound(tournamentId, 1)!
+      .games.find(
+        (g) => g.whitePlayer?.name === 'Anna Andersson' || g.blackPlayer?.name === 'Anna Andersson',
+      )!.boardNr
+    expect(html).toMatch(
+      new RegExp(`Anna Andersson <span class="CP_RowBoard">${annaBoard} [VS]</span>`),
+    )
   })
 
   it('publishHtml alphabetical ignores non-numeric columns values', async () => {

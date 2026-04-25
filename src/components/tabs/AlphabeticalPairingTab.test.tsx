@@ -12,9 +12,9 @@ const classesFixture = [
       {
         firstName: 'Anna',
         lastName: 'Andersson',
-        lotNr: 1,
+        boardNr: 1,
         color: 'V' as const,
-        opponent: { firstName: 'Bo', lastName: 'Björk', lotNr: 2, color: 'S' as const },
+        opponent: { firstName: 'Bo', lastName: 'Björk', color: 'S' as const },
       },
     ],
   },
@@ -24,9 +24,9 @@ const classesFixture = [
       {
         firstName: 'Cilla',
         lastName: 'Carlsson',
-        lotNr: 3,
+        boardNr: 2,
         color: 'V' as const,
-        opponent: { firstName: 'Dan', lastName: 'Dahl', lotNr: 4, color: 'S' as const },
+        opponent: { firstName: 'Dan', lastName: 'Dahl', color: 'S' as const },
       },
     ],
   },

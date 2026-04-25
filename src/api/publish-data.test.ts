@@ -192,6 +192,39 @@ describe('publish-data builders', () => {
       expect(input!.classes.map((c) => c.className)).toEqual(['Malmö SS', 'SK Lund'])
     })
 
+    it('exposes the actual game board number, not the seeding lot number', async () => {
+      // 4 players in Monrad → 2 games on boards 1 and 2, but lotNrs run 1..4.
+      // Lower-seeded players will have lotNr (3 or 4) ≠ their actual boardNr.
+      service.tournamentPlayers.add(tournamentId, {
+        lastName: 'Carlsson',
+        firstName: 'Cilla',
+        ratingI: 1600,
+      })
+      service.tournamentPlayers.add(tournamentId, {
+        lastName: 'Dahl',
+        firstName: 'Dan',
+        ratingI: 1500,
+      })
+
+      await pairNextRound(tournamentId)
+      const round = service.games.getRound(tournamentId, 1)!
+
+      const expectedBoardByName = new Map<string, number>()
+      for (const g of round.games) {
+        if (g.whitePlayer) expectedBoardByName.set(g.whitePlayer.name, g.boardNr)
+        if (g.blackPlayer) expectedBoardByName.set(g.blackPlayer.name, g.boardNr)
+      }
+
+      const input = buildAlphabeticalPairingsInput(tournamentId, 1)!
+      const allPlayers = input.classes.flatMap((c) => c.players)
+      expect(allPlayers).toHaveLength(4)
+
+      for (const p of allPlayers) {
+        const fullName = `${p.firstName} ${p.lastName}`
+        expect(p.boardNr).toBe(expectedBoardByName.get(fullName))
+      }
+    })
+
     it('sorts players within a class by first name, not last name', async () => {
       const t = service.tournaments.create({
         name: 'Schack4an',
