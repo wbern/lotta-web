@@ -1,3 +1,10 @@
+## [1.4.7](https://github.com/wbern/lotta/compare/v1.4.6...v1.4.7) (2026-04-25)
+
+
+### Bug Fixes
+
+* **player-form:** reset form state when dialog reopens ([664c66f](https://github.com/wbern/lotta/commit/664c66f34b95184baf4ef70cfcc33f243481048c))
+
 ## [1.4.6](https://github.com/wbern/lotta/compare/v1.4.5...v1.4.6) (2026-04-25)
 
 
