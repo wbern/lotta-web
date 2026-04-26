@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -58,5 +58,27 @@ describe('useVersions', () => {
     const { result } = renderHook(() => useVersions(), { wrapper: wrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toEqual([])
+  })
+
+  it('opts back into networkMode "online" so it pauses while offline', async () => {
+    // The global queryClient default is 'always' (so IDB-backed queries don't
+    // pause); useVersions does a real HTTP fetch and must opt back into the
+    // online gate. Inheriting the global default would skip this.
+    const qc = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, networkMode: 'always' },
+      },
+    })
+    const localWrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: qc }, children)
+
+    onlineManager.setOnline(false)
+    try {
+      const { result } = renderHook(() => useVersions(), { wrapper: localWrapper })
+      await waitFor(() => expect(result.current.fetchStatus).toBe('paused'))
+      expect(globalThis.fetch).not.toHaveBeenCalled()
+    } finally {
+      onlineManager.setOnline(true)
+    }
   })
 })

@@ -42,9 +42,9 @@ describe('useSetResult', () => {
     capturedMutationOptions = {}
   })
 
-  it('uses offlineFirst network mode', () => {
+  it('does not override networkMode locally so it inherits the global default', () => {
     renderHook(() => useSetResult(1, 1), { wrapper: createWrapper() })
-    expect(capturedMutationOptions.networkMode).toBe('offlineFirst')
+    expect(capturedMutationOptions.networkMode).toBeUndefined()
   })
 
   it('serializes mutations with scope', () => {

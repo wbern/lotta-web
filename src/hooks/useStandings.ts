@@ -44,7 +44,6 @@ export function useSetResult(tournamentId: number | undefined, roundNr: number |
       if (tournamentId == null || roundNr == null) throw new Error('No round selected')
       return api.setResult(tournamentId, roundNr, boardNr, req)
     },
-    networkMode: 'offlineFirst',
     scope: { id: 'set-result' },
     onSuccess: () => {
       if (tournamentId == null || roundNr == null) return

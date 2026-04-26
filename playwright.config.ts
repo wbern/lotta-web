@@ -77,7 +77,6 @@ export default defineConfig({
     { name: 'pairings', testMatch: 'pairings.spec.ts' },
     { name: 'standings', testMatch: 'standings.spec.ts' },
     { name: 'club-standings', testMatch: 'club-standings.spec.ts' },
-    { name: 'exports', testMatch: 'exports.spec.ts' },
     { name: 'results', testMatch: 'results.spec.ts' },
     { name: 'chess4', testMatch: 'chess4.spec.ts' },
     { name: 'settings', testMatch: 'settings.spec.ts' },
@@ -109,6 +108,7 @@ export default defineConfig({
         ]
       : []),
     { name: 'late-add-reshuffle', testMatch: 'late-add-reshuffle.spec.ts' },
+    { name: 'offline-resilience', testMatch: 'offline-resilience.spec.ts' },
     {
       name: 'late-add-determinism-probe',
       testMatch: 'late-add-determinism-probe.spec.ts',

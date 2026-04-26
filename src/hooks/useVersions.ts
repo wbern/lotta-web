@@ -25,5 +25,6 @@ export function useVersions() {
     queryKey: ['versions'],
     queryFn: fetchVersions,
     staleTime: 60_000,
+    networkMode: 'online',
   })
 }
