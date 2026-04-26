@@ -190,14 +190,19 @@ const mockPlayers: PlayerDto[] = [
   },
 ]
 
+const mockUseTournaments = vi.fn(() => ({ data: mockTournaments }))
 vi.mock('../hooks/useTournaments', () => ({
-  useTournaments: vi.fn(() => ({ data: mockTournaments })),
+  useTournaments: () => mockUseTournaments(),
 }))
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const mockUseRounds = vi.fn((_tid?: number) => ({ data: mockRounds }))
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const mockUseRound = vi.fn((_tid?: number, _roundNr?: number) => ({ data: mockRounds[1] }))
+const mockUseRounds = vi.fn<(_tid?: number) => { data: RoundDto[] | undefined }>(() => ({
+  data: mockRounds,
+}))
+const mockUseRound = vi.fn<
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  (_tid?: number, _roundNr?: number) => { data: RoundDto | undefined }
+>(() => ({ data: mockRounds[1] }))
 
 vi.mock('../hooks/useRounds', () => ({
   useRounds: (tid?: number) => mockUseRounds(tid),
@@ -216,6 +221,7 @@ function renderWithQuery(ui: React.ReactElement) {
 describe('SpectatorLayout', () => {
   beforeEach(() => {
     store.resetClientStore()
+    mockUseTournaments.mockReturnValue({ data: mockTournaments })
     mockUseRounds.mockReturnValue({ data: mockRounds })
     mockUseRound.mockReturnValue({ data: mockRounds[1] })
     mockRedeemClubCode.mockReset()
@@ -496,6 +502,44 @@ describe('SpectatorLayout', () => {
     await waitFor(() => {
       expect(store.getClientP2PState().clubFilter).toEqual(['Skara SK', 'Lidköping SS'])
     })
+  })
+
+  it('prefers the host-shared tournament id over the alphabetically-first tournament', () => {
+    const multiTournaments: TournamentListItemDto[] = [
+      {
+        id: 1,
+        name: 'Allmänt KM',
+        group: 'A',
+        pairingSystem: 'Monrad',
+        nrOfRounds: 7,
+        roundsPlayed: 0,
+        playerCount: 8,
+        finished: false,
+      },
+      {
+        id: 2,
+        name: 'Regionfinal Schackfyran',
+        group: 'Lördag em',
+        pairingSystem: 'Monrad',
+        nrOfRounds: 5,
+        roundsPlayed: 2,
+        playerCount: 36,
+        finished: false,
+      },
+    ]
+    mockUseTournaments.mockReturnValue({ data: multiTournaments })
+    mockUseRounds.mockImplementation((tid?: number) =>
+      tid === 2 ? { data: mockRounds } : { data: [] },
+    )
+    mockUseRound.mockImplementation((tid?: number) =>
+      tid === 2 ? { data: mockRounds[1] } : { data: undefined },
+    )
+    store.setHostSharedTournamentId(2)
+
+    renderWithQuery(<SpectatorLayout />)
+
+    expect(screen.getByText('Regionfinal Schackfyran')).toBeTruthy()
+    expect(screen.queryByText('Allmänt KM')).toBeNull()
   })
 
   it('highlights players whose club field is preserved in the server response', () => {

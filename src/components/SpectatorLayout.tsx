@@ -10,7 +10,8 @@ import { Dialog } from './dialogs/Dialog'
 const CODE_LENGTH = 4
 
 export function SpectatorLayout() {
-  const { clubFilter, shareMode, pendingClubCode, clubFilterEnabled } = useClientP2PStore()
+  const { clubFilter, shareMode, pendingClubCode, clubFilterEnabled, hostSharedTournamentId } =
+    useClientP2PStore()
   const [codeInput, setCodeInput] = useState('')
   const [showCodeDialog, setShowCodeDialog] = useState(() => !clubFilter)
   const [redeemError, setRedeemError] = useState<string | null>(null)
@@ -34,7 +35,10 @@ export function SpectatorLayout() {
   }, [pendingClubCode, queryClient])
 
   const { data: tournaments } = useTournaments()
-  const tournament = tournaments?.[0]
+  const tournament =
+    (hostSharedTournamentId != null
+      ? tournaments?.find((t) => t.id === hostSharedTournamentId)
+      : undefined) ?? tournaments?.[0]
   const tournamentId = tournament?.id
 
   const { data: rounds } = useRounds(tournamentId)

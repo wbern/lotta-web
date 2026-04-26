@@ -20,6 +20,7 @@ import {
   incrementUnread,
   setAnnouncement,
   setHostRefreshing,
+  setHostSharedTournamentId,
   setKicked,
   setPeerCount,
   setPendingClubCode,
@@ -143,6 +144,10 @@ export function SharedView({ roomCode, token, mode = 'full', code }: SharedViewP
 
     service.onDataChanged = () => {
       void queryClient.invalidateQueries()
+    }
+
+    service.onSharedTournaments = (msg) => {
+      setHostSharedTournamentId(msg.tournamentIds[0] ?? null)
     }
 
     service.onChatMessage = (msg, peerId) => {

@@ -18,6 +18,9 @@ let mockOnPeerCount:
   | null = null
 let mockOnDiagnosticEvent: ((entry: { timestamp: number; message: string }) => void) | null = null
 let mockOnPendingChange: ((pending: unknown[]) => void) | null = null
+let mockOnSharedTournaments:
+  | ((msg: { tournamentIds: number[]; includeFutureTournaments: boolean }) => void)
+  | null = null
 const mockSendRpcRequest = vi.fn()
 const mockLeave = vi.fn()
 const mockNavigate = vi.fn()
@@ -133,6 +136,12 @@ vi.mock('../services/p2p-service', () => {
       getPendingSubmissions() {
         return []
       }
+      set onSharedTournaments(cb: typeof mockOnSharedTournaments) {
+        mockOnSharedTournaments = cb
+      }
+      get onSharedTournaments() {
+        return mockOnSharedTournaments
+      }
     },
   }
 })
@@ -195,6 +204,7 @@ describe('SharedView', () => {
     mockOnPeerCount = null
     mockOnDiagnosticEvent = null
     mockOnPendingChange = null
+    mockOnSharedTournaments = null
     mockSetLiveStatus.mockReset()
     mockNavigate.mockReset()
     mockLeave.mockReset()
@@ -318,6 +328,18 @@ describe('SharedView', () => {
     })
 
     expect(mockInvalidateQueries).toHaveBeenCalled()
+  })
+
+  it('records the host-shared tournament id when host broadcasts it', () => {
+    render(<SharedView roomCode="ABC123" token="tok-1" mode="view" />)
+
+    expect(mockOnSharedTournaments).not.toBeNull()
+
+    act(() => {
+      mockOnSharedTournaments?.({ tournamentIds: [42, 99], includeFutureTournaments: false })
+    })
+
+    expect(getClientP2PState().hostSharedTournamentId).toBe(42)
   })
 
   it('registers P2PService globally on mount', () => {
