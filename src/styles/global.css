@@ -676,6 +676,20 @@ body,
   line-height: 1.6;
 }
 
+/* Pending sync indicator in status bar */
+.status-pending {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 0 6px;
+  border-radius: var(--border-radius);
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  line-height: 1.6;
+  animation: pulse 1.5s infinite;
+}
+
 /* P2P Connecting Screen */
 .connecting-screen {
   display: flex;
@@ -1891,6 +1905,11 @@ button.btn-danger {
   background: var(--color-status-offline);
 }
 
+.live-status--pending .live-status-dot {
+  background: var(--color-primary);
+  animation: pulse 1.5s infinite;
+}
+
 .live-offline-banner {
   background: var(--color-banner-warning-bg);
   color: var(--color-banner-warning-text);
@@ -2479,6 +2498,15 @@ button.btn-danger {
   border-radius: 10px;
   background: var(--color-badge-viewer-bg);
   color: var(--color-badge-viewer-text);
+  margin-left: 8px;
+}
+
+.live-pending-count {
+  font-size: var(--font-size-small);
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
   margin-left: 8px;
 }
 

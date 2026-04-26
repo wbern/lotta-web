@@ -64,6 +64,7 @@ interface PendingResult {
   boardNr: number
   resultType: string
   resultDisplay?: string
+  expectedPrior?: string
 }
 
 /** Page types that are actually broadcast by the organizer. */
@@ -250,6 +251,7 @@ function LivePageInner({
   const [ackFeedback, setAckFeedback] = useState<AckFeedback | null>(null)
   const [connectionState, setConnectionState] = useState<P2PConnectionState>('connecting')
   const [pendingResult, setPendingResult] = useState<PendingResult | null>(null)
+  const [pendingSubmissionCount, setPendingSubmissionCount] = useState(0)
   const [peerCount, setPeerCount] = useState<PeerCountMessage | null>(null)
   const [announcement, setAnnouncement] = useState<AnnouncementMessage | null>(null)
   const [kicked, setKicked] = useState(false)
@@ -442,6 +444,7 @@ function LivePageInner({
     service.onSharedTournaments = handleSharedTournaments
     service.onRoundManifest = handleRoundManifest
     service.onResultAck = handleResultAck
+    service.onPendingChange = (pending) => setPendingSubmissionCount(pending.length)
     const rpcProvider = createP2pClientProvider(service)
     service.onConnectionStateChange = (state) => {
       setConnectionState(state)
@@ -526,6 +529,7 @@ function LivePageInner({
         boardNr: data.boardNr,
         resultType: data.resultType,
         resultDisplay: data.resultDisplay,
+        expectedPrior: data.expectedPrior,
       })
     }
 
@@ -715,12 +719,18 @@ function LivePageInner({
             ⛶
           </button>
           <button
-            className={`live-status live-status--${connectionState}`}
+            data-testid="live-status-pill"
+            className={`live-status live-status--${connectionState}${
+              pendingSubmissionCount > 0 ? ' live-status--pending' : ''
+            }`}
             onClick={() => setShowDiagnostics((prev) => !prev)}
             title="Visa anslutningsdiagnostik"
           >
             <span className="live-status-dot" />
             {getConnectionLabel(connectionState)}
+            {pendingSubmissionCount > 0 && (
+              <span className="live-pending-count">{pendingSubmissionCount} ej synkad</span>
+            )}
             {peerCount && <span className="live-peer-count">{peerCount.total} anslutna</span>}
             {__COMMIT_HASH__ && <span className="live-version-label">{__COMMIT_HASH__}</span>}
           </button>
@@ -872,6 +882,12 @@ function LivePageInner({
                 resultDisplay: pendingResult.resultDisplay,
                 refereeName: confirmedName || refereeName || '',
                 timestamp: Date.now(),
+                ...(pendingResult.expectedPrior != null
+                  ? {
+                      expectedPrior:
+                        pendingResult.expectedPrior as ResultSubmitMessage['expectedPrior'],
+                    }
+                  : {}),
               })
               setPendingResult(null)
             }}

@@ -276,7 +276,13 @@ export async function handleResultSubmission(
 
   if (!service.isPeerVerifiedReferee(peerId)) {
     service.sendResultAck(
-      { boardNr: msg.boardNr, roundNr: msg.roundNr, accepted: false, reason: 'Not authorized' },
+      {
+        tournamentId: msg.tournamentId,
+        boardNr: msg.boardNr,
+        roundNr: msg.roundNr,
+        accepted: false,
+        reason: 'Not authorized',
+      },
       peerId,
     )
     onLog?.({
@@ -295,8 +301,17 @@ export async function handleResultSubmission(
   try {
     await setResult(msg.tournamentId, msg.roundNr, msg.boardNr, {
       resultType: msg.resultType,
+      ...(msg.expectedPrior != null ? { expectedPrior: msg.expectedPrior } : {}),
     })
-    service.sendResultAck({ boardNr: msg.boardNr, roundNr: msg.roundNr, accepted: true }, peerId)
+    service.sendResultAck(
+      {
+        tournamentId: msg.tournamentId,
+        boardNr: msg.boardNr,
+        roundNr: msg.roundNr,
+        accepted: true,
+      },
+      peerId,
+    )
     onLog?.({
       timestamp: Date.now(),
       refereeName: msg.refereeName,
@@ -310,6 +325,7 @@ export async function handleResultSubmission(
     const reason = err instanceof Error ? err.message : 'Unknown error'
     service.sendResultAck(
       {
+        tournamentId: msg.tournamentId,
         boardNr: msg.boardNr,
         roundNr: msg.roundNr,
         accepted: false,

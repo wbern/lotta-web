@@ -397,6 +397,7 @@ export function AppLayout() {
           liveState={liveStatus?.state}
           liveRole={liveStatus?.role}
           livePeerCount={liveStatus?.peerCount}
+          livePendingCount={liveStatus?.pendingCount}
         />
         <ClientOverlay />
       </div>
@@ -492,6 +493,7 @@ export function AppLayout() {
         liveState={liveStatus?.state}
         liveRole={liveStatus?.role}
         livePeerCount={liveStatus?.peerCount}
+        livePendingCount={liveStatus?.pendingCount}
         onLiveClick={() =>
           navigate({
             to: '/',

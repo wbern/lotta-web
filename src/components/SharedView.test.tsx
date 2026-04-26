@@ -17,9 +17,15 @@ let mockOnPeerCount:
   | ((msg: { total: number; viewers: number; referees: number; chatEnabled?: boolean }) => void)
   | null = null
 let mockOnDiagnosticEvent: ((entry: { timestamp: number; message: string }) => void) | null = null
+let mockOnPendingChange: ((pending: unknown[]) => void) | null = null
 const mockSendRpcRequest = vi.fn()
 const mockLeave = vi.fn()
 const mockNavigate = vi.fn()
+const mockSetLiveStatus = vi.fn()
+
+vi.mock('../hooks/useLiveStatus', () => ({
+  setLiveStatus: (s: unknown) => mockSetLiveStatus(s),
+}))
 
 vi.mock('../services/p2p-service', () => {
   return {
@@ -118,6 +124,15 @@ vi.mock('../services/p2p-service', () => {
       get onDiagnosticEvent() {
         return mockOnDiagnosticEvent
       }
+      set onPendingChange(cb: typeof mockOnPendingChange) {
+        mockOnPendingChange = cb
+      }
+      get onPendingChange() {
+        return mockOnPendingChange
+      }
+      getPendingSubmissions() {
+        return []
+      }
     },
   }
 })
@@ -179,6 +194,8 @@ describe('SharedView', () => {
     mockOnKicked = null
     mockOnPeerCount = null
     mockOnDiagnosticEvent = null
+    mockOnPendingChange = null
+    mockSetLiveStatus.mockReset()
     mockNavigate.mockReset()
     mockLeave.mockReset()
     mockSetP2PService.mockReset()
@@ -515,6 +532,26 @@ describe('SharedView', () => {
       mockOnConnectionStateChange?.('connected')
     })
     expect(fill().style.clipPath).toBe('inset(0% 0 0 0)')
+  })
+
+  it('forwards pending submission count to setLiveStatus when onPendingChange fires', () => {
+    render(<SharedView roomCode="ABC123" token="tok-1" />)
+
+    act(() => {
+      mockOnConnectionStateChange?.('connected')
+    })
+    mockSetLiveStatus.mockReset()
+
+    act(() => {
+      mockOnPendingChange?.([
+        { roundNr: 1, boardNr: 2 },
+        { roundNr: 1, boardNr: 3 },
+      ])
+    })
+
+    const calls = mockSetLiveStatus.mock.calls
+    const lastCall = calls[calls.length - 1]?.[0] as { pendingCount?: number } | undefined
+    expect(lastCall?.pendingCount).toBe(2)
   })
 
   it('shows solo mode link alongside warning when connection proceeds', () => {

@@ -29,6 +29,10 @@ import type {
 const APP_ID = 'lotta-chess-pairer'
 const P2P_STRATEGY = import.meta.env.VITE_P2P_STRATEGY ?? 'mqtt'
 
+function pendingKey(tournamentId: number | undefined, roundNr: number, boardNr: number): string {
+  return `${tournamentId ?? '?'}-${roundNr}-${boardNr}`
+}
+
 // Replicate trystero's internal shuffle so we can derive the same 5 relays
 // that old cached clients (without explicit relayUrls) would connect to.
 function strToNum(str: string, limit = Number.MAX_SAFE_INTEGER): number {
@@ -299,6 +303,7 @@ export class P2PService {
     | ((message: ViewerSelectTournamentMessage, peerId: string) => void)
     | null = null
   onRoundManifest: ((message: RoundManifestMessage) => void) | null = null
+  onPendingChange: ((pending: ResultSubmitMessage[]) => void) | null = null
   private diagnosticLog: DiagnosticEntry[] = []
   private peers: Map<string, P2PPeer> = new Map()
   private room: Room | null = null
@@ -330,6 +335,13 @@ export class P2PService {
   private hostRefreshPeerId: string | null = null
   private hostRefreshHostId: string | null = null
   private refereeToken: string | null = null
+  private pendingResultSubmissions = new Map<
+    string,
+    { message: ResultSubmitMessage; timer: ReturnType<typeof setTimeout>; attempts: number }
+  >()
+  private static RESULT_RESUBMIT_INTERVAL_MS = 3_000
+  private static RESULT_MAX_ATTEMPTS = 5
+  private beforeUnloadHandler: ((e: BeforeUnloadEvent) => void) | null = null
   readonly label: string | undefined
   readonly hostId: string | undefined
 
@@ -349,16 +361,35 @@ export class P2PService {
   }
 
   startHosting(roomId: string): void {
+    this.installUnloadGuard()
     void this.connectToRoom(roomId)
   }
 
   joinRoom(roomId: string): void {
     this.manualLeave = false
+    this.installUnloadGuard()
     void this.connectToRoom(roomId)
+  }
+
+  private installUnloadGuard(): void {
+    if (this.beforeUnloadHandler) return
+    if (typeof window === 'undefined') return
+    this.beforeUnloadHandler = (e) => {
+      if (this.pendingResultSubmissions.size > 0) e.preventDefault()
+    }
+    window.addEventListener('beforeunload', this.beforeUnloadHandler)
+  }
+
+  private removeUnloadGuard(): void {
+    if (!this.beforeUnloadHandler) return
+    if (typeof window === 'undefined') return
+    window.removeEventListener('beforeunload', this.beforeUnloadHandler)
+    this.beforeUnloadHandler = null
   }
 
   leave(): void {
     this.manualLeave = true
+    this.removeUnloadGuard()
     if (this.room) {
       this.room.leave()
       this.room = null
@@ -385,9 +416,18 @@ export class P2PService {
     this.clearReconnectTimer()
     this.clearRelayHealthCheck()
     this.clearHostRefreshGrace()
+    this.clearPendingSubmissions()
     this._reconnectAttempts = 0
     this.receivedFirstHeartbeat = false
     this.setConnectionState('disconnected')
+  }
+
+  private clearPendingSubmissions(): void {
+    for (const pending of this.pendingResultSubmissions.values()) {
+      clearTimeout(pending.timer)
+    }
+    this.pendingResultSubmissions.clear()
+    this.notifyPendingChange()
   }
 
   private clearHostRefreshGrace(): void {
@@ -409,6 +449,46 @@ export class P2PService {
 
   submitResult(message: ResultSubmitMessage): void {
     this.sendResultSubmit?.(message, null)
+    const key = pendingKey(message.tournamentId, message.roundNr, message.boardNr)
+    const existing = this.pendingResultSubmissions.get(key)
+    if (existing) clearTimeout(existing.timer)
+    const timer = setTimeout(
+      () => this.resubmitPendingResult(key),
+      P2PService.RESULT_RESUBMIT_INTERVAL_MS,
+    )
+    this.pendingResultSubmissions.set(key, { message, timer, attempts: 1 })
+    this.notifyPendingChange()
+  }
+
+  getPendingSubmissions(): ResultSubmitMessage[] {
+    return Array.from(this.pendingResultSubmissions.values()).map((p) => p.message)
+  }
+
+  private notifyPendingChange(): void {
+    this.onPendingChange?.(this.getPendingSubmissions())
+  }
+
+  private resubmitPendingResult(key: string): void {
+    const pending = this.pendingResultSubmissions.get(key)
+    if (!pending) return
+    if (pending.attempts >= P2PService.RESULT_MAX_ATTEMPTS) {
+      this.pendingResultSubmissions.delete(key)
+      this.notifyPendingChange()
+      this.onResultAck?.({
+        tournamentId: pending.message.tournamentId,
+        boardNr: pending.message.boardNr,
+        roundNr: pending.message.roundNr,
+        accepted: false,
+        reason: 'No response from host',
+      })
+      return
+    }
+    this.sendResultSubmit?.(pending.message, null)
+    pending.attempts += 1
+    pending.timer = setTimeout(
+      () => this.resubmitPendingResult(key),
+      P2PService.RESULT_RESUBMIT_INTERVAL_MS,
+    )
   }
 
   sendResultAck(message: ResultAckMessage, peerId: string): void {
@@ -884,6 +964,13 @@ export class P2PService {
     const [sendResultAck, receiveResultAck] = this.room.makeAction<ResultAckMessage>('result-ack')
     this._sendResultAck = sendResultAck
     receiveResultAck((data: ResultAckMessage) => {
+      const key = pendingKey(data.tournamentId, data.roundNr, data.boardNr)
+      const pending = this.pendingResultSubmissions.get(key)
+      if (pending) {
+        clearTimeout(pending.timer)
+        this.pendingResultSubmissions.delete(key)
+        this.notifyPendingChange()
+      }
       this.onResultAck?.(data)
     })
 

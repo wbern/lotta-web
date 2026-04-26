@@ -6,6 +6,7 @@ import type {
   ChatMessage,
   PageUpdateMessage,
   ResultAckMessage,
+  ResultSubmitMessage,
   RoundManifestMessage,
   SharedTournamentsMessage,
   ViewerSelectTournamentMessage,
@@ -23,6 +24,7 @@ let mockConstructorToken: string | undefined = undefined
 let mockOnChatMessage: ((msg: ChatMessage, peerId: string) => void) | null = null
 let mockOnSharedTournaments: ((msg: SharedTournamentsMessage) => void) | null = null
 let mockOnRoundManifest: ((msg: RoundManifestMessage) => void) | null = null
+let mockOnPendingChange: ((pending: ResultSubmitMessage[]) => void) | null = null
 let mockSendViewerSelectCalls: ViewerSelectTournamentMessage[] = []
 const mockServiceRef: { current: { connectionState: string } | null } = { current: null }
 
@@ -117,6 +119,15 @@ vi.mock('../services/p2p-service', () => {
       sendViewerSelectTournament(msg: ViewerSelectTournamentMessage) {
         mockSendViewerSelectCalls.push(msg)
       }
+      set onPendingChange(cb: ((pending: ResultSubmitMessage[]) => void) | null) {
+        mockOnPendingChange = cb
+      }
+      get onPendingChange() {
+        return mockOnPendingChange
+      }
+      getPendingSubmissions() {
+        return []
+      }
     },
   }
 })
@@ -141,6 +152,7 @@ describe('LivePage', () => {
     mockOnChatMessage = null
     mockOnSharedTournaments = null
     mockOnRoundManifest = null
+    mockOnPendingChange = null
     mockSendViewerSelectCalls = []
     mockServiceRef.current = null
     mockPlaySound.mockClear()
@@ -532,6 +544,7 @@ describe('LivePage referee mode', () => {
     mockOnChatMessage = null
     mockOnSharedTournaments = null
     mockOnRoundManifest = null
+    mockOnPendingChange = null
     mockSendViewerSelectCalls = []
     mockServiceRef.current = null
     mockPlaySound.mockClear()
@@ -555,6 +568,28 @@ describe('LivePage referee mode', () => {
   it('creates P2PService with viewer role when no refereeName', () => {
     render(<LivePage roomCode="test" />)
     expect(mockConstructorRole).toBe('viewer')
+  })
+
+  it('shows pending submission count in the connection pill', () => {
+    render(<LivePage roomCode="test" refereeToken="test-token" />)
+    confirmRefereeName('Anna')
+
+    act(() => {
+      mockOnPendingChange?.([
+        {
+          tournamentId: 1,
+          roundNr: 1,
+          boardNr: 5,
+          resultType: 'WHITE_WIN',
+          refereeName: 'Anna',
+          timestamp: 0,
+        },
+      ])
+    })
+
+    const pill = screen.getByTestId('live-status-pill')
+    expect(pill.textContent).toContain('1')
+    expect(pill.className).toContain('live-status--pending')
   })
 
   it('submits result via P2PService after confirmation', () => {
@@ -591,6 +626,33 @@ describe('LivePage referee mode', () => {
     expect(call.boardNr).toBe(3)
     expect(call.resultType).toBe('WHITE_WIN')
     expect(call.refereeName).toBe('Anna')
+  })
+
+  it('forwards expectedPrior from postMessage so the host can detect cross-ref conflicts', () => {
+    render(<LivePage roomCode="test" refereeToken="test-token" />)
+    confirmRefereeName('Anna')
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'referee-result',
+            tournamentId: 1,
+            roundNr: 2,
+            boardNr: 3,
+            resultType: 'WHITE_WIN',
+            expectedPrior: 'NO_RESULT',
+          },
+        }),
+      )
+    })
+
+    act(() => {
+      fireEvent.click(screen.getByText('Bekräfta'))
+    })
+
+    const call = mockSubmitResultCalls[0] as Record<string, unknown>
+    expect(call.expectedPrior).toBe('NO_RESULT')
   })
 
   it('shows Schack4an resultDisplay in confirm dialog and forwards it on submit', () => {
@@ -821,6 +883,7 @@ describe('LivePage kiosk mode', () => {
     mockOnChatMessage = null
     mockOnSharedTournaments = null
     mockOnRoundManifest = null
+    mockOnPendingChange = null
     mockSendViewerSelectCalls = []
     mockServiceRef.current = null
     mockPlaySound.mockClear()
@@ -954,6 +1017,7 @@ describe('LivePage shared tournaments', () => {
     mockOnChatMessage = null
     mockOnSharedTournaments = null
     mockOnRoundManifest = null
+    mockOnPendingChange = null
     mockSendViewerSelectCalls = []
     mockServiceRef.current = null
     mockPlaySound.mockClear()
@@ -1071,6 +1135,7 @@ describe('LivePage round manifest reconciliation', () => {
     mockOnChatMessage = null
     mockOnSharedTournaments = null
     mockOnRoundManifest = null
+    mockOnPendingChange = null
     mockSendViewerSelectCalls = []
     mockServiceRef.current = null
     mockPlaySound.mockClear()

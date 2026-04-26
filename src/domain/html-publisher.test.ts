@@ -604,6 +604,36 @@ describe('publishRefereePairings', () => {
     expect(html).toContain('"roundNr":3')
   })
 
+  it('exposes the published-time current result per board so submissions can carry expectedPrior', () => {
+    const input: RefereePairingsPublishInput = {
+      tournamentName: 'T',
+      tournamentId: 1,
+      roundNr: 1,
+      games: [
+        {
+          boardNr: 5,
+          whiteName: 'A',
+          blackName: 'B',
+          resultDisplay: '',
+          currentResult: 'NO_RESULT',
+        },
+        {
+          boardNr: 6,
+          whiteName: 'C',
+          blackName: 'D',
+          resultDisplay: '1-0',
+          currentResult: 'WHITE_WIN',
+        },
+      ],
+    }
+
+    const html = publishRefereePairings(input)
+    expect(html).toContain('data-current="NO_RESULT"')
+    expect(html).toContain('data-current="WHITE_WIN"')
+    // The click script must read it and include it as expectedPrior.
+    expect(html).toContain('expectedPrior')
+  })
+
   it('escapes HTML in player names', () => {
     const input: RefereePairingsPublishInput = {
       tournamentName: 'Test',

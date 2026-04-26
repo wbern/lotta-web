@@ -2,7 +2,7 @@ import { joinRoom } from '@trystero-p2p/mqtt'
 import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ResultAckMessage } from '../types/p2p.ts'
+import type { ResultAckMessage, ResultSubmitMessage } from '../types/p2p.ts'
 import { _resetTurnCache, P2PService } from './p2p-service.ts'
 
 const mswServer = setupServer(
@@ -1526,6 +1526,223 @@ describe('P2PService', () => {
       room._simulateReceive('data-changed', { ts: Date.now() }, 'host-peer')
 
       expect(callback).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('result submission resilience to lost messages', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('retries the submission when no ack arrives within the retry window', async () => {
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('referee')
+      service.joinRoom('test-room')
+      await flush()
+
+      const submission: ResultSubmitMessage = {
+        tournamentId: 1,
+        roundNr: 2,
+        boardNr: 3,
+        resultType: 'WHITE_WIN',
+        refereeName: 'Anna',
+        timestamp: Date.now(),
+      }
+      service.submitResult(submission)
+
+      const sendFn = mockRoom._getSendFn('result-submit')
+      expect(sendFn).toBeDefined()
+      expect(sendFn).toHaveBeenCalledTimes(1)
+
+      // Host never acks — simulates either a dropped submit packet or a dropped ack
+      // packet. Either way, the referee must not silently give up.
+      vi.advanceTimersByTime(5_000)
+      await flush()
+
+      expect(sendFn?.mock.calls.length).toBeGreaterThan(1)
+    })
+
+    it('notifies onPendingChange when submissions are added or acked', async () => {
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('referee')
+      const snapshots: ResultSubmitMessage[][] = []
+      service.onPendingChange = (pending) => snapshots.push(pending)
+      service.joinRoom('test-room')
+      await flush()
+
+      const submission: ResultSubmitMessage = {
+        tournamentId: 1,
+        roundNr: 2,
+        boardNr: 3,
+        resultType: 'WHITE_WIN',
+        refereeName: 'Anna',
+        timestamp: Date.now(),
+      }
+      service.submitResult(submission)
+      mockRoom._simulateReceive(
+        'result-ack',
+        { tournamentId: 1, boardNr: 3, roundNr: 2, accepted: true },
+        'host-peer',
+      )
+
+      expect(snapshots).toHaveLength(2)
+      expect(snapshots[0]).toEqual([submission])
+      expect(snapshots[1]).toEqual([])
+    })
+
+    it('exposes the unsynced submissions via getPendingSubmissions', async () => {
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('referee')
+      service.joinRoom('test-room')
+      await flush()
+
+      expect(service.getPendingSubmissions()).toEqual([])
+
+      const submission: ResultSubmitMessage = {
+        tournamentId: 1,
+        roundNr: 2,
+        boardNr: 3,
+        resultType: 'WHITE_WIN',
+        refereeName: 'Anna',
+        timestamp: Date.now(),
+      }
+      service.submitResult(submission)
+
+      const pending = service.getPendingSubmissions()
+      expect(pending).toHaveLength(1)
+      expect(pending[0]).toEqual(submission)
+
+      mockRoom._simulateReceive(
+        'result-ack',
+        { tournamentId: 1, boardNr: 3, roundNr: 2, accepted: true },
+        'host-peer',
+      )
+
+      expect(service.getPendingSubmissions()).toEqual([])
+    })
+
+    it('gives up after the max retry attempts and surfaces failure via onResultAck', async () => {
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('referee')
+      const acks: ResultAckMessage[] = []
+      service.onResultAck = (msg) => acks.push(msg)
+      service.joinRoom('test-room')
+      await flush()
+
+      const submission: ResultSubmitMessage = {
+        tournamentId: 1,
+        roundNr: 2,
+        boardNr: 3,
+        resultType: 'WHITE_WIN',
+        refereeName: 'Anna',
+        timestamp: Date.now(),
+      }
+      service.submitResult(submission)
+
+      // Plenty of time for any reasonable retry policy to exhaust.
+      vi.advanceTimersByTime(120_000)
+      await flush()
+
+      expect(service.getPendingSubmissions()).toEqual([])
+      const failure = acks.find((a) => a.boardNr === 3 && a.roundNr === 2 && a.accepted === false)
+      expect(failure).toBeDefined()
+    })
+
+    it('does not cancel a pending submission for tournament B when an ack arrives for tournament A', async () => {
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('referee')
+      service.joinRoom('test-room')
+      await flush()
+
+      service.submitResult({
+        tournamentId: 7,
+        roundNr: 2,
+        boardNr: 3,
+        resultType: 'WHITE_WIN',
+        refereeName: 'Anna',
+        timestamp: Date.now(),
+      })
+      expect(service.getPendingSubmissions()).toHaveLength(1)
+
+      // Ack for a DIFFERENT tournament with the same (round, board) coordinates.
+      mockRoom._simulateReceive(
+        'result-ack',
+        { tournamentId: 99, roundNr: 2, boardNr: 3, accepted: true },
+        'host-peer',
+      )
+
+      // The pending submission must still be there; it belongs to tournament 7.
+      expect(service.getPendingSubmissions()).toHaveLength(1)
+    })
+
+    it('clears pending submissions and timers when leave() is called', async () => {
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('referee')
+      service.joinRoom('test-room')
+      await flush()
+
+      service.submitResult({
+        tournamentId: 1,
+        roundNr: 2,
+        boardNr: 3,
+        resultType: 'WHITE_WIN',
+        refereeName: 'Anna',
+        timestamp: Date.now(),
+      })
+      expect(service.getPendingSubmissions()).toHaveLength(1)
+
+      const sendFn = mockRoom._getSendFn('result-submit')
+      const sendCallsBefore = sendFn?.mock.calls.length ?? 0
+
+      service.leave()
+
+      expect(service.getPendingSubmissions()).toEqual([])
+
+      vi.advanceTimersByTime(60_000)
+      await flush()
+
+      // No further retries should fire after leave().
+      expect(sendFn?.mock.calls.length).toBe(sendCallsBefore)
+    })
+
+    it('stops retrying once a matching ack is received', async () => {
+      const mockRoom = createMockRoom()
+      mockJoinRoom.mockReturnValueOnce(mockRoom as unknown as ReturnType<typeof joinRoom>)
+      const service = new P2PService('referee')
+      service.joinRoom('test-room')
+      await flush()
+
+      const submission: ResultSubmitMessage = {
+        tournamentId: 1,
+        roundNr: 2,
+        boardNr: 3,
+        resultType: 'WHITE_WIN',
+        refereeName: 'Anna',
+        timestamp: Date.now(),
+      }
+      service.submitResult(submission)
+      const sendFn = mockRoom._getSendFn('result-submit')
+      expect(sendFn).toHaveBeenCalledTimes(1)
+
+      mockRoom._simulateReceive(
+        'result-ack',
+        { tournamentId: 1, boardNr: 3, roundNr: 2, accepted: true },
+        'host-peer',
+      )
+
+      vi.advanceTimersByTime(30_000)
+      await flush()
+
+      expect(sendFn).toHaveBeenCalledTimes(1)
     })
   })
 })

@@ -639,4 +639,17 @@ describe('handleResultSubmission', () => {
     // setResult() internally calls broadcastAfterResultChange — verify it was called with correct args
     expect(mockSetResult).toHaveBeenCalledWith(1, 2, 3, { resultType: 'WHITE_WIN' })
   })
+
+  it('forwards expectedPrior to setResult so conflict detection can run', async () => {
+    mockSetResult.mockResolvedValue({ boardNr: 3, resultDisplay: '1-0' })
+
+    await handleResultSubmission({ ...baseMsg, expectedPrior: 'NO_RESULT' }, 'referee-peer')
+
+    expect(mockSetResult).toHaveBeenCalledWith(
+      1,
+      2,
+      3,
+      expect.objectContaining({ resultType: 'WHITE_WIN', expectedPrior: 'NO_RESULT' }),
+    )
+  })
 })

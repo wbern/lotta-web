@@ -539,7 +539,8 @@ export function publishRefereePairings(input: RefereePairingsPublishInput): stri
   body += `<h2>${esc(input.tournamentName)} - Rond ${input.roundNr}</h2>\n`
 
   for (const g of input.games) {
-    body += `<div class="ref-row" data-board="${g.boardNr}">\n`
+    const current = g.currentResult ?? 'NO_RESULT'
+    body += `<div class="ref-row" data-board="${g.boardNr}" data-current="${current}">\n`
     body += `  <div class="ref-board">${g.boardNr}</div>\n`
     body += `  <div class="ref-white">${esc(g.whiteName ?? 'frirond')}</div>\n`
     body += `  <div class="ref-result">\n`
@@ -551,7 +552,7 @@ export function publishRefereePairings(input: RefereePairingsPublishInput): stri
     body += `  </div>\n`
     body += `  <div class="ref-black">${esc(g.blackName ?? 'frirond')}</div>\n`
     body += `</div>\n`
-    body += `<div class="ref-extra" id="extra-${g.boardNr}">\n`
+    body += `<div class="ref-extra" id="extra-${g.boardNr}" data-board="${g.boardNr}" data-current="${current}">\n`
     for (const r of extraResults) {
       const active = g.currentResult === r.type ? ' ref-btn--active' : ''
       body += `  <button class="ref-btn${active}" data-result="${r.type}" data-board="${g.boardNr}">${r.label}</button>\n`
@@ -577,13 +578,16 @@ export function publishRefereePairings(input: RefereePairingsPublishInput): stri
         }
       }
       btn.classList.add('ref-btn--active');
+      var rowEl = btn.closest('[data-board][data-current]');
+      var prior = rowEl ? rowEl.getAttribute('data-current') : null;
       window.parent.postMessage({
         type: 'referee-result',
         tournamentId: meta.tournamentId,
         roundNr: meta.roundNr,
         boardNr: board,
         resultType: result,
-        resultDisplay: btn.textContent
+        resultDisplay: btn.textContent,
+        expectedPrior: prior
       }, '*');
       return;
     }

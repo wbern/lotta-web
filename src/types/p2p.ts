@@ -37,9 +37,11 @@ export type ResultSubmitMessage = {
   resultDisplay?: string
   refereeName: string
   timestamp: number
+  expectedPrior?: ResultType
 }
 
 export type ResultAckMessage = {
+  tournamentId?: number
   boardNr: number
   roundNr: number
   accepted: boolean

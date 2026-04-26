@@ -15,6 +15,7 @@ interface Props {
   liveState?: LiveConnectionState
   liveRole?: LiveRole
   livePeerCount?: number
+  livePendingCount?: number
   onLiveClick?: () => void
 }
 
@@ -24,6 +25,7 @@ export function StatusBar({
   liveState,
   liveRole,
   livePeerCount,
+  livePendingCount,
   onLiveClick,
 }: Props) {
   const online = useOnlineStatus()
@@ -52,6 +54,11 @@ export function StatusBar({
       <div className="status-bar" data-testid="status-bar">
         {liveIndicator}
         {roleText}
+        {livePendingCount && livePendingCount > 0 ? (
+          <span className="status-pending" data-testid="status-pending">
+            {livePendingCount} ej synkad
+          </span>
+        ) : null}
         {!online && <span className="status-offline">Offline</span>}
       </div>
     )

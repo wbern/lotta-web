@@ -107,8 +107,20 @@ export function SharedView({ roomCode, token, mode = 'full', code }: SharedViewP
       appendDiagnostic(entry)
     }
 
+    let lastConnectionState: P2PConnectionState = 'disconnected'
+
+    const pushLiveStatus = (state: P2PConnectionState, pendingCount: number) => {
+      setLiveStatus({
+        state: state === 'host-offline' ? 'reconnecting' : state,
+        role: 'client',
+        peerCount: state === 'connected' ? 1 : 0,
+        pendingCount,
+      })
+    }
+
     service.onConnectionStateChange = (state) => {
       setConnectionState(state as P2PConnectionState)
+      lastConnectionState = state as P2PConnectionState
       if (state === 'connected') {
         setStage('connected')
         setShareMode(mode)
@@ -117,15 +129,16 @@ export function SharedView({ roomCode, token, mode = 'full', code }: SharedViewP
       if (state === 'disconnected') {
         cleanupClientSession()
       } else {
-        setLiveStatus({
-          state: state === 'host-offline' ? 'reconnecting' : state,
-          role: 'client',
-          peerCount: state === 'connected' ? 1 : 0,
-        })
+        pushLiveStatus(lastConnectionState, service.getPendingSubmissions().length)
       }
       if (state === 'connected') {
         void queryClient.resumePausedMutations()
       }
+    }
+
+    service.onPendingChange = (pending) => {
+      if (lastConnectionState === 'disconnected') return
+      pushLiveStatus(lastConnectionState, pending.length)
     }
 
     service.onDataChanged = () => {

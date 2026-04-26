@@ -112,4 +112,32 @@ describe('StatusBar', () => {
     expect(screen.getByText(/Ansluten till värd/)).toBeTruthy()
     expect(screen.queryByText(/Test Cup/)).toBeNull()
   })
+
+  it('shows pending submission badge when livePendingCount > 0', () => {
+    render(
+      <StatusBar
+        tournament={tournament}
+        round={1}
+        liveState="connected"
+        liveRole="client"
+        livePendingCount={2}
+      />,
+    )
+    const badge = screen.getByTestId('status-pending')
+    expect(badge.textContent).toContain('2')
+    expect(badge.textContent?.toLowerCase()).toContain('ej synkad')
+  })
+
+  it('does not render pending badge when livePendingCount is 0', () => {
+    render(
+      <StatusBar
+        tournament={tournament}
+        round={1}
+        liveState="connected"
+        liveRole="client"
+        livePendingCount={0}
+      />,
+    )
+    expect(screen.queryByTestId('status-pending')).toBeNull()
+  })
 })

@@ -52,4 +52,14 @@ describe('useLiveStatus', () => {
     })
     expect(result.current).toBeNull()
   })
+
+  it('carries pendingCount through to consumers', () => {
+    const { result } = renderHook(() => useLiveStatus())
+
+    act(() => {
+      setLiveStatus({ state: 'connected', role: 'client', peerCount: 1, pendingCount: 2 })
+    })
+
+    expect(result.current?.pendingCount).toBe(2)
+  })
 })

@@ -5,6 +5,7 @@ interface LiveStatus {
   state: LiveConnectionState
   role: LiveRole
   peerCount: number
+  pendingCount?: number
 }
 
 let current: LiveStatus | null = null
