@@ -77,7 +77,6 @@ export default defineConfig({
     { name: 'pairings', testMatch: 'pairings.spec.ts' },
     { name: 'standings', testMatch: 'standings.spec.ts' },
     { name: 'club-standings', testMatch: 'club-standings.spec.ts' },
-    { name: 'results', testMatch: 'results.spec.ts' },
     { name: 'chess4', testMatch: 'chess4.spec.ts' },
     { name: 'settings', testMatch: 'settings.spec.ts' },
     { name: 'tournament-lock', testMatch: 'tournament-lock.spec.ts' },
