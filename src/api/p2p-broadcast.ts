@@ -350,15 +350,18 @@ setBroadcastHook(async (affects) => {
   switch (affects.kind) {
     case 'results':
       await broadcastAfterResultChange(affects.tournamentId, affects.roundNr)
-      return
+      break
     case 'pairing':
       await broadcastAfterPairing(affects.tournamentId, affects.roundNr)
-      return
+      break
     case 'tournamentDeleted':
       broadcastAfterTournamentDelete(affects.tournamentId)
-      return
+      break
     case 'restore':
       await broadcastAfterRestore()
-      return
+      break
+  }
+  if (isP2PActive()) {
+    getP2PService().broadcastDataChanged()
   }
 })

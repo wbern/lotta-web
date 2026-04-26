@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as p2pProvider from '../services/p2p-provider.ts'
 import type { PageUpdateMessage, ResultSubmitMessage } from '../types/p2p.ts'
+import { dispatchBroadcast } from './broadcast-hook.ts'
 import { setLiveContext } from './live-context.ts'
 import {
   broadcastAfterPairing,
@@ -18,6 +19,7 @@ const mockSendResultAck = vi.fn()
 const mockIsPeerVerifiedReferee = vi.fn()
 const mockBroadcastRoundManifest = vi.fn()
 const mockSendRoundManifestTo = vi.fn()
+const mockBroadcastDataChanged = vi.fn()
 
 vi.mock('../services/p2p-provider.ts', () => ({
   getP2PService: vi.fn(() => ({
@@ -28,6 +30,7 @@ vi.mock('../services/p2p-provider.ts', () => ({
     isPeerVerifiedReferee: mockIsPeerVerifiedReferee,
     broadcastRoundManifest: mockBroadcastRoundManifest,
     sendRoundManifestTo: mockSendRoundManifestTo,
+    broadcastDataChanged: mockBroadcastDataChanged,
     role: 'organizer',
   })),
 }))
@@ -651,5 +654,29 @@ describe('handleResultSubmission', () => {
       3,
       expect.objectContaining({ resultType: 'WHITE_WIN', expectedPrior: 'NO_RESULT' }),
     )
+  })
+})
+
+describe('dispatch hook fires broadcastDataChanged', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(p2pProvider.getP2PService).mockReturnValue({
+      connectionState: 'connected',
+      broadcastPageUpdate: mockBroadcastPageUpdate,
+      sendPageUpdateTo: mockSendPageUpdateTo,
+      broadcastRoundManifest: mockBroadcastRoundManifest,
+      sendRoundManifestTo: mockSendRoundManifestTo,
+      broadcastDataChanged: mockBroadcastDataChanged,
+      role: 'organizer',
+    } as unknown as ReturnType<typeof p2pProvider.getP2PService>)
+    const db = createMockDb({ tournamentName: 'Spring Open' })
+    mockGetDatabaseService.mockReturnValue(db)
+    mockGetStandings.mockResolvedValue([])
+  })
+
+  it('fires broadcastDataChanged when a result mutation is dispatched', async () => {
+    await dispatchBroadcast({ kind: 'results', tournamentId: 1, roundNr: 1 })
+
+    expect(mockBroadcastDataChanged).toHaveBeenCalledTimes(1)
   })
 })
