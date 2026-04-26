@@ -105,13 +105,14 @@ The pattern, which is also the baseline for upcoming p2p chaos tests:
 
 GitHub Actions workflow (`.github/workflows/deploy.yml`) runs on push to `main`:
 
-1. `build` job — `pnpm test` (unit) + `pnpm build`
-2. `test-e2e` job — `pnpm test:e2e` (Tier 1, in parallel with build)
-3. `deploy` job — gated on both, publishes to GitHub Pages
+1. `test` job — `pnpm test` (unit tests)
+2. `deploy` job — `pnpm build` + publish to GitHub Pages
 
-No backend required — the app is fully static. Tier 2/3 e2e tests are **not** run in CI.
+**E2E tests do NOT run on push** — by design; the suite is too slow to gate every merge. The `test-e2e` job is gated on a `workflow_dispatch` input (`run_e2e`, default false), so it only runs when manually triggered. Downstream `release`/`deploy` accept `test-e2e.result == 'skipped'` as success.
 
-The **pre-commit hook does NOT run any test suite** (only lint/typecheck/knip/jscpd). If you change e2e specs or code they cover, run `pnpm test:e2e` manually before pushing.
+No backend required — the app is fully static. Tier 2/3 e2e tests are **not** run in CI either.
+
+The **pre-commit hook does NOT run any test suite** (only lint/typecheck/knip/jscpd). Because nothing automatic runs e2e, if you change specs or covered code, run `pnpm test:e2e` manually before pushing.
 
 ## Commit hooks & code quality
 
