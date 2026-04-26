@@ -118,6 +118,7 @@ export default defineConfig({
             },
           },
           { name: 'chaos', testMatch: 'chaos.spec.ts', use: p2pUse },
+          { name: 'em-p2p-chaos', testMatch: 'em-p2p-chaos.spec.ts', use: p2pUse },
           {
             name: 'chaos-monkey',
             testMatch: 'chaos-monkey.spec.ts',
