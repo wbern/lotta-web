@@ -6,11 +6,17 @@ import {
   HIGHER_RATED_WINS,
   type PlayerInput,
   pairRound,
+  seedHeroTournament,
   setResults,
   waitForApi,
 } from './api-helpers'
 import { expect, test } from './fixtures'
 import { selectTournament, waitForTournaments } from './helpers'
+
+test.beforeEach(async ({ page }) => {
+  await page.goto('/')
+  await seedHeroTournament(page)
+})
 
 test.describe('Mobile viewport', () => {
   test.use({ viewport: { width: 375, height: 667 } })

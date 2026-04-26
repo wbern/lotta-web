@@ -1,7 +1,18 @@
 /* eslint local/no-class-locators: "off" -- structural traversal (.context-menu, .context-submenu, .result-cell) */
 
-import { apiClient, createTournament, pairRound, waitForApi } from './api-helpers'
+import {
+  apiClient,
+  createTournament,
+  pairRound,
+  seedHeroTournament,
+  waitForApi,
+} from './api-helpers'
 import { expect, test } from './fixtures'
+
+test.beforeEach(async ({ page }) => {
+  await page.goto('/')
+  await seedHeroTournament(page)
+})
 
 test.describe('Menu structure', () => {
   test.beforeEach(async ({ page }) => {

@@ -246,6 +246,71 @@ export async function waitForApi(page: Page): Promise<void> {
   await page.waitForFunction(() => (window as any).__lottaApi != null)
 }
 
+// ── Seed: "Hjälteturneringen 2025" + "Min Testturnering" ────────────────
+// 8 players in 3 clubs, 7-round Monrad, all rounds played with
+// HIGHER_RATED_WINS — Ragnar is highest-rated → wins out, first place
+// in standings. Used by navigation/app/menus/dialogs specs.
+// Idempotent: skips seeding if it's already there.
+
+const HERO_CLUBS = [{ name: 'Kattegats SK' }, { name: 'Vikings SK' }, { name: 'Uppsala SK' }]
+
+const HERO_PLAYERS: PlayerInput[] = [
+  { lastName: 'Lothbrok', firstName: 'Ragnar', ratingI: 2200 },
+  { lastName: 'Benlös', firstName: 'Ivar', ratingI: 2100 },
+  { lastName: 'Järnsida', firstName: 'Björn', ratingI: 2000 },
+  { lastName: 'Ormöga', firstName: 'Sigurd', ratingI: 1900 },
+  { lastName: 'Vitserk', firstName: 'Hvitserk', ratingI: 1800 },
+  { lastName: 'Ragnarsson', firstName: 'Ubbe', ratingI: 1700 },
+  { lastName: 'Sköldmö', firstName: 'Lagertha', ratingI: 1600, sex: 'F' },
+  { lastName: 'Drottning', firstName: 'Aslaug', ratingI: 1500, sex: 'F' },
+]
+
+export async function seedHeroTournament(page: Page): Promise<number> {
+  await waitForApi(page)
+  const $ = apiClient(page)
+
+  const existing: { id: number; name: string }[] = await $.get('/api/tournaments')
+  const found = existing.find((t) => t.name === 'Hjälteturneringen 2025')
+  if (found) return found.id
+
+  const clubIds = await ensureClubs($, HERO_CLUBS)
+  const players = HERO_PLAYERS.map((p, i) => ({
+    ...p,
+    clubIndex: clubIds[i % clubIds.length],
+  }))
+
+  const { tid } = await createTournament(
+    $,
+    {
+      name: 'Hjälteturneringen 2025',
+      group: 'Alla',
+      pairingSystem: 'Monrad',
+      nrOfRounds: 7,
+    },
+    players,
+  )
+  for (let r = 1; r <= 7; r++) {
+    const round = await pairRound($, tid)
+    await setResults($, tid, r, round.games, HIGHER_RATED_WINS)
+  }
+
+  // Second, minimal tournament for "switch between tournaments" tests.
+  if (!existing.find((t) => t.name === 'Min Testturnering')) {
+    await createTournament(
+      $,
+      {
+        name: 'Min Testturnering',
+        group: '',
+        pairingSystem: 'Monrad',
+        nrOfRounds: 3,
+      },
+      HERO_PLAYERS.slice(0, 4).map((p, i) => ({ ...p, clubIndex: clubIds[i % clubIds.length] })),
+    )
+  }
+
+  return tid
+}
+
 // ── Result strategies ───────────────────────────────────────────────────
 
 export type ResultFn = (g: any) => string

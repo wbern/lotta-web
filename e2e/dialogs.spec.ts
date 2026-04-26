@@ -1,8 +1,13 @@
 /* eslint local/no-class-locators: "off" -- structural traversal (.form-group, .dialog-tab, etc.) */
 
-import { apiClient, waitForApi } from './api-helpers'
+import { apiClient, seedHeroTournament, waitForApi } from './api-helpers'
 import { expect, test } from './fixtures'
 import { selectTournament } from './helpers'
+
+test.beforeEach(async ({ page }) => {
+  await page.goto('/')
+  await seedHeroTournament(page)
+})
 
 // ---------------------------------------------------------------------------
 // 1. Settings dialog deep tests

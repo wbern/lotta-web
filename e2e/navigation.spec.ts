@@ -1,6 +1,12 @@
 /* eslint local/no-class-locators: "off" -- structural traversal (.tab-header.active, .place-cell) */
+import { seedHeroTournament } from './api-helpers'
 import { expect, test } from './fixtures'
 import { selectTournament } from './helpers'
+
+test.beforeEach(async ({ page }) => {
+  await page.goto('/')
+  await seedHeroTournament(page)
+})
 
 // ===========================================================================
 // 1. URL state persistence
