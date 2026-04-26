@@ -89,6 +89,9 @@ export default defineConfig({
     { name: 'fix-screenshots', testMatch: 'fix-screenshots.spec.ts' },
     { name: 'keybind-demo', testMatch: 'keybind-demo.spec.ts' },
     { name: 'whats-new', testMatch: 'whats-new.spec.ts' },
+    { name: 'em-setup', testMatch: 'em-setup.spec.ts' },
+    { name: 'em-replay', testMatch: 'em-replay.spec.ts' },
+    { name: 'em-chaos', testMatch: 'em-chaos.spec.ts' },
     ...(runningStress
       ? [{ name: 'determinism-stress', testMatch: 'determinism-stress.spec.ts' }]
       : []),

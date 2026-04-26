@@ -79,6 +79,28 @@ pnpm exec playwright show-report    # open HTML report with per-test videos
 
 **BrowserStack**: credentials are stored in macOS Keychain and loaded via `~/.zshrc`. Each run costs real minutes from a limited budget. Edit `browserstack.yml` to change target devices.
 
+### Replay pattern (recorded-tournament tests)
+
+Some e2e specs reproduce a real recorded tournament round-by-round to verify
+deterministic behavior end-to-end (`em-setup.spec.ts`, `em-replay.spec.ts`).
+The pattern, which is also the baseline for upcoming p2p chaos tests:
+
+1. Capture SQLite backups + JSON fixtures under `e2e/fixtures/<name>/` —
+   see that folder's `README.md` for what's required and how to regenerate.
+2. Seed the app via `window.__lottaApi.restoreDbBytes(Uint8Array)` (exposed
+   in dev mode by `src/dev/e2e-bridge.ts`). Use this when the starting state
+   isn't reproducible from the algorithm — e.g. R1 of a `Slumpad` (random)
+   pairing. Subsequent rounds are deterministic given identical inputs.
+3. Drive each round through `apiClient(page)` (`/api/...` calls routed to
+   the in-browser API), wrap each round in `await test.step(...)` for
+   per-round failure isolation.
+4. Compare app-generated pairings to the recorded fixture by
+   `(lastName, firstName, club)` — **never** by the formatted `name` field,
+   which is shaped by the `playerPresentation` setting and would silently
+   couple the test to that setting. Build a `Map<id, PlayerKey>` from
+   `/api/tournaments/:tid/players` and use it to tag both sides for
+   comparison.
+
 ## Deployment & CI
 
 GitHub Actions workflow (`.github/workflows/deploy.yml`) runs on push to `main`:
