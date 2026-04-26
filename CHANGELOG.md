@@ -1,3 +1,10 @@
+## [1.7.2](https://github.com/wbern/lotta/compare/v1.7.1...v1.7.2) (2026-04-26)
+
+
+### Bug Fixes
+
+* **e2e:** derive expected spectator result from recorded scores ([2e4c8b8](https://github.com/wbern/lotta/commit/2e4c8b8f439ddff83527c0c84368fa85d59b4c13))
+
 ## [1.7.1](https://github.com/wbern/lotta/compare/v1.7.0...v1.7.1) (2026-04-26)
 
 
