@@ -43,19 +43,22 @@ interface PlayerKey {
   club: string
 }
 
-// ── Result-type → spectator UI text mapping ─────────────────────────────
-// Viewer renders results via `spectator-result-N` testid. We assert the
-// score-string, not internal enum.
-const RESULT_DISPLAY: Record<ResultType, string | null> = {
-  NO_RESULT: null,
-  WHITE_WIN: '1-0',
-  DRAW: '½-½',
-  BLACK_WIN: '0-1',
-  WHITE_WIN_WO: '1-0',
-  BLACK_WIN_WO: '0-1',
-  DOUBLE_WO: '0-0',
-  POSTPONED: null,
-  CANCELLED: null,
+// Derives the expected spectator-cell text from the recorded scores so the
+// assertion works for any tournament config (standard 1-0, chess4 3-1,
+// Skollags-DM 2-0, etc.). Mirrors `formatResultDisplay` in
+// `src/db/repositories/games.ts`. Returns null for cells the viewer renders
+// as empty/non-comparable.
+function expectedResultDisplay(fg: FixtureGame): string | null {
+  if (fg.resultType === 'NO_RESULT') return null
+  if (fg.resultType === 'POSTPONED' || fg.resultType === 'CANCELLED') return null
+  const fmt = (s: number): string => {
+    const intPart = Math.floor(s)
+    const hasHalf = s - intPart >= 0.4
+    if (intPart === 0 && hasHalf) return '½'
+    if (intPart === 0) return '0'
+    return hasHalf ? `${intPart}½` : `${intPart}`
+  }
+  return `${fmt(fg.whiteScore)}-${fmt(fg.blackScore)}`
 }
 
 // Mulberry32 — same generator as em-chaos so seeds reproduce comparably.
@@ -374,7 +377,7 @@ async function expectViewerConverged(
   const games = roundsFixture[String(latest)]
   for (const idx of samplesByRound[latest]) {
     const fg = games[idx]
-    const display = RESULT_DISPLAY[fg.resultType]
+    const display = expectedResultDisplay(fg)
     if (!display) continue
     await expect(page.getByTestId(`spectator-result-${fg.boardNr}`)).toContainText(display, {
       timeout: 30_000,
@@ -558,7 +561,7 @@ function runP2PChaosTest(seed: number): void {
         }
         for (const v of viewers) {
           for (const fg of r5) {
-            const display = RESULT_DISPLAY[fg.resultType]
+            const display = expectedResultDisplay(fg)
             if (!display) continue
             await expect(
               v.page.getByTestId(`spectator-result-${fg.boardNr}`),
