@@ -77,6 +77,7 @@ export default defineConfig({
     { name: 'results', testMatch: 'results.spec.ts' },
     { name: 'chess4', testMatch: 'chess4.spec.ts' },
     { name: 'settings', testMatch: 'settings.spec.ts' },
+    { name: 'tournament-lock', testMatch: 'tournament-lock.spec.ts' },
     { name: 'barred-pairing', testMatch: 'barred-pairing.spec.ts' },
     { name: 'edge-cases', testMatch: 'edge-cases.spec.ts' },
     { name: 'tiebreak-edge-cases', testMatch: 'tiebreak-edge-cases.spec.ts' },
