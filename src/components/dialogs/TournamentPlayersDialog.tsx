@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { tournamentLockState } from '../../domain/tournament-lock'
 import { useAddClub, useClubs, useDeleteClub, useRenameClub } from '../../hooks/useClubs'
 import { usePoolPlayers } from '../../hooks/usePlayers'
 import { useShiftSelect } from '../../hooks/useShiftSelect'
@@ -10,6 +11,7 @@ import {
   useTournamentPlayers,
   useUpdateTournamentPlayer,
 } from '../../hooks/useTournamentPlayers'
+import { useTournament } from '../../hooks/useTournaments'
 import { sv } from '../../lib/swedish-text'
 import type { PlayerDto } from '../../types/api'
 import { SortableHeader } from '../SortableHeader'
@@ -48,8 +50,18 @@ const emptyPlayer: Partial<PlayerDto> = {
 
 export function TournamentPlayersDialog({ open, tournamentId, tournamentName, onClose }: Props) {
   const { data: tournamentPlayers } = useTournamentPlayers(tournamentId)
+  const { data: tournament } = useTournament(tournamentId)
   const { data: poolPlayers } = usePoolPlayers()
   const { data: clubs } = useClubs()
+  // While `tournament` is loading, treat the gate as engaged so the destructive
+  // button stays disabled rather than briefly flashing enabled before resolving.
+  const removeBlocked = tournament
+    ? tournamentLockState({
+        roundsPlayed: tournament.roundsPlayed,
+        hasRecordedResults: tournament.hasRecordedResults,
+        nrOfRounds: tournament.nrOfRounds,
+      }) !== 'draft'
+    : true
   const addPlayer = useAddTournamentPlayer(tournamentId)
   const addPlayers = useAddTournamentPlayers(tournamentId)
   const updatePlayer = useUpdateTournamentPlayer(tournamentId)
@@ -248,7 +260,8 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
                 className="btn btn-danger"
                 data-testid="remove-player"
                 onClick={handleRemove}
-                disabled={selectedTournamentPlayers.size === 0}
+                disabled={selectedTournamentPlayers.size === 0 || removeBlocked}
+                title={removeBlocked ? sv.player.removeBlockedUseWithdraw : undefined}
               >
                 {sv.common.delete}
               </button>

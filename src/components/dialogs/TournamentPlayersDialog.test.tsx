@@ -74,9 +74,28 @@ vi.mock('../../hooks/useClubs', () => ({
   useDeleteClub: () => mockMutation,
 }))
 
+// Module-level mutable state — relies on Vitest running tests within a file
+// serially. Do NOT switch this file to `describe.concurrent` / `it.concurrent`
+// without first migrating to `vi.mocked().mockReturnValueOnce()` per test.
+let phaseMode: 'draft' | 'seeded' | 'in_progress' | 'finalized' | 'loading' = 'draft'
+vi.mock('../../hooks/useTournaments', () => ({
+  useTournament: () => {
+    if (phaseMode === 'loading') return { data: undefined }
+    return {
+      data: {
+        id: 1,
+        nrOfRounds: 7,
+        roundsPlayed: phaseMode === 'draft' ? 0 : phaseMode === 'finalized' ? 7 : 1,
+        hasRecordedResults: phaseMode === 'in_progress',
+      },
+    }
+  },
+}))
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  phaseMode = 'draft'
 })
 
 function renderDialog() {
@@ -324,5 +343,62 @@ describe('TournamentPlayersDialog tournament multi-select', () => {
     expect(mockBatchRemoveMutate).toHaveBeenCalledTimes(1)
     const [ids] = mockBatchRemoveMutate.mock.calls[0]
     expect(ids.sort()).toEqual([200, 201])
+  })
+})
+
+describe('TournamentPlayersDialog phase gating', () => {
+  it('enables remove button in draft phase when a player is selected', () => {
+    // phaseMode default is 'draft' — verify the gate does NOT engage there.
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Erik Johansson'))
+
+    const removeButton = screen.getByTestId('remove-player') as HTMLButtonElement
+    expect(removeButton.disabled).toBe(false)
+  })
+
+  it('disables remove button when tournament is in_progress, with the Swedish withdraw tooltip', () => {
+    phaseMode = 'in_progress'
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Erik Johansson'))
+
+    const removeButton = screen.getByTestId('remove-player') as HTMLButtonElement
+    expect(removeButton.disabled).toBe(true)
+    expect(removeButton.title).toBe(
+      'Du kan inte ta bort en spelare som är inlottad i turneringen — använd "utgår från rond" istället.',
+    )
+  })
+
+  it('disables remove button when tournament is seeded (round 1 lottad, no results yet)', () => {
+    phaseMode = 'seeded'
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Erik Johansson'))
+
+    const removeButton = screen.getByTestId('remove-player') as HTMLButtonElement
+    expect(removeButton.disabled).toBe(true)
+  })
+
+  it('disables remove button when tournament is finalized', () => {
+    phaseMode = 'finalized'
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Erik Johansson'))
+
+    const removeButton = screen.getByTestId('remove-player') as HTMLButtonElement
+    expect(removeButton.disabled).toBe(true)
+  })
+
+  it('keeps remove button disabled when tournament data is unavailable', () => {
+    // Covers both the brief loading window and any error state where
+    // `useTournament` hands back `{ data: undefined }`.
+    phaseMode = 'loading'
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Erik Johansson'))
+
+    const removeButton = screen.getByTestId('remove-player') as HTMLButtonElement
+    expect(removeButton.disabled).toBe(true)
   })
 })

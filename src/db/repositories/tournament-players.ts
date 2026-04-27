@@ -1,4 +1,5 @@
 import type { Database } from 'sql.js'
+import { tournamentLockState } from '../../domain/tournament-lock.ts'
 import type { PlayerDto } from '../../types/api.ts'
 import { mapPlayerRow } from './map-player-row.ts'
 
@@ -106,6 +107,37 @@ export class TournamentPlayerRepository {
   }
 
   remove(id: number): void {
+    const tInfo = this.db.exec(
+      `SELECT
+        (SELECT COUNT(DISTINCT g.round) FROM tournamentgames g WHERE g.tournament = t."index"),
+        (SELECT COUNT(*) FROM tournamentgames g WHERE g.tournament = t."index" AND g.resulttype != 0),
+        t.rounds
+      FROM tournaments t
+      JOIN tournamentplayers p ON p.tournamentindex = t."index"
+      WHERE p."index" = ?`,
+      [id],
+    )
+    // Empty tInfo means the player (or their tournament) doesn't exist; fall
+    // through to the FK guard + DELETE, which will silently no-op as before.
+    if (tInfo[0]?.values.length) {
+      const [roundsPlayed, resultCount, nrOfRounds] = tInfo[0].values[0] as [number, number, number]
+      const state = tournamentLockState({
+        roundsPlayed,
+        hasRecordedResults: resultCount > 0,
+        nrOfRounds,
+      })
+      if (state !== 'draft') {
+        throw new Error(
+          `Cannot remove player ${id}: tournament is ${state}. ` +
+            `Withdraw the player instead (utgår från rond).`,
+        )
+      }
+    }
+
+    // Defense-in-depth: games can only exist once a round is lotted, which
+    // moves the tournament out of `draft` and is already blocked above. This
+    // guard would only fire if the lock-state check above is ever loosened or
+    // bypassed, so it's a backstop, not the primary protection.
     const refs = this.db.exec(
       'SELECT COUNT(*) FROM tournamentgames WHERE whiteplayer = ? OR blackplayer = ?',
       [id, id],

@@ -75,7 +75,15 @@ describe('TournamentPlayerRepository', () => {
     expect(list[0].lastName).toBe('Carlsson')
   })
 
-  it('refuses to remove a player still referenced by a game', () => {
+  it('permits removal in draft phase (no rounds lotted yet)', () => {
+    const p1 = tournamentPlayers.add(tournamentId, { lastName: 'Andersson', firstName: 'Erik' })
+
+    tournamentPlayers.remove(p1.id)
+
+    expect(tournamentPlayers.get(p1.id)).toBeNull()
+  })
+
+  it('refuses to remove a player who has games — phase gate fires before FK guard', () => {
     const p1 = tournamentPlayers.add(tournamentId, { lastName: 'Andersson', firstName: 'Erik' })
     const p2 = tournamentPlayers.add(tournamentId, { lastName: 'Bergström', firstName: 'Anna' })
     db.run(
@@ -85,7 +93,74 @@ describe('TournamentPlayerRepository', () => {
       [tournamentId, p1.id, p2.id],
     )
 
-    expect(() => tournamentPlayers.remove(p1.id)).toThrow(/Cannot remove player/)
+    // Phase gate's specific wording — proves we hit it, not the FK guard.
+    expect(() => tournamentPlayers.remove(p1.id)).toThrow(/tournament is seeded/)
     expect(tournamentPlayers.get(p1.id)).not.toBeNull()
+  })
+
+  it('refuses to remove a player once the tournament is in_progress', () => {
+    const p1 = tournamentPlayers.add(tournamentId, { lastName: 'Andersson', firstName: 'Erik' })
+    const p2 = tournamentPlayers.add(tournamentId, { lastName: 'Bergström', firstName: 'Anna' })
+    const p3 = tournamentPlayers.add(tournamentId, { lastName: 'Carlsson', firstName: 'Sven' })
+    // Round 1 played, p1 vs p2 has a recorded result; p3 had a bye and no game ref.
+    db.run(
+      `INSERT INTO tournamentgames
+        (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore)
+        VALUES (?, 1, 1, ?, ?, 1, 1, 0)`,
+      [tournamentId, p1.id, p2.id],
+    )
+
+    expect(() => tournamentPlayers.remove(p3.id)).toThrow(/utgår från rond/i)
+    expect(tournamentPlayers.get(p3.id)).not.toBeNull()
+  })
+
+  it('refuses to remove a player once round 1 is seeded, even with no recorded results', () => {
+    const p1 = tournamentPlayers.add(tournamentId, { lastName: 'Andersson', firstName: 'Erik' })
+    const p2 = tournamentPlayers.add(tournamentId, { lastName: 'Bergström', firstName: 'Anna' })
+    const p3 = tournamentPlayers.add(tournamentId, { lastName: 'Carlsson', firstName: 'Sven' })
+    // Round 1 lottad but unplayed: resulttype = 0 means no result recorded yet.
+    // p3 has no game ref (would be the bye-receiver in an odd-numbered field).
+    db.run(
+      `INSERT INTO tournamentgames
+        (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore)
+        VALUES (?, 1, 1, ?, ?, 0, 0, 0)`,
+      [tournamentId, p1.id, p2.id],
+    )
+
+    expect(() => tournamentPlayers.remove(p3.id)).toThrow(/utgår från rond/i)
+    expect(tournamentPlayers.get(p3.id)).not.toBeNull()
+  })
+
+  it('refuses to remove a player once the tournament is finalized', () => {
+    const p1 = tournamentPlayers.add(tournamentId, { lastName: 'Andersson', firstName: 'Erik' })
+    const p2 = tournamentPlayers.add(tournamentId, { lastName: 'Bergström', firstName: 'Anna' })
+    // Tournament is set up with `rounds = 7`; insert 7 distinct rounds with
+    // recorded results so lock state derives to `finalized`.
+    for (let r = 1; r <= 7; r++) {
+      db.run(
+        `INSERT INTO tournamentgames
+          (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore)
+          VALUES (?, ?, 1, ?, ?, 1, 1, 0)`,
+        [tournamentId, r, p1.id, p2.id],
+      )
+    }
+
+    expect(() => tournamentPlayers.remove(p1.id)).toThrow(/tournament is finalized/)
+    expect(tournamentPlayers.get(p1.id)).not.toBeNull()
+  })
+
+  it('removeMany also refuses once the tournament is past draft', () => {
+    const p1 = tournamentPlayers.add(tournamentId, { lastName: 'Andersson', firstName: 'Erik' })
+    const p2 = tournamentPlayers.add(tournamentId, { lastName: 'Bergström', firstName: 'Anna' })
+    const p3 = tournamentPlayers.add(tournamentId, { lastName: 'Carlsson', firstName: 'Sven' })
+    db.run(
+      `INSERT INTO tournamentgames
+        (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore)
+        VALUES (?, 1, 1, ?, ?, 0, 0, 0)`,
+      [tournamentId, p1.id, p2.id],
+    )
+
+    expect(() => tournamentPlayers.removeMany([p3.id])).toThrow(/utgår från rond/i)
+    expect(tournamentPlayers.get(p3.id)).not.toBeNull()
   })
 })
