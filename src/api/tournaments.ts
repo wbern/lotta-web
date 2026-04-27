@@ -187,5 +187,12 @@ function decodeTsv(bytes: Uint8Array): string {
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
     offset = 3
   }
-  return new TextDecoder('utf-8').decode(bytes.subarray(offset))
+  const payload = bytes.subarray(offset)
+  // Try strict UTF-8 first. On invalid sequences (Excel-on-Windows default exports
+  // are typically Windows-1252), fall back so Swedish characters survive the round-trip.
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(payload)
+  } catch {
+    return new TextDecoder('windows-1252').decode(payload)
+  }
 }
