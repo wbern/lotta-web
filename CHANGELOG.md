@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/wbern/lotta/compare/v1.7.4...v1.8.0) (2026-04-27)
+
+
+### Features
+
+* **tournament-players:** block 'Ta bort' outside draft phase ([9c067ef](https://github.com/wbern/lotta/commit/9c067ef67b6b87681886b26fa2e1d3f62cc88b97))
+
 ## 1.7.4 (2026-04-27)
 
 
