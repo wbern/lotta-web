@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/wbern/lotta/compare/v1.8.0...v1.9.0) (2026-04-28)
+
+
+### Features
+
+* **tournament-players:** block 'Lägg till' for Berger past draft ([00c80bd](https://github.com/wbern/lotta/commit/00c80bd9df25153873def5a6b1284313c296b9f9))
+
 # [1.8.0](https://github.com/wbern/lotta/compare/v1.7.4...v1.8.0) (2026-04-27)
 
 
