@@ -10,6 +10,7 @@ export class TournamentPlayerRepository {
   }
 
   add(tournamentId: number, dto: Partial<PlayerDto>): PlayerDto {
+    this.assertCanAdd(tournamentId)
     this.db.run(
       `INSERT INTO tournamentplayers (
         lastname, firstname, clubindex, ratingn, ratingi, ratingq, ratingb,
@@ -104,6 +105,36 @@ export class TournamentPlayerRepository {
     }
 
     return this.get(id)!
+  }
+
+  private assertCanAdd(tournamentId: number): void {
+    const info = this.db.exec(
+      `SELECT
+        t.pairingsystem,
+        (SELECT COUNT(DISTINCT g.round) FROM tournamentgames g WHERE g.tournament = t."index"),
+        (SELECT COUNT(*) FROM tournamentgames g WHERE g.tournament = t."index" AND g.resulttype != 0),
+        t.rounds
+      FROM tournaments t WHERE t."index" = ?`,
+      [tournamentId],
+    )
+    if (!info[0]?.values.length) return
+    const [pairingSystem, roundsPlayed, resultCount, nrOfRounds] = info[0].values[0] as [
+      string,
+      number,
+      number,
+      number,
+    ]
+    if (pairingSystem !== 'Berger') return
+    const state = tournamentLockState({
+      roundsPlayed,
+      hasRecordedResults: resultCount > 0,
+      nrOfRounds,
+    })
+    if (state === 'draft') return
+    throw new Error(
+      'I en Berger-turnering måste alla spelare läggas till innan lottning. ' +
+        'Ångra lottning för att lägga till spelare.',
+    )
   }
 
   remove(id: number): void {

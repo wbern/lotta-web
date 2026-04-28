@@ -163,4 +163,69 @@ describe('TournamentPlayerRepository', () => {
     expect(() => tournamentPlayers.removeMany([p3.id])).toThrow(/utgår från rond/i)
     expect(tournamentPlayers.get(p3.id)).not.toBeNull()
   })
+
+  describe('late-add (after seeding)', () => {
+    it('permits add to a Monrad tournament after R1 is seeded', () => {
+      const p1 = tournamentPlayers.add(tournamentId, { lastName: 'Andersson', firstName: 'Erik' })
+      const p2 = tournamentPlayers.add(tournamentId, { lastName: 'Bergström', firstName: 'Anna' })
+      db.run(
+        `INSERT INTO tournamentgames
+          (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore)
+          VALUES (?, 1, 1, ?, ?, 0, 0, 0)`,
+        [tournamentId, p1.id, p2.id],
+      )
+
+      const late = tournamentPlayers.add(tournamentId, {
+        lastName: 'Carlsson',
+        firstName: 'Sven',
+      })
+
+      expect(late.id).toEqual(expect.any(Number))
+      expect(tournamentPlayers.list(tournamentId)).toHaveLength(3)
+    })
+
+    it('refuses to add to a Berger tournament once any round is seeded', () => {
+      // Replace the Monrad tournament from beforeEach with a Berger one.
+      db.run('DELETE FROM tournaments WHERE "index" = ?', [tournamentId])
+      db.run(
+        `INSERT INTO tournaments (tournament, tournamentgroup, pairingsystem, initialpairing, rounds, barredpairing, compensateweakplayerpp, chess4, pointspergame, ratingchoice, showelo, showgroup)
+         VALUES ('Berger', 'A', 'Berger', 'Slumpad', 7, 'false', 'false', 'false', 1, 'ELO', 'true', 'true')`,
+      )
+      const idResult = db.exec('SELECT last_insert_rowid()')
+      const bergerId = idResult[0].values[0][0] as number
+
+      const p1 = tournamentPlayers.add(bergerId, { lastName: 'Andersson', firstName: 'Erik' })
+      const p2 = tournamentPlayers.add(bergerId, { lastName: 'Bergström', firstName: 'Anna' })
+      db.run(
+        `INSERT INTO tournamentgames
+          (tournament, round, boardnr, whiteplayer, blackplayer, resulttype, whitescore, blackscore)
+          VALUES (?, 1, 1, ?, ?, 0, 0, 0)`,
+        [bergerId, p1.id, p2.id],
+      )
+
+      // Specific to the Berger guard's wording — proves we hit it, not some
+      // other coincidentally-mentioning-Berger code path.
+      expect(() =>
+        tournamentPlayers.add(bergerId, { lastName: 'Carlsson', firstName: 'Sven' }),
+      ).toThrow(/i en Berger-turnering/i)
+      expect(tournamentPlayers.list(bergerId)).toHaveLength(2)
+    })
+
+    it('still permits add to a Berger tournament while still in draft', () => {
+      db.run('DELETE FROM tournaments WHERE "index" = ?', [tournamentId])
+      db.run(
+        `INSERT INTO tournaments (tournament, tournamentgroup, pairingsystem, initialpairing, rounds, barredpairing, compensateweakplayerpp, chess4, pointspergame, ratingchoice, showelo, showgroup)
+         VALUES ('Berger', 'A', 'Berger', 'Slumpad', 7, 'false', 'false', 'false', 1, 'ELO', 'true', 'true')`,
+      )
+      const idResult = db.exec('SELECT last_insert_rowid()')
+      const bergerId = idResult[0].values[0][0] as number
+
+      const added = tournamentPlayers.add(bergerId, {
+        lastName: 'Andersson',
+        firstName: 'Erik',
+      })
+
+      expect(added.id).toEqual(expect.any(Number))
+    })
+  })
 })
