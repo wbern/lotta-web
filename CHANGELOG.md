@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/wbern/lotta/compare/v1.15.0...v1.16.0) (2026-04-29)
+
+
+### Features
+
+* **backup:** persist legacy-compat checkbox in localStorage ([a075d66](https://github.com/wbern/lotta/commit/a075d66d6790bccdf2f96de8270f0cf5026597df))
+
 # [1.15.0](https://github.com/wbern/lotta/compare/v1.14.0...v1.15.0) (2026-04-29)
 
 
