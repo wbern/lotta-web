@@ -58,6 +58,81 @@ describe('ToastProvider', () => {
     expect(toast.className).toContain('toast--error')
   })
 
+  it('renders multiple action buttons via actions array, each running its own onClick', () => {
+    const onPrimary = vi.fn()
+    const onSecondary = vi.fn()
+    function MultiActionTrigger() {
+      const { show } = useToast()
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            show({
+              message: 'Ny version tillgänglig',
+              actions: [
+                { label: 'Uppdatera', onClick: onPrimary },
+                { label: 'Visa ändringar', onClick: onSecondary },
+              ],
+            })
+          }
+        >
+          trigger
+        </button>
+      )
+    }
+    render(
+      <ToastProvider>
+        <MultiActionTrigger />
+      </ToastProvider>,
+    )
+    act(() => {
+      screen.getByText('trigger').click()
+    })
+
+    const primary = screen.getByRole('button', { name: 'Uppdatera' })
+    const secondary = screen.getByRole('button', { name: 'Visa ändringar' })
+    expect(primary).toBeTruthy()
+    expect(secondary).toBeTruthy()
+
+    act(() => {
+      secondary.click()
+    })
+    expect(onSecondary).toHaveBeenCalledTimes(1)
+    expect(onPrimary).not.toHaveBeenCalled()
+  })
+
+  it('renders a primary action with btn-primary styling', () => {
+    function PrimaryTrigger() {
+      const { show } = useToast()
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            show({
+              message: 'Ny version tillgänglig',
+              actions: [{ label: 'Uppdatera', primary: true }, { label: 'Visa ändringar' }],
+            })
+          }
+        >
+          trigger
+        </button>
+      )
+    }
+    render(
+      <ToastProvider>
+        <PrimaryTrigger />
+      </ToastProvider>,
+    )
+    act(() => {
+      screen.getByText('trigger').click()
+    })
+
+    const primary = screen.getByRole('button', { name: 'Uppdatera' })
+    const secondary = screen.getByRole('button', { name: 'Visa ändringar' })
+    expect(primary.className).toContain('btn-primary')
+    expect(secondary.className).not.toContain('btn-primary')
+  })
+
   it('renders an action button that runs onClick and dismisses the toast', () => {
     const onClick = vi.fn()
     function ActionTrigger() {
@@ -68,7 +143,7 @@ describe('ToastProvider', () => {
           onClick={() =>
             show({
               message: 'Webbläsaren kan radera turneringsdata...',
-              action: { label: 'OK', onClick },
+              actions: [{ label: 'OK', onClick }],
             })
           }
         >

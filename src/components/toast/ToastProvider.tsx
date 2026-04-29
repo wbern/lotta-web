@@ -195,18 +195,19 @@ export function ToastProvider({
               onBlur={() => resume(t.internalId)}
             >
               <span>{t.message}</span>
-              {t.action && (
+              {t.actions?.map((a) => (
                 <button
+                  key={a.label}
                   type="button"
-                  className="btn"
+                  className={a.primary ? 'btn btn-primary' : 'btn'}
                   onClick={() => {
-                    t.action?.onClick?.()
+                    a.onClick?.()
                     dismiss(t.internalId)
                   }}
                 >
-                  {t.action.label}
+                  {a.label}
                 </button>
-              )}
+              ))}
               <button
                 type="button"
                 className="toast-dismiss"

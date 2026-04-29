@@ -30,10 +30,12 @@ export function StorageWarning() {
           ? 'Webbläsaren kan radera turneringsdata vid lågt lagringsutrymme. Säkerhetskopiera regelbundet via Inställningar.'
           : 'Webbläsaren kan radera turneringsdata om du inte besöker appen på ett tag. Installera appen eller säkerhetskopiera regelbundet via Inställningar.',
         variant: 'warning',
-        action: {
-          label: 'OK',
-          onClick: () => localStorage.setItem(DISMISSED_KEY, '1'),
-        },
+        actions: [
+          {
+            label: 'OK',
+            onClick: () => localStorage.setItem(DISMISSED_KEY, '1'),
+          },
+        ],
       })
     })
     return () => {

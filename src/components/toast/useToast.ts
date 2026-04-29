@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react'
 export interface ToastAction {
   label: string
   onClick?: () => void
+  primary?: boolean
 }
 
 export type ToastVariant = 'info' | 'success' | 'warning' | 'error'
@@ -10,7 +11,7 @@ export type ToastVariant = 'info' | 'success' | 'warning' | 'error'
 export interface ShowToastInput {
   message: string
   autoDismissMs?: number
-  action?: ToastAction
+  actions?: ToastAction[]
   variant?: ToastVariant
   /** Fired when the toast is removed for any reason (× click, action click, auto-dismiss, programmatic dismiss). */
   onDismiss?: () => void

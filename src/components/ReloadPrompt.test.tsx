@@ -15,9 +15,6 @@ vi.mock('virtual:pwa-register/react', () => ({
   }),
 }))
 
-vi.stubGlobal('__COMMIT_HASH__', 'abc123')
-vi.stubGlobal('__COMMIT_DATE__', '2026-04-09 12:00:00 +0200')
-
 import { ReloadPrompt } from './ReloadPrompt'
 
 function renderWithToast() {
@@ -46,14 +43,14 @@ describe('ReloadPrompt', () => {
     expect(document.querySelector('.pwa-toast')).toBeNull()
   })
 
-  it('shows update panel alongside offline-ready toast when both flags are set', () => {
+  it('shows update toast alongside offline-ready toast when both flags are set', () => {
     mockOfflineReady = true
     mockNeedRefresh = true
     renderWithToast()
-    // Offline-ready announcement surfaces via toast.
-    expect(screen.getByTestId('toast').textContent).toContain('Appen är redo offline')
-    // Update panel still renders so the user can act on the available update.
-    expect(screen.getByText('Uppdatera')).toBeTruthy()
+    const messages = screen.getAllByTestId('toast').map((t) => t.textContent ?? '')
+    expect(messages.some((m) => m.includes('Appen är redo offline'))).toBe(true)
+    expect(messages.some((m) => m.includes('Ny version tillgänglig'))).toBe(true)
+    expect(screen.getByRole('button', { name: 'Uppdatera' })).toBeTruthy()
   })
 
   it('shows update button when only needRefresh is set', () => {
@@ -61,6 +58,17 @@ describe('ReloadPrompt', () => {
     renderWithToast()
     expect(screen.getByText('Ny version tillgänglig')).toBeTruthy()
     expect(screen.getByText('Uppdatera')).toBeTruthy()
+  })
+
+  it('renders the version-update prompt as a toast with primary Uppdatera action', () => {
+    mockNeedRefresh = true
+    renderWithToast()
+    const toast = screen.getByTestId('toast')
+    expect(toast.textContent).toContain('Ny version tillgänglig')
+    const updateBtn = screen.getByRole('button', { name: 'Uppdatera' })
+    expect(updateBtn.className).toContain('btn-primary')
+    // The bespoke panel must not coexist.
+    expect(document.querySelector('.pwa-toast')).toBeNull()
   })
 
   it('shows "Visa ändringar" button instead of rendering the changelog inline', () => {
