@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/wbern/lotta/compare/v1.14.0...v1.15.0) (2026-04-29)
+
+
+### Features
+
+* **backup:** add 'Bakåtkompatibel med gammal Lotta' export option ([446bdcc](https://github.com/wbern/lotta/commit/446bdccf21fea1ed9028a2d73e85d8d753bb79c9))
+
 # [1.14.0](https://github.com/wbern/lotta/compare/v1.13.0...v1.14.0) (2026-04-29)
 
 
