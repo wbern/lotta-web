@@ -394,7 +394,11 @@ export function AppLayout() {
     if (!file) return
     try {
       const res = await importPlayers(file)
-      alert(`${res.imported} nya spelare tillagda som tillgängliga spelare.`)
+      showToast({
+        message: `${res.imported} nya spelare tillagda som tillgängliga spelare.`,
+        variant: 'success',
+        autoDismissMs: 4000,
+      })
       queryClient.invalidateQueries({ queryKey: ['players'] })
     } catch (err) {
       showActionError('Fel vid import: ' + (err instanceof Error ? err.message : String(err)))

@@ -5,6 +5,7 @@ import { addTournamentPlayers } from '../../api/tournament-players'
 import { generateRandomName } from '../../domain/random-name'
 import { useCreateTournament, useTournaments } from '../../hooks/useTournaments'
 import type { CreateTournamentRequest } from '../../types/api'
+import { useToast } from '../toast/useToast'
 import { Dialog } from './Dialog'
 
 const randomTournamentDefaults: Omit<CreateTournamentRequest, 'name' | 'group'> = {
@@ -43,6 +44,7 @@ export function SeedPlayersDialog({ open, onClose, tournamentId }: Props) {
   const { data: tournaments } = useTournaments()
   const createTournament = useCreateTournament()
   const queryClient = useQueryClient()
+  const { show: showToast } = useToast()
 
   const handleSeed = async () => {
     setSeeding(true)
@@ -74,9 +76,11 @@ export function SeedPlayersDialog({ open, onClose, tournamentId }: Props) {
           queryClient.invalidateQueries({ queryKey: ['tournaments', targetId] })
           addedToTournament = true
         } catch {
-          alert(
-            `${players.length} testspelare tillagda i spelarpoolen, men kunde inte lägga till dem i turneringen.`,
-          )
+          showToast({
+            message: `${players.length} testspelare tillagda i spelarpoolen, men kunde inte lägga till dem i turneringen.`,
+            variant: 'warning',
+            autoDismissMs: 6000,
+          })
           return
         }
       } else if (autoAdd && tournamentId != null) {
@@ -86,17 +90,22 @@ export function SeedPlayersDialog({ open, onClose, tournamentId }: Props) {
           queryClient.invalidateQueries({ queryKey: ['tournaments', tournamentId] })
           addedToTournament = true
         } catch {
-          alert(
-            `${players.length} testspelare tillagda i spelarpoolen, men kunde inte lägga till dem i turneringen.`,
-          )
+          showToast({
+            message: `${players.length} testspelare tillagda i spelarpoolen, men kunde inte lägga till dem i turneringen.`,
+            variant: 'warning',
+            autoDismissMs: 6000,
+          })
           return
         }
       }
       onClose()
-      const msg = addedToTournament
-        ? `${players.length} testspelare tillagda i turneringen.`
-        : `${players.length} testspelare tillagda i spelarpoolen.`
-      alert(msg)
+      showToast({
+        message: addedToTournament
+          ? `${players.length} testspelare tillagda i turneringen.`
+          : `${players.length} testspelare tillagda i spelarpoolen.`,
+        variant: 'success',
+        autoDismissMs: 4000,
+      })
     } finally {
       setSeeding(false)
     }

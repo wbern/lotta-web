@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { seedFakePlayers } from '../../api/seed-players'
 import { addTournamentPlayers } from '../../api/tournament-players'
 import type { PlayerDto, TournamentListItemDto } from '../../types/api'
+import { ToastProvider } from '../toast/ToastProvider'
 import { SeedPlayersDialog } from './SeedPlayersDialog'
 
 vi.mock('../../api/seed-players', () => ({
@@ -31,7 +32,9 @@ function renderDialog(props: Partial<Parameters<typeof SeedPlayersDialog>[0]> = 
   const queryClient = new QueryClient()
   return render(
     <QueryClientProvider client={queryClient}>
-      <SeedPlayersDialog open onClose={vi.fn()} {...props} />
+      <ToastProvider>
+        <SeedPlayersDialog open onClose={vi.fn()} {...props} />
+      </ToastProvider>
     </QueryClientProvider>,
   )
 }
@@ -130,6 +133,23 @@ describe('SeedPlayersDialog tournament target dropdown', () => {
     await waitFor(() => {
       expect(addTournamentPlayers).toHaveBeenCalledWith(999, fakePlayers)
     })
+  })
+})
+
+describe('SeedPlayersDialog feedback', () => {
+  it('shows a success toast after seeding into the player pool', async () => {
+    const fakePlayers = [{ id: 301 }, { id: 302 }] as PlayerDto[]
+    vi.mocked(seedFakePlayers).mockResolvedValueOnce({
+      players: fakePlayers,
+      clubs: [],
+    })
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Skapa'))
+
+    const toast = await waitFor(() => screen.getByTestId('toast'))
+    expect(toast.className).toContain('toast--success')
+    expect(toast.textContent).toContain('2 testspelare')
   })
 })
 

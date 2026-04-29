@@ -274,6 +274,33 @@ describe('AppLayout action errors', () => {
     }
   })
 
+  it('surfaces import success via the global success toast', async () => {
+    mockSearch.tournamentId = 1
+    const { importPlayers: mockImportPlayers } = await import('../../api/tournaments')
+    vi.mocked(mockImportPlayers).mockResolvedValue({ imported: 7 })
+
+    render(
+      <ToastProvider>
+        <AppLayout />
+      </ToastProvider>,
+    )
+
+    const importInput = document.querySelector(
+      'input[type="file"][accept*=".tsv"], input[type="file"][accept*="text/tab-separated-values"]',
+    ) as HTMLInputElement | null
+    const fileInput =
+      importInput ?? (document.querySelectorAll('input[type="file"]')[0] as HTMLInputElement)
+    const file = new File(['x'], 'players.tsv', { type: 'text/tab-separated-values' })
+    Object.defineProperty(fileInput, 'files', { value: [file], configurable: true })
+    await act(async () => {
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+
+    const toast = await waitFor(() => screen.getByTestId('toast'))
+    expect(toast.className).toContain('toast--success')
+    expect(toast.textContent).toContain('7')
+  })
+
   it('surfaces export failure via the global error toast', async () => {
     mockSearch.tournamentId = 1
     mockExportTournamentPlayers.mockRejectedValue(new Error('disk full'))
