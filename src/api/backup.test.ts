@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DatabaseService } from '../db/database-service.ts'
+import { initDatabase } from '../db/db.ts'
 import { deleteDatabase } from '../db/persistence.ts'
 import { UndoManager } from '../db/undo-manager.ts'
 import { deleteUndoDatabase } from '../db/undo-persistence.ts'
@@ -7,6 +8,7 @@ import { getUndoManager, setUndoManager } from '../db/undo-provider.ts'
 import {
   downloadBackup,
   downloadEncryptedBackup,
+  downloadLegacyBackup,
   EncryptedBackupError,
   restoreBackup,
 } from './backup.ts'
@@ -148,6 +150,38 @@ describe('backup API (local)', () => {
     const error = await restoreBackup(file, 'wrong-password').catch((e: unknown) => e)
     expect(error).toBeDefined()
     expect(error).not.toBeInstanceOf(EncryptedBackupError)
+  })
+
+  it('legacy backup omits the modern tournamentplayers columns', async () => {
+    service.clubs.create({ name: 'SK Lund' })
+    const t = service.tournaments.create({
+      name: 'Legacy Test',
+      group: 'A',
+      pairingSystem: 'Monrad',
+      initialPairing: 'Slumpad',
+      nrOfRounds: 7,
+      barredPairing: false,
+      compensateWeakPlayerPP: false,
+      pointsPerGame: 1,
+      chess4: false,
+      ratingChoice: 'ELO',
+      showELO: true,
+      showGroup: true,
+    })
+    service.tournamentPlayers.add(t.id, { lastName: 'Andersson', firstName: 'Erik' })
+
+    const blob = await downloadLegacyBackup()
+    expect(blob.type).toBe('application/x-sqlite3')
+
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    const db = await initDatabase(bytes)
+    const cols = db.exec('PRAGMA table_info(tournamentplayers)')
+    const names = new Set<string>(cols[0]?.values.map((r) => r[1] as string) ?? [])
+    db.close()
+    expect(names.has('addedatround')).toBe(false)
+    expect(names.has('protectfrombyeindebut')).toBe(false)
+    // Sanity: the row data still survives.
+    expect(names.has('lastname')).toBe(true)
   })
 
   it('clears undo history after restore', async () => {

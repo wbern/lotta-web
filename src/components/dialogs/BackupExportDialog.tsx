@@ -4,11 +4,12 @@ import { Dialog } from './Dialog'
 interface Props {
   open: boolean
   onClose: () => void
-  onExport: (password?: string) => void
+  onExport: (password: string | undefined, legacyCompat: boolean) => void
 }
 
 export function BackupExportDialog({ open, onClose, onExport }: Props) {
   const [encrypt, setEncrypt] = useState(false)
+  const [legacyCompat, setLegacyCompat] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const passwordRef = useRef<HTMLInputElement>(null)
@@ -25,6 +26,7 @@ export function BackupExportDialog({ open, onClose, onExport }: Props) {
 
   const handleClose = () => {
     setEncrypt(false)
+    setLegacyCompat(false)
     setPassword('')
     setConfirmPassword('')
     onClose()
@@ -32,7 +34,7 @@ export function BackupExportDialog({ open, onClose, onExport }: Props) {
 
   const handleExport = () => {
     if (canExport) {
-      onExport(encrypt ? password : undefined)
+      onExport(encrypt ? password : undefined, legacyCompat)
       handleClose()
     }
   }
@@ -72,6 +74,17 @@ export function BackupExportDialog({ open, onClose, onExport }: Props) {
             onChange={(e) => setEncrypt(e.target.checked)}
           />{' '}
           Kryptera säkerhetskopia
+        </label>
+      </div>
+      <div className="form-group">
+        <label>
+          <input
+            type="checkbox"
+            data-testid="legacy-compat-checkbox"
+            checked={legacyCompat}
+            onChange={(e) => setLegacyCompat(e.target.checked)}
+          />{' '}
+          Bakåtkompatibel med gammal Lotta
         </label>
       </div>
       {encrypt && (

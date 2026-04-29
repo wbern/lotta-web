@@ -91,7 +91,7 @@ describe('BackupExportDialog', () => {
 
     fireEvent.click(screen.getByTestId('export-button'))
 
-    expect(onExport).toHaveBeenCalledWith(undefined)
+    expect(onExport).toHaveBeenCalledWith(undefined, false)
   })
 
   it('calls onExport with password when encryption checked', () => {
@@ -107,7 +107,7 @@ describe('BackupExportDialog', () => {
     })
     fireEvent.click(screen.getByTestId('export-button'))
 
-    expect(onExport).toHaveBeenCalledWith('my-secret')
+    expect(onExport).toHaveBeenCalledWith('my-secret', false)
   })
 
   it('submits on Enter key when passwords match', () => {
@@ -123,7 +123,28 @@ describe('BackupExportDialog', () => {
     })
     fireEvent.submit(screen.getByTestId('encrypt-password-confirm'))
 
-    expect(onExport).toHaveBeenCalledWith('pw')
+    expect(onExport).toHaveBeenCalledWith('pw', false)
+  })
+
+  it('renders the legacy-compat checkbox unchecked by default', () => {
+    render(<BackupExportDialog open onClose={vi.fn()} onExport={vi.fn()} />)
+    const checkbox = screen.getByTestId('legacy-compat-checkbox') as HTMLInputElement
+    expect(checkbox.checked).toBe(false)
+  })
+
+  it('passes legacyCompat=false to onExport when unchecked', () => {
+    const onExport = vi.fn()
+    render(<BackupExportDialog open onClose={vi.fn()} onExport={onExport} />)
+    fireEvent.click(screen.getByTestId('export-button'))
+    expect(onExport).toHaveBeenCalledWith(undefined, false)
+  })
+
+  it('passes legacyCompat=true to onExport when checked', () => {
+    const onExport = vi.fn()
+    render(<BackupExportDialog open onClose={vi.fn()} onExport={onExport} />)
+    fireEvent.click(screen.getByTestId('legacy-compat-checkbox'))
+    fireEvent.click(screen.getByTestId('export-button'))
+    expect(onExport).toHaveBeenCalledWith(undefined, true)
   })
 
   it('associates labels with password inputs', () => {

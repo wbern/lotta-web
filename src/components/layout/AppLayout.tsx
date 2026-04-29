@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import {
   downloadBackup,
   downloadEncryptedBackup,
+  downloadLegacyBackup,
   EncryptedBackupError,
   restoreBackup,
 } from '../../api/backup'
@@ -334,13 +335,24 @@ export function AppLayout() {
     setShowBackupExport(true)
   }
 
-  const handleExport = async (password?: string) => {
+  const handleExport = async (password: string | undefined, legacyCompat: boolean) => {
     try {
-      const blob = password ? await downloadEncryptedBackup(password) : await downloadBackup()
+      let blob: Blob
+      let filename: string
+      if (password) {
+        blob = await downloadEncryptedBackup(password, legacyCompat)
+        filename = legacyCompat ? 'lotta-backup-gammal.sqlite.enc' : 'lotta-backup.sqlite.enc'
+      } else if (legacyCompat) {
+        blob = await downloadLegacyBackup()
+        filename = 'lotta-backup-gammal.sqlite'
+      } else {
+        blob = await downloadBackup()
+        filename = 'lotta-backup.sqlite'
+      }
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = password ? 'lotta-backup.sqlite.enc' : 'lotta-backup.sqlite'
+      a.download = filename
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {

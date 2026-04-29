@@ -92,6 +92,7 @@ vi.mock('../../api/tournaments', () => ({
 vi.mock('../../api/backup', () => ({
   downloadBackup: vi.fn(),
   downloadEncryptedBackup: vi.fn(),
+  downloadLegacyBackup: vi.fn(),
   restoreBackup: vi.fn(),
   EncryptedBackupError: class extends Error {},
 }))
