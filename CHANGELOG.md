@@ -1,3 +1,13 @@
+# [1.12.0](https://github.com/wbern/lotta/compare/v1.11.0...v1.12.0) (2026-04-29)
+
+
+### Features
+
+* **toast:** add promise() helper for loading→success/error in place ([1d6a914](https://github.com/wbern/lotta/commit/1d6a9143f17d4b4ee8f0b6978759c405eb1d9957))
+* **toast:** add stable id dedup, page-visibility pause, maxVisible queue ([6c8ceb0](https://github.com/wbern/lotta/commit/6c8ceb0b38a30007dec7fae7e8f10c02104b0693))
+* **toast:** migrate seed and player-import alert() to unified toast ([0614c7a](https://github.com/wbern/lotta/commit/0614c7a8ea9de1d2e491c64fea39b78f0a9ebbd3))
+* **toast:** replace single action with actions[] and migrate version-update prompt ([5a9d979](https://github.com/wbern/lotta/commit/5a9d979407837d63fb0db1457a17c8c0d122115f))
+
 # [1.11.0](https://github.com/wbern/lotta/compare/v1.10.0...v1.11.0) (2026-04-29)
 
 
