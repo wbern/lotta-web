@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/wbern/lotta/compare/v1.12.0...v1.13.0) (2026-04-29)
+
+
+### Features
+
+* **tournament-players:** protect late-added players from frirond in debut round ([ba19cbf](https://github.com/wbern/lotta/commit/ba19cbfebda7745d2be02d6fb89ddbc75a4cf130))
+
 # [1.12.0](https://github.com/wbern/lotta/compare/v1.11.0...v1.12.0) (2026-04-29)
 
 
