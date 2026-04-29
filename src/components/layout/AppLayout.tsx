@@ -23,7 +23,6 @@ import { AddGroupDialog } from '../dialogs/AddGroupDialog'
 import { BackupExportDialog } from '../dialogs/BackupExportDialog'
 import { BackupRestoreDialog } from '../dialogs/BackupRestoreDialog'
 import { ConfirmDialog } from '../dialogs/ConfirmDialog'
-import { Dialog } from '../dialogs/Dialog'
 import { EditBoardDialog } from '../dialogs/EditBoardDialog'
 import { PlayerPoolDialog } from '../dialogs/PlayerPoolDialog'
 import { RollbackDialog } from '../dialogs/RollbackDialog'
@@ -32,6 +31,7 @@ import { SettingsDialog } from '../dialogs/SettingsDialog'
 import { TournamentDialog } from '../dialogs/TournamentDialog'
 import { TournamentPlayersDialog } from '../dialogs/TournamentPlayersDialog'
 import { SpectatorLayout } from '../SpectatorLayout'
+import { useToast } from '../toast/useToast'
 import { MenuBar } from './MenuBar'
 import { StatusBar } from './StatusBar'
 import { TabPanel } from './TabPanel'
@@ -103,14 +103,19 @@ export function AppLayout() {
   const [showEditBoard, setShowEditBoard] = useState(false)
   const [editBoardMode, setEditBoardMode] = useState<'add' | 'edit'>('add')
   const [editBoardNr, setEditBoardNr] = useState<number | undefined>()
-  const [actionError, setActionError] = useState('')
+  const { show: showToast } = useToast()
+  const showActionError = useCallback(
+    (message: string) => {
+      showToast({ message, variant: 'error' })
+    },
+    [showToast],
+  )
   const [showBackupExport, setShowBackupExport] = useState(false)
   const [showBackupRestore, setShowBackupRestore] = useState(false)
   const [showSeedPlayers, setShowSeedPlayers] = useState(false)
   const [showRollbackDialog, setShowRollbackDialog] = useState(false)
   const [restoreError, setRestoreError] = useState('')
   const [pendingRestoreFile, setPendingRestoreFile] = useState<File | null>(null)
-  const [updateCheckStatus, setUpdateCheckStatus] = useState<string | null>(null)
   const importFileRef = useRef<HTMLInputElement>(null)
 
   // Selected board for edit/delete operations
@@ -265,7 +270,7 @@ export function AppLayout() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setActionError('Exportfel: ' + (e instanceof Error ? e.message : String(e)))
+      showActionError('Exportfel: ' + (e instanceof Error ? e.message : String(e)))
     }
   }
 
@@ -281,7 +286,7 @@ export function AppLayout() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setActionError('Publiceringsfel: ' + (e instanceof Error ? e.message : String(e)))
+      showActionError('Publiceringsfel: ' + (e instanceof Error ? e.message : String(e)))
     }
   }
 
@@ -291,26 +296,37 @@ export function AppLayout() {
 
   const handleCheckUpdates = useCallback(async () => {
     if (!('serviceWorker' in navigator)) {
-      setUpdateCheckStatus('Den här webbläsaren stöder inte uppdateringar.')
+      showToast({
+        message: 'Den här webbläsaren stöder inte uppdateringar.',
+        variant: 'error',
+      })
       return
     }
-    setUpdateCheckStatus('Söker efter uppdateringar…')
+    const dismissSearching = showToast({
+      message: 'Söker efter uppdateringar…',
+      variant: 'info',
+    })
     try {
       const reg = await navigator.serviceWorker.getRegistration()
+      dismissSearching()
       if (!reg) {
-        setUpdateCheckStatus('Ingen uppdateringstjänst registrerad ännu.')
+        showToast({ message: 'Ingen uppdateringstjänst registrerad ännu.', variant: 'info' })
         return
       }
       await reg.update()
       if (reg.installing || reg.waiting) {
-        setUpdateCheckStatus('Ny version hittades. Uppdateringen visas strax.')
+        showToast({
+          message: 'Ny version hittades. Uppdateringen visas strax.',
+          variant: 'success',
+        })
       } else {
-        setUpdateCheckStatus('Appen är redan uppdaterad.')
+        showToast({ message: 'Appen är redan uppdaterad.', variant: 'success' })
       }
     } catch {
-      setUpdateCheckStatus('Kunde inte söka efter uppdateringar.')
+      dismissSearching()
+      showToast({ message: 'Kunde inte söka efter uppdateringar.', variant: 'error' })
     }
-  }, [])
+  }, [showToast])
 
   const backupFileRef = useRef<HTMLInputElement>(null)
 
@@ -328,7 +344,7 @@ export function AppLayout() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setActionError('Säkerhetskopieringsfel: ' + (e instanceof Error ? e.message : String(e)))
+      showActionError('Säkerhetskopieringsfel: ' + (e instanceof Error ? e.message : String(e)))
     }
   }
 
@@ -354,7 +370,7 @@ export function AppLayout() {
         setRestoreError('')
         setShowBackupRestore(true)
       } else {
-        setActionError('Återställningsfel: ' + (err instanceof Error ? err.message : String(err)))
+        showActionError('Återställningsfel: ' + (err instanceof Error ? err.message : String(err)))
       }
     }
   }
@@ -381,7 +397,7 @@ export function AppLayout() {
       alert(`${res.imported} nya spelare tillagda som tillgängliga spelare.`)
       queryClient.invalidateQueries({ queryKey: ['players'] })
     } catch (err) {
-      setActionError('Fel vid import: ' + (err instanceof Error ? err.message : String(err)))
+      showActionError('Fel vid import: ' + (err instanceof Error ? err.message : String(err)))
     }
     // Reset file input so same file can be selected again
     e.target.value = ''
@@ -439,28 +455,6 @@ export function AppLayout() {
           navigate({ to: '/', search: { tournamentId, round: undefined, tab: 'pairings' } })
         }
       />
-      {actionError && (
-        <div
-          data-testid="action-error"
-          style={{
-            color: 'var(--color-danger)',
-            fontSize: 'var(--font-size-small)',
-            padding: '4px 8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <span>{actionError}</span>
-          <button
-            className="btn btn-small"
-            onClick={() => setActionError('')}
-            style={{ marginLeft: 'auto' }}
-          >
-            &times;
-          </button>
-        </div>
-      )}
       <TournamentSelector
         tournaments={tournaments || []}
         selectedTournamentId={tournamentId}
@@ -551,7 +545,7 @@ export function AppLayout() {
             onSuccess: () => setShowUnpairConfirm(false),
             onError: (err) => {
               setShowUnpairConfirm(false)
-              setActionError(err.message)
+              showActionError(err.message)
             },
           })
         }}
@@ -592,19 +586,6 @@ export function AppLayout() {
         onClose={() => setShowRollbackDialog(false)}
         onSwitch={handleRollbackSwitch}
       />
-      <Dialog
-        title="Sök efter uppdateringar"
-        open={updateCheckStatus !== null}
-        onClose={() => setUpdateCheckStatus(null)}
-        width={400}
-        footer={
-          <button className="btn" onClick={() => setUpdateCheckStatus(null)}>
-            Stäng
-          </button>
-        }
-      >
-        <p data-testid="update-check-status">{updateCheckStatus}</p>
-      </Dialog>
       <input
         ref={importFileRef}
         type="file"

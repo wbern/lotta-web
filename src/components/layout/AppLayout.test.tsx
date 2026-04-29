@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ToastProvider } from '../toast/ToastProvider'
 import { AppLayout } from './AppLayout'
 
 // Track props passed to TabPanel
@@ -82,8 +83,9 @@ vi.mock('../../hooks/useSettings', () => ({
   useSettings: () => ({ data: {} }),
 }))
 
+const mockExportTournamentPlayers = vi.fn()
 vi.mock('../../api/tournaments', () => ({
-  exportTournamentPlayers: vi.fn(),
+  exportTournamentPlayers: (...args: unknown[]) => mockExportTournamentPlayers(...args),
   importPlayers: vi.fn(),
 }))
 
@@ -134,7 +136,11 @@ describe('AppLayout round prop', () => {
     mockSearch.round = undefined
     mockSearch.tournamentId = 1
 
-    render(<AppLayout />)
+    render(
+      <ToastProvider>
+        <AppLayout />
+      </ToastProvider>,
+    )
 
     // activeRound should fall back to latest round (3)
     expect(tabPanelProps.round).toBe(3)
@@ -144,7 +150,11 @@ describe('AppLayout round prop', () => {
     mockSearch.round = 2
     mockSearch.tournamentId = 1
 
-    render(<AppLayout />)
+    render(
+      <ToastProvider>
+        <AppLayout />
+      </ToastProvider>,
+    )
 
     expect(tabPanelProps.round).toBe(2)
   })
@@ -156,7 +166,11 @@ describe('AppLayout pairing focus', () => {
     mockSearch.round = 2
     mockSearch.tab = 'standings'
 
-    render(<AppLayout />)
+    render(
+      <ToastProvider>
+        <AppLayout />
+      </ToastProvider>,
+    )
 
     const onPaired = menuBarProps.onPaired as () => void
     expect(onPaired).toBeDefined()
@@ -186,7 +200,11 @@ describe('AppLayout delete tournament gate', () => {
       nrOfRounds: 7,
     }
 
-    render(<AppLayout />)
+    render(
+      <ToastProvider>
+        <AppLayout />
+      </ToastProvider>,
+    )
 
     const onDelete = menuBarProps.onDeleteTournament as () => void
     act(() => {
@@ -209,7 +227,11 @@ describe('AppLayout delete tournament gate', () => {
       nrOfRounds: 7,
     }
 
-    render(<AppLayout />)
+    render(
+      <ToastProvider>
+        <AppLayout />
+      </ToastProvider>,
+    )
 
     const onDelete = menuBarProps.onDeleteTournament as () => void
     act(() => {
@@ -219,6 +241,58 @@ describe('AppLayout delete tournament gate', () => {
     const deleteDialog = findDeleteDialog()
     expect(deleteDialog).toBeDefined()
     expect(deleteDialog?.confirmText).toBeUndefined()
+  })
+})
+
+describe('AppLayout action errors', () => {
+  it('surfaces the unsupported-browser update check via an error toast', async () => {
+    mockSearch.tournamentId = 1
+    const swDescriptor = Object.getOwnPropertyDescriptor(navigator, 'serviceWorker')
+    // jsdom defines navigator.serviceWorker, so deleting it makes the
+    // `'serviceWorker' in navigator` guard fall into the unsupported branch.
+    delete (navigator as { serviceWorker?: unknown }).serviceWorker
+
+    try {
+      render(
+        <ToastProvider>
+          <AppLayout />
+        </ToastProvider>,
+      )
+
+      const onCheckUpdates = menuBarProps.onCheckUpdates as () => Promise<void>
+      await act(async () => {
+        await onCheckUpdates()
+      })
+
+      const toast = await waitFor(() => screen.getByTestId('toast'))
+      expect(toast.className).toContain('toast--error')
+      expect(toast.textContent).toContain('stöder inte uppdateringar')
+    } finally {
+      if (swDescriptor) {
+        Object.defineProperty(navigator, 'serviceWorker', swDescriptor)
+      }
+    }
+  })
+
+  it('surfaces export failure via the global error toast', async () => {
+    mockSearch.tournamentId = 1
+    mockExportTournamentPlayers.mockRejectedValue(new Error('disk full'))
+
+    render(
+      <ToastProvider>
+        <AppLayout />
+      </ToastProvider>,
+    )
+
+    const onExportPlayers = menuBarProps.onExportPlayers as () => Promise<void>
+    await act(async () => {
+      await onExportPlayers()
+    })
+
+    const toast = await waitFor(() => screen.getByTestId('toast'))
+    expect(toast.className).toContain('toast--error')
+    expect(toast.textContent).toContain('Exportfel')
+    expect(toast.textContent).toContain('disk full')
   })
 })
 
@@ -232,7 +306,11 @@ describe('AppLayout alphabetical print options', () => {
     vi.useFakeTimers()
 
     try {
-      render(<AppLayout />)
+      render(
+        <ToastProvider>
+          <AppLayout />
+        </ToastProvider>,
+      )
 
       const onPrint = menuBarProps.onPrint as (what: string) => void
       act(() => {

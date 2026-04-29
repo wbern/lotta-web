@@ -33,6 +33,7 @@ import { ChatMessageItem } from './ChatMessageItem'
 import { CompatWarnings } from './CompatWarnings'
 import { ConnectionDiagnostics } from './ConnectionDiagnostics'
 import { LiveNameEntry } from './LiveNameEntry'
+import { useToast } from './toast/useToast'
 
 interface LivePageProps {
   roomCode: string
@@ -48,13 +49,6 @@ interface CachedPage {
   tournamentName: string
   roundNr: number
   html: string
-  timestamp: number
-}
-
-interface AckFeedback {
-  boardNr: number
-  accepted: boolean
-  reason?: string
   timestamp: number
 }
 
@@ -236,6 +230,7 @@ function LivePageInner({
   const normalizedRoom = roomCode.toLowerCase()
   const isReferee = !!refereeToken
   const versionMismatch = !!(hostVersion && __COMMIT_HASH__ && hostVersion !== __COMMIT_HASH__)
+  const { show: showToast } = useToast()
   const [mismatchDismissed, setMismatchDismissed] = useState(false)
   const [kiosk, setKiosk] = useState(!!kioskFromUrl)
   const serviceRef = useRef<P2PService | null>(null)
@@ -248,14 +243,12 @@ function LivePageInner({
   const [latestRound, setLatestRound] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<PageType>(isReferee ? 'refereePairings' : 'pairings')
   const [tournamentName, setTournamentName] = useState<string>('')
-  const [ackFeedback, setAckFeedback] = useState<AckFeedback | null>(null)
   const [connectionState, setConnectionState] = useState<P2PConnectionState>('connecting')
   const [pendingResult, setPendingResult] = useState<PendingResult | null>(null)
   const [pendingSubmissionCount, setPendingSubmissionCount] = useState(0)
   const [peerCount, setPeerCount] = useState<PeerCountMessage | null>(null)
   const [announcement, setAnnouncement] = useState<AnnouncementMessage | null>(null)
   const [kicked, setKicked] = useState(false)
-  const [newRoundAlert, setNewRoundAlert] = useState<number | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState('')
@@ -286,7 +279,6 @@ function LivePageInner({
   const highestRoundRef = useRef<number | null>(null)
   const selectedTournamentIdRef = useRef<number | null>(null)
   const sharedFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const newRoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const roundsRef = useRef(rounds)
   useEffect(() => {
     roundsRef.current = rounds
@@ -341,12 +333,11 @@ function LivePageInner({
         msg.roundNr > highestRoundRef.current
       ) {
         playSound('round')
-        setNewRoundAlert(msg.roundNr)
-        if (newRoundTimerRef.current) clearTimeout(newRoundTimerRef.current)
-        newRoundTimerRef.current = setTimeout(() => {
-          setNewRoundAlert(null)
-          newRoundTimerRef.current = null
-        }, 8000)
+        showToast({
+          message: `Rond ${msg.roundNr} har lottats!`,
+          variant: 'info',
+          autoDismissMs: 8000,
+        })
       }
       if (highestRoundRef.current === null || msg.roundNr > highestRoundRef.current) {
         highestRoundRef.current = msg.roundNr
@@ -356,7 +347,7 @@ function LivePageInner({
         setTournamentName(msg.tournamentName)
       }
     },
-    [normalizedRoom],
+    [normalizedRoom, showToast],
   )
 
   const handleSharedTournaments = useCallback((msg: SharedTournamentsMessage) => {
@@ -405,14 +396,19 @@ function LivePageInner({
     [normalizedRoom],
   )
 
-  const handleResultAck = useCallback((msg: ResultAckMessage) => {
-    setAckFeedback({
-      boardNr: msg.boardNr,
-      accepted: msg.accepted,
-      reason: msg.reason,
-      timestamp: Date.now(),
-    })
-  }, [])
+  const handleResultAck = useCallback(
+    (msg: ResultAckMessage) => {
+      const message = msg.accepted
+        ? `Bord ${msg.boardNr}: Resultat registrerat`
+        : `Bord ${msg.boardNr}: ${msg.reason ?? 'Avvisad'}`
+      showToast({
+        message,
+        variant: msg.accepted ? 'success' : 'error',
+        autoDismissMs: 3000,
+      })
+    },
+    [showToast],
+  )
 
   const sendChatMessage = useCallback(() => {
     const text = chatInput.trim()
@@ -537,13 +533,6 @@ function LivePageInner({
     return () => window.removeEventListener('message', handleMessage)
   }, [isReferee, confirmedName])
 
-  // Auto-dismiss ack feedback after 3 seconds
-  useEffect(() => {
-    if (!ackFeedback) return
-    const timer = setTimeout(() => setAckFeedback(null), 3000)
-    return () => clearTimeout(timer)
-  }, [ackFeedback])
-
   useEffect(() => {
     chatOpenRef.current = chatOpen
   }, [chatOpen])
@@ -551,7 +540,6 @@ function LivePageInner({
   useEffect(() => {
     return () => {
       if (sharedFlashTimerRef.current) clearTimeout(sharedFlashTimerRef.current)
-      if (newRoundTimerRef.current) clearTimeout(newRoundTimerRef.current)
     }
   }, [])
 
@@ -757,10 +745,6 @@ function LivePageInner({
         </div>
       )}
 
-      {newRoundAlert && (
-        <div className="live-new-round-alert">Rond {newRoundAlert} har lottats!</div>
-      )}
-
       {announcement && (
         <div className="live-announcement">
           <span>{announcement.text}</span>
@@ -897,16 +881,6 @@ function LivePageInner({
           <button className="btn-cancel" onClick={() => setPendingResult(null)}>
             Avbryt
           </button>
-        </div>
-      )}
-
-      {ackFeedback && (
-        <div
-          className={`live-ack ${ackFeedback.accepted ? 'live-ack--accepted' : 'live-ack--rejected'}`}
-        >
-          {ackFeedback.accepted
-            ? `Bord ${ackFeedback.boardNr}: Resultat registrerat`
-            : `Bord ${ackFeedback.boardNr}: ${ackFeedback.reason ?? 'Avvisad'}`}
         </div>
       )}
     </div>

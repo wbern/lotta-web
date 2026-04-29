@@ -12,9 +12,11 @@ import {
   useUpdateTournamentPlayer,
 } from '../../hooks/useTournamentPlayers'
 import { useTournament } from '../../hooks/useTournaments'
+import { useTransientSuccess } from '../../hooks/useTransientSuccess'
 import { sv } from '../../lib/swedish-text'
 import type { PlayerDto } from '../../types/api'
 import { SortableHeader } from '../SortableHeader'
+import { useToast } from '../toast/useToast'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Dialog } from './Dialog'
 import { PlayerEditor } from './PlayerEditor'
@@ -65,6 +67,9 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
   const addPlayer = useAddTournamentPlayer(tournamentId)
   const addPlayers = useAddTournamentPlayers(tournamentId)
   const updatePlayer = useUpdateTournamentPlayer(tournamentId)
+  // Hold this dialog's "Uppdatera uppgifter" confirmation visible long enough
+  // to read — 2s feels like a status flash, the 1.5s default reads as a wink.
+  const updateSaved = useTransientSuccess(updatePlayer.isSuccess, 2000)
   const removePlayers = useRemoveTournamentPlayers(tournamentId)
   const addClub = useAddClub()
   const renameClub = useRenameClub()
@@ -78,6 +83,7 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
   const [activeTab, setActiveTab] = useState<'edit' | 'tournament' | 'pool'>('tournament')
   const [nameError, setNameError] = useState('')
   const [pendingPlayer, setPendingPlayer] = useState<PlayerDto | null>(null)
+  const { show: showToast } = useToast()
 
   const isDirty = !samePlayer(editPlayer, baseline)
 
@@ -180,7 +186,10 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
         setNameError('')
         updatePlayer.mutate(
           { playerId: singleSelected, dto: editPlayer },
-          { onSuccess: () => setBaseline({ ...editPlayer }) },
+          {
+            onSuccess: () => setBaseline({ ...editPlayer }),
+            onError: () => showToast({ message: sv.player.saveFailed, variant: 'error' }),
+          },
         )
       } else {
         setNameError(sv.player.nameRequired)
@@ -215,270 +224,275 @@ export function TournamentPlayersDialog({ open, tournamentId, tournamentName, on
     : sv.player.editTournamentPlayersTitle
 
   return (
-    <Dialog
-      title={title}
-      open={open}
-      onClose={onClose}
-      width={800}
-      height={520}
-      noPadding
-      isDirty={isDirty}
-      footer={
-        <>
-          {activeTab === 'edit' && (
-            <>
-              <button className="btn" onClick={handleNew}>
-                {sv.player.reset}
-              </button>
-              <button className="btn btn-primary" onClick={handleAdd} disabled={!isNew}>
-                {sv.common.add}
-              </button>
-              <button
-                className="btn"
-                data-testid="update-player"
-                onClick={handleUpdate}
-                disabled={isNew}
-              >
-                {sv.player.updateData}
-              </button>
-              <div style={{ flex: 1 }} />
-            </>
-          )}
-          {activeTab === 'tournament' && (
-            <>
-              <span className="footer-count">
-                {tournamentPlayers?.length || 0} {sv.player.playersRegistered}
-              </span>
-              <button
-                className="btn"
-                onClick={() => setActiveTab('edit')}
-                disabled={selectedTournamentPlayers.size !== 1}
-              >
-                Editera
-              </button>
-              <button
-                className="btn btn-danger"
-                data-testid="remove-player"
-                onClick={handleRemove}
-                disabled={selectedTournamentPlayers.size === 0 || removeBlocked}
-                title={removeBlocked ? sv.player.removeBlockedUseWithdraw : undefined}
-              >
-                {sv.common.delete}
-              </button>
-              <div style={{ flex: 1 }} />
-            </>
-          )}
-          {activeTab === 'pool' && (
-            <>
-              <button
-                className="btn btn-primary"
-                data-testid="add-from-pool"
-                onClick={handleAddFromPool}
-                disabled={selectedPoolPlayers.size === 0}
-              >
-                {sv.common.addToTournament}
-              </button>
-              <div style={{ flex: 1 }} />
-            </>
-          )}
-          <button className="btn" onClick={onClose}>
-            {sv.common.close}
-          </button>
-        </>
-      }
-    >
-      <div className="dialog-tabs">
-        <button
-          className={`dialog-tab ${activeTab === 'edit' ? 'active' : ''}`}
-          onClick={() => setActiveTab('edit')}
-        >
-          {sv.player.createOrEdit}
-        </button>
-        <button
-          className={`dialog-tab ${activeTab === 'tournament' ? 'active' : ''}`}
-          onClick={() => setActiveTab('tournament')}
-        >
-          {sv.menu.tournamentPlayers}
-        </button>
-        <button
-          className={`dialog-tab ${activeTab === 'pool' ? 'active' : ''}`}
-          onClick={() => setActiveTab('pool')}
-        >
-          {sv.menu.playerPool}
-        </button>
-      </div>
-
-      {activeTab === 'edit' && (
-        <div style={{ padding: 16 }}>
-          <PlayerEditor
-            player={editPlayer}
-            clubs={clubs || []}
-            onChange={(p) => {
-              setEditPlayer(p)
-              if (nameError) setNameError('')
-            }}
-            nameError={nameError}
-            showTournamentFields
-            onAddClub={async (name) => {
-              try {
-                const club = await addClub.mutateAsync({ name })
-                return club.id
-              } catch {
-                return undefined
-              }
-            }}
-            onRenameClub={(id, name) => renameClub.mutate({ id, dto: { name } })}
-            onDeleteClub={(id) => deleteClub.mutate(id)}
-          />
-          <div
-            style={{
-              fontSize: 'var(--font-size-small)',
-              color: 'var(--color-text-muted)',
-              margin: '8px 0',
-              lineHeight: 1.4,
-            }}
+    <>
+      <Dialog
+        title={title}
+        open={open}
+        onClose={onClose}
+        width={800}
+        height={520}
+        noPadding
+        isDirty={isDirty}
+        footer={
+          <>
+            {activeTab === 'edit' && (
+              <>
+                <button className="btn" onClick={handleNew}>
+                  {sv.player.reset}
+                </button>
+                <button className="btn btn-primary" onClick={handleAdd} disabled={!isNew}>
+                  {sv.common.add}
+                </button>
+                <button
+                  className="btn"
+                  data-testid="update-player"
+                  onClick={handleUpdate}
+                  disabled={isNew || updateSaved}
+                >
+                  <span className="btn-label-stack">
+                    <span aria-hidden={updateSaved}>{sv.player.updateData}</span>
+                    <span aria-hidden={!updateSaved}>{sv.player.updateDataSaved}</span>
+                  </span>
+                </button>
+                <div style={{ flex: 1 }} />
+              </>
+            )}
+            {activeTab === 'tournament' && (
+              <>
+                <span className="footer-count">
+                  {tournamentPlayers?.length || 0} {sv.player.playersRegistered}
+                </span>
+                <button
+                  className="btn"
+                  onClick={() => setActiveTab('edit')}
+                  disabled={selectedTournamentPlayers.size !== 1}
+                >
+                  Editera
+                </button>
+                <button
+                  className="btn btn-danger"
+                  data-testid="remove-player"
+                  onClick={handleRemove}
+                  disabled={selectedTournamentPlayers.size === 0 || removeBlocked}
+                  title={removeBlocked ? sv.player.removeBlockedUseWithdraw : undefined}
+                >
+                  {sv.common.delete}
+                </button>
+                <div style={{ flex: 1 }} />
+              </>
+            )}
+            {activeTab === 'pool' && (
+              <>
+                <button
+                  className="btn btn-primary"
+                  data-testid="add-from-pool"
+                  onClick={handleAddFromPool}
+                  disabled={selectedPoolPlayers.size === 0}
+                >
+                  {sv.common.addToTournament}
+                </button>
+                <div style={{ flex: 1 }} />
+              </>
+            )}
+            <button className="btn" onClick={onClose}>
+              {sv.common.close}
+            </button>
+          </>
+        }
+      >
+        <div className="dialog-tabs">
+          <button
+            className={`dialog-tab ${activeTab === 'edit' ? 'active' : ''}`}
+            onClick={() => setActiveTab('edit')}
           >
-            {sv.player.poolNote}
-          </div>
+            {sv.player.createOrEdit}
+          </button>
+          <button
+            className={`dialog-tab ${activeTab === 'tournament' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tournament')}
+          >
+            {sv.menu.tournamentPlayers}
+          </button>
+          <button
+            className={`dialog-tab ${activeTab === 'pool' ? 'active' : ''}`}
+            onClick={() => setActiveTab('pool')}
+          >
+            {sv.menu.playerPool}
+          </button>
         </div>
-      )}
 
-      {activeTab === 'tournament' && (
-        <>
-          <table className="data-table" data-testid="data-table">
-            <thead>
-              <tr>
-                <th style={{ width: 30 }}>Nr</th>
-                <SortableHeader
-                  column="name"
-                  label={sv.columns.name}
-                  sort={sortT}
-                  onToggle={toggleSortT}
-                />
-                <SortableHeader
-                  column="group"
-                  label={sv.columns.group}
-                  sort={sortT}
-                  onToggle={toggleSortT}
-                />
-                <SortableHeader
-                  column="club"
-                  label={sv.columns.club}
-                  sort={sortT}
-                  onToggle={toggleSortT}
-                />
-                <SortableHeader
-                  column="rating"
-                  label={sv.columns.rating}
-                  sort={sortT}
-                  onToggle={toggleSortT}
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {sortedTournament.map((p, i) => (
-                <tr
-                  key={p.id}
-                  className={selectedTournamentPlayers.has(p.id) ? 'selected' : ''}
-                  onMouseDown={tournamentShiftSelect.handleMouseDown}
-                  onClick={(e) => handleSelectTournamentPlayer(p, e)}
-                  onDoubleClick={(e) => {
-                    if (isDirty && !selectedTournamentPlayers.has(p.id)) {
-                      setPendingPlayer(p)
-                      return
-                    }
-                    handleSelectTournamentPlayer(p, e)
-                    setActiveTab('edit')
-                  }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td className="number-cell">{i + 1}</td>
-                  <td>
-                    {p.firstName} {p.lastName}
-                    {p.withdrawnFromRound >= 0 ? ` (utgått r${p.withdrawnFromRound})` : ''}
-                  </td>
-                  <td>{p.playerGroup || ''}</td>
-                  <td>{p.club || ''}</td>
-                  <td className="number-cell">{p.ratingI || ''}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
+        {activeTab === 'edit' && (
+          <div style={{ padding: 16 }}>
+            <PlayerEditor
+              player={editPlayer}
+              clubs={clubs || []}
+              onChange={(p) => {
+                setEditPlayer(p)
+                if (nameError) setNameError('')
+              }}
+              nameError={nameError}
+              showTournamentFields
+              onAddClub={async (name) => {
+                try {
+                  const club = await addClub.mutateAsync({ name })
+                  return club.id
+                } catch {
+                  return undefined
+                }
+              }}
+              onRenameClub={(id, name) => renameClub.mutate({ id, dto: { name } })}
+              onDeleteClub={(id) => deleteClub.mutate(id)}
+            />
+            <div
+              style={{
+                fontSize: 'var(--font-size-small)',
+                color: 'var(--color-text-muted)',
+                margin: '8px 0',
+                lineHeight: 1.4,
+              }}
+            >
+              {sv.player.poolNote}
+            </div>
+          </div>
+        )}
 
-      {activeTab === 'pool' && (
-        <>
-          <table className="data-table" data-testid="data-table">
-            <thead>
-              <tr>
-                <th style={{ width: 30 }}>Nr</th>
-                <SortableHeader
-                  column="name"
-                  label={sv.columns.name}
-                  sort={sortA}
-                  onToggle={toggleSortA}
-                />
-                <SortableHeader
-                  column="group"
-                  label={sv.columns.group}
-                  sort={sortA}
-                  onToggle={toggleSortA}
-                />
-                <SortableHeader
-                  column="club"
-                  label={sv.columns.club}
-                  sort={sortA}
-                  onToggle={toggleSortA}
-                />
-                <SortableHeader
-                  column="rating"
-                  label={sv.columns.rating}
-                  sort={sortA}
-                  onToggle={toggleSortA}
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {sortedAvailable.map((p, i) => (
-                <tr
-                  key={p.id}
-                  className={selectedPoolPlayers.has(p.id) ? 'selected' : ''}
-                  onMouseDown={poolShiftSelect.handleMouseDown}
-                  onClick={(e) => handleSelectPoolPlayer(p.id, e)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td className="number-cell">{i + 1}</td>
-                  <td>
-                    {p.firstName} {p.lastName}
-                  </td>
-                  <td>{p.playerGroup || ''}</td>
-                  <td>{p.club || ''}</td>
-                  <td className="number-cell">{p.ratingI || ''}</td>
+        {activeTab === 'tournament' && (
+          <>
+            <table className="data-table" data-testid="data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 30 }}>Nr</th>
+                  <SortableHeader
+                    column="name"
+                    label={sv.columns.name}
+                    sort={sortT}
+                    onToggle={toggleSortT}
+                  />
+                  <SortableHeader
+                    column="group"
+                    label={sv.columns.group}
+                    sort={sortT}
+                    onToggle={toggleSortT}
+                  />
+                  <SortableHeader
+                    column="club"
+                    label={sv.columns.club}
+                    sort={sortT}
+                    onToggle={toggleSortT}
+                  />
+                  <SortableHeader
+                    column="rating"
+                    label={sv.columns.rating}
+                    sort={sortT}
+                    onToggle={toggleSortT}
+                  />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-      <ConfirmDialog
-        open={pendingPlayer !== null}
-        title={sv.player.discardChangesTitle}
-        message={sv.player.discardChangesMessage}
-        onConfirm={() => {
-          if (pendingPlayer) {
-            setSelectedTournamentPlayers(new Set([pendingPlayer.id]))
-            setSelectedPoolPlayers(new Set())
-            setEditPlayer({ ...pendingPlayer })
-            setBaseline({ ...pendingPlayer })
-            setIsNew(false)
-            setActiveTab('edit')
-            setNameError('')
-          }
-          setPendingPlayer(null)
-        }}
-        onCancel={() => setPendingPlayer(null)}
-      />
-    </Dialog>
+              </thead>
+              <tbody>
+                {sortedTournament.map((p, i) => (
+                  <tr
+                    key={p.id}
+                    className={selectedTournamentPlayers.has(p.id) ? 'selected' : ''}
+                    onMouseDown={tournamentShiftSelect.handleMouseDown}
+                    onClick={(e) => handleSelectTournamentPlayer(p, e)}
+                    onDoubleClick={(e) => {
+                      if (isDirty && !selectedTournamentPlayers.has(p.id)) {
+                        setPendingPlayer(p)
+                        return
+                      }
+                      handleSelectTournamentPlayer(p, e)
+                      setActiveTab('edit')
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td className="number-cell">{i + 1}</td>
+                    <td>
+                      {p.firstName} {p.lastName}
+                      {p.withdrawnFromRound >= 0 ? ` (utgått r${p.withdrawnFromRound})` : ''}
+                    </td>
+                    <td>{p.playerGroup || ''}</td>
+                    <td>{p.club || ''}</td>
+                    <td className="number-cell">{p.ratingI || ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {activeTab === 'pool' && (
+          <>
+            <table className="data-table" data-testid="data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 30 }}>Nr</th>
+                  <SortableHeader
+                    column="name"
+                    label={sv.columns.name}
+                    sort={sortA}
+                    onToggle={toggleSortA}
+                  />
+                  <SortableHeader
+                    column="group"
+                    label={sv.columns.group}
+                    sort={sortA}
+                    onToggle={toggleSortA}
+                  />
+                  <SortableHeader
+                    column="club"
+                    label={sv.columns.club}
+                    sort={sortA}
+                    onToggle={toggleSortA}
+                  />
+                  <SortableHeader
+                    column="rating"
+                    label={sv.columns.rating}
+                    sort={sortA}
+                    onToggle={toggleSortA}
+                  />
+                </tr>
+              </thead>
+              <tbody>
+                {sortedAvailable.map((p, i) => (
+                  <tr
+                    key={p.id}
+                    className={selectedPoolPlayers.has(p.id) ? 'selected' : ''}
+                    onMouseDown={poolShiftSelect.handleMouseDown}
+                    onClick={(e) => handleSelectPoolPlayer(p.id, e)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td className="number-cell">{i + 1}</td>
+                    <td>
+                      {p.firstName} {p.lastName}
+                    </td>
+                    <td>{p.playerGroup || ''}</td>
+                    <td>{p.club || ''}</td>
+                    <td className="number-cell">{p.ratingI || ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+        <ConfirmDialog
+          open={pendingPlayer !== null}
+          title={sv.player.discardChangesTitle}
+          message={sv.player.discardChangesMessage}
+          onConfirm={() => {
+            if (pendingPlayer) {
+              setSelectedTournamentPlayers(new Set([pendingPlayer.id]))
+              setSelectedPoolPlayers(new Set())
+              setEditPlayer({ ...pendingPlayer })
+              setBaseline({ ...pendingPlayer })
+              setIsNew(false)
+              setActiveTab('edit')
+              setNameError('')
+            }
+            setPendingPlayer(null)
+          }}
+          onCancel={() => setPendingPlayer(null)}
+        />
+      </Dialog>
+    </>
   )
 }

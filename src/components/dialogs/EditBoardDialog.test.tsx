@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mockPlayer } from '../../test/mock-player'
+import { ToastProvider } from '../toast/ToastProvider'
 import { EditBoardDialog } from './EditBoardDialog'
 
 const players = [
@@ -37,15 +38,17 @@ function renderDialog(props: Partial<React.ComponentProps<typeof EditBoardDialog
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <EditBoardDialog
-        open
-        tournamentId={1}
-        roundNr={1}
-        mode="edit"
-        boardNr={1}
-        onClose={vi.fn()}
-        {...props}
-      />
+      <ToastProvider>
+        <EditBoardDialog
+          open
+          tournamentId={1}
+          roundNr={1}
+          mode="edit"
+          boardNr={1}
+          onClose={vi.fn()}
+          {...props}
+        />
+      </ToastProvider>
     </QueryClientProvider>,
   )
 }
@@ -56,7 +59,7 @@ afterEach(() => {
 })
 
 describe('EditBoardDialog save error', () => {
-  it('shows inline error instead of alert when save fails', async () => {
+  it('surfaces save failure via the global error toast', async () => {
     mockUpdateGame.mockRejectedValue(new Error('DB error'))
 
     renderDialog()
@@ -72,10 +75,8 @@ describe('EditBoardDialog save error', () => {
       expect(mockUpdateGame).toHaveBeenCalled()
     })
 
-    await waitFor(() => {
-      expect(screen.getByTestId('save-error')).toBeTruthy()
-    })
-
-    expect(screen.getByTestId('save-error').textContent).toContain('DB error')
+    const toast = await screen.findByTestId('toast')
+    expect(toast.className).toContain('toast--error')
+    expect(toast.textContent).toContain('DB error')
   })
 })

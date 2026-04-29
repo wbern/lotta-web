@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mockPlayer } from '../../test/mock-player'
+import { ToastProvider } from '../toast/ToastProvider'
 import { TournamentPlayersDialog } from './TournamentPlayersDialog'
 
 const poolPlayer = mockPlayer({
@@ -55,11 +56,30 @@ const mockBatchMutation = { mutate: mockBatchMutate, mutateAsync: vi.fn() }
 const mockBatchRemoveMutate = vi.fn()
 const mockBatchRemoveMutation = { mutate: mockBatchRemoveMutate, mutateAsync: vi.fn() }
 
+// Module-level mutable flag — flipped by `mockUpdateMutate` and read by the
+// `useUpdateTournamentPlayer` mock factory on each render. Reset in afterEach.
+let updateMutationIsSuccess = false
+let updateMutationShouldFail = false
+const mockUpdateMutate = vi.fn(
+  (_args: unknown, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => {
+    if (updateMutationShouldFail) {
+      opts?.onError?.(new Error('mock failure'))
+      return
+    }
+    updateMutationIsSuccess = true
+    opts?.onSuccess?.()
+  },
+)
+
 vi.mock('../../hooks/useTournamentPlayers', () => ({
   useTournamentPlayers: () => ({ data: [tournamentPlayer, tournamentPlayer2, withdrawnPlayer] }),
   useAddTournamentPlayer: () => mockMutation,
   useAddTournamentPlayers: () => mockBatchMutation,
-  useUpdateTournamentPlayer: () => mockMutation,
+  useUpdateTournamentPlayer: () => ({
+    mutate: mockUpdateMutate,
+    mutateAsync: vi.fn(),
+    isSuccess: updateMutationIsSuccess,
+  }),
   useRemoveTournamentPlayers: () => mockBatchRemoveMutation,
 }))
 
@@ -96,10 +116,16 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   phaseMode = 'draft'
+  updateMutationIsSuccess = false
+  updateMutationShouldFail = false
 })
 
 function renderDialog() {
-  render(<TournamentPlayersDialog open tournamentId={1} tournamentName="Test" onClose={vi.fn()} />)
+  render(
+    <ToastProvider>
+      <TournamentPlayersDialog open tournamentId={1} tournamentName="Test" onClose={vi.fn()} />
+    </ToastProvider>,
+  )
 }
 
 describe('TournamentPlayersDialog default sort', () => {
@@ -205,7 +231,9 @@ describe('TournamentPlayersDialog discard-changes confirm', () => {
 describe('TournamentPlayersDialog reset on reopen', () => {
   it('returns to a fresh form on the tournament tab when the dialog is reopened after editing a player', () => {
     const { rerender } = render(
-      <TournamentPlayersDialog open tournamentId={1} tournamentName="Test" onClose={vi.fn()} />,
+      <ToastProvider>
+        <TournamentPlayersDialog open tournamentId={1} tournamentName="Test" onClose={vi.fn()} />
+      </ToastProvider>,
     )
 
     fireEvent.click(screen.getByText('Erik Johansson'))
@@ -213,15 +241,19 @@ describe('TournamentPlayersDialog reset on reopen', () => {
     expect((screen.getByTestId('first-name-input') as HTMLInputElement).value).toBe('Erik')
 
     rerender(
-      <TournamentPlayersDialog
-        open={false}
-        tournamentId={1}
-        tournamentName="Test"
-        onClose={vi.fn()}
-      />,
+      <ToastProvider>
+        <TournamentPlayersDialog
+          open={false}
+          tournamentId={1}
+          tournamentName="Test"
+          onClose={vi.fn()}
+        />
+      </ToastProvider>,
     )
     rerender(
-      <TournamentPlayersDialog open tournamentId={1} tournamentName="Test" onClose={vi.fn()} />,
+      <ToastProvider>
+        <TournamentPlayersDialog open tournamentId={1} tournamentName="Test" onClose={vi.fn()} />
+      </ToastProvider>,
     )
 
     expect(screen.queryByTestId('first-name-input')).toBeNull()
@@ -251,7 +283,49 @@ describe('TournamentPlayersDialog update validation', () => {
     fireEvent.click(screen.getByTestId('update-player'))
 
     expect(screen.getByTestId('name-error')).toBeTruthy()
-    expect(mockMutate).not.toHaveBeenCalled()
+    expect(mockUpdateMutate).not.toHaveBeenCalled()
+  })
+})
+
+describe('TournamentPlayersDialog update success feedback', () => {
+  it('disables Uppdatera-uppgifter and reveals the "Sparat" label after a successful update', () => {
+    renderDialog()
+
+    fireEvent.click(screen.getByText('Erik Johansson'))
+    fireEvent.click(screen.getByText('Skapa eller editera spelare'))
+    fireEvent.change(screen.getByTestId('first-name-input'), { target: { value: 'Erika' } })
+
+    fireEvent.click(screen.getByTestId('update-player'))
+
+    expect(mockUpdateMutate).toHaveBeenCalledTimes(1)
+    const updateBtn = screen.getByTestId('update-player') as HTMLButtonElement
+    expect(updateBtn.disabled).toBe(true)
+    // Both labels are always in the DOM (grid-stacked to avoid layout shift);
+    // the visible one is the span without aria-hidden.
+    const savedSpan = updateBtn.querySelector(`span[aria-hidden="false"]`)
+    expect(savedSpan?.textContent).toMatch(/sparat/i)
+  })
+
+  it('surfaces the failure via the global toast system, not an inline error', () => {
+    updateMutationShouldFail = true
+    render(
+      <ToastProvider>
+        <TournamentPlayersDialog open tournamentId={1} tournamentName="Test" onClose={vi.fn()} />
+      </ToastProvider>,
+    )
+
+    fireEvent.click(screen.getByText('Erik Johansson'))
+    fireEvent.click(screen.getByText('Skapa eller editera spelare'))
+    fireEvent.change(screen.getByTestId('first-name-input'), { target: { value: 'Erika' } })
+
+    fireEvent.click(screen.getByTestId('update-player'))
+
+    expect(mockUpdateMutate).toHaveBeenCalledTimes(1)
+    const toast = screen.getByTestId('toast')
+    expect(toast.textContent).toMatch(/kunde inte spara/i)
+    expect(toast.className).toContain('toast--error')
+    // The dialog must not render its own inline error toast anymore.
+    expect(screen.queryByTestId('error-toast')).toBeNull()
   })
 })
 

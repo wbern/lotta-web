@@ -230,6 +230,30 @@ describe('global.css color variable coverage', () => {
   })
 })
 
+describe('global.css toast stacking layer', () => {
+  it('renders the .toast-stack above other 1000-stack overlays like .live-confirm', () => {
+    const css = readGlobalCss()
+    const toastMatch = css.match(/(?:^|\n)\.toast-stack\s*\{([^}]*)\}/)
+    const liveConfirmMatch = css.match(/(?:^|\n)\.live-confirm\s*\{([^}]*)\}/)
+    expect(toastMatch).not.toBeNull()
+    expect(liveConfirmMatch).not.toBeNull()
+    const toastZ = Number(toastMatch![1].match(/z-index\s*:\s*(\d+)/)?.[1])
+    const liveZ = Number(liveConfirmMatch![1].match(/z-index\s*:\s*(\d+)/)?.[1])
+    expect(toastZ).toBeGreaterThan(liveZ)
+  })
+})
+
+describe('global.css reduced motion', () => {
+  it('disables the .toast fade-in animation under prefers-reduced-motion', () => {
+    const css = readGlobalCss()
+    const pattern =
+      /@media[^{]*prefers-reduced-motion[^{]*\{[\s\S]*?\.toast\s*\{([^}]*)\}[\s\S]*?\n\s*\}/
+    const match = css.match(pattern)
+    expect(match).not.toBeNull()
+    expect(match![1]).toMatch(/animation\s*:\s*none/)
+  })
+})
+
 describe('global.css live content scrollability', () => {
   it('allows .live-content to scroll vertically on constrained viewports', () => {
     const css = readGlobalCss()

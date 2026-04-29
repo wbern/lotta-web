@@ -90,6 +90,7 @@ export default defineConfig({
     { name: 'fix-screenshots', testMatch: 'fix-screenshots.spec.ts' },
     { name: 'keybind-demo', testMatch: 'keybind-demo.spec.ts' },
     { name: 'whats-new', testMatch: 'whats-new.spec.ts' },
+    { name: 'save-feedback-demo', testMatch: 'save-feedback-demo.spec.ts' },
     { name: 'em-setup', testMatch: 'em-setup.spec.ts' },
     { name: 'em-replay', testMatch: 'em-replay.spec.ts' },
     { name: 'em-chaos', testMatch: 'em-chaos.spec.ts' },

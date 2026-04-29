@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render as rtlRender, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   ChatMessage,
@@ -12,6 +13,9 @@ import type {
   ViewerSelectTournamentMessage,
 } from '../types/p2p'
 import { LivePage } from './LivePage'
+import { ToastProvider } from './toast/ToastProvider'
+
+const render = (ui: ReactElement) => rtlRender(<ToastProvider>{ui}</ToastProvider>)
 
 let mockOnPageUpdate: ((msg: PageUpdateMessage) => void) | null = null
 let mockOnResultAck: ((msg: ResultAckMessage) => void) | null = null

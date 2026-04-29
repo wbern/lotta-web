@@ -173,6 +173,8 @@ export const sv = {
     fideTab: 'FIDE',
     otherTab: 'Övrigt',
     updateData: 'Uppdatera uppgifter',
+    updateDataSaved: '✓ Sparat',
+    saveFailed: 'Kunde inte spara ändringarna.',
     poolNote:
       'Not: Spelare från spelarpoolen KOPIERAS in i turneringen. Det betyder att editera en turneringsspelare påverkar inte spelaren i spelarpoolen.',
     editPoolTitle: 'Ändra i spelarpool',

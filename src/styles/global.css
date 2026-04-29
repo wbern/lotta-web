@@ -1085,6 +1085,20 @@ button.btn:disabled {
   opacity: 0.5;
   cursor: default;
 }
+
+/* Stack two labels in the same grid cell so the wider one defines the
+   button width — used to swap a button label (e.g. "Uppdatera uppgifter"
+   → "✓ Sparat") without layout shift. */
+.btn-label-stack {
+  display: inline-grid;
+}
+.btn-label-stack > span {
+  grid-area: 1 / 1;
+  text-align: center;
+}
+.btn-label-stack > span[aria-hidden="true"] {
+  visibility: hidden;
+}
 button.btn-danger {
   background: var(--color-danger);
   color: var(--color-text-on-primary);
@@ -2108,39 +2122,6 @@ button.btn-danger {
   text-align: center;
 }
 
-.live-ack {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text-on-primary);
-  z-index: 1000;
-  animation: live-ack-fade 0.3s ease-in;
-}
-
-.live-ack--accepted {
-  background: var(--color-success);
-}
-
-.live-ack--rejected {
-  background: var(--color-danger);
-}
-
-@keyframes live-ack-fade {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
 /* Live Tab (organizer P2P management) */
 .live-tab-container {
   height: 100%;
@@ -2524,27 +2505,6 @@ button.btn-danger {
   margin-left: 8px;
 }
 
-/* New round alert */
-.live-new-round-alert {
-  background: var(--color-status-connected);
-  color: var(--color-text-on-primary);
-  padding: 10px 16px;
-  text-align: center;
-  font-size: 1rem;
-  font-weight: 600;
-  animation: live-round-flash 0.6s ease-in-out 2;
-}
-
-@keyframes live-round-flash {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-}
-
 /* Live announcement banner */
 .live-announcement {
   background: var(--color-primary);
@@ -2787,6 +2747,80 @@ button.btn-danger {
   flex-shrink: 0;
 }
 
+/* Toast stack — bottom-left, vertically stacked, newest at bottom. The
+   variant modifiers paint a left-border accent in the matching color. */
+.toast-stack {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 32px 12px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-text-muted);
+  border-radius: var(--border-radius);
+  box-shadow: 0 2px 8px var(--color-shadow);
+  font-size: var(--font-size-base);
+  animation: fade-in 0.15s ease-out;
+  max-width: 360px;
+  pointer-events: auto;
+}
+
+.toast--error {
+  border-left-color: var(--color-danger);
+}
+.toast--warning {
+  border-left-color: var(--color-status-warning);
+}
+.toast--success {
+  border-left-color: var(--color-success);
+}
+.toast--info {
+  border-left-color: var(--color-text);
+}
+
+.toast > span {
+  flex: 1;
+}
+
+.toast-dismiss {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: var(--border-radius);
+}
+
+.toast-dismiss:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
 /* PWA reload toast */
 .pwa-toast {
   position: fixed;
@@ -2938,32 +2972,6 @@ button.btn-danger {
 .changelog-show-older-link:hover,
 .changelog-show-older-link:focus-visible {
   color: var(--color-primary-hover);
-}
-
-/* Storage persistence warning banner */
-.storage-warning {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  right: 16px;
-  max-width: 480px;
-  padding: 12px 16px;
-  background: var(--color-banner-warning-bg);
-  color: var(--color-banner-warning-text);
-  border: 1px solid var(--color-banner-warning-border);
-  border-radius: var(--border-radius);
-  box-shadow: 0 2px 8px var(--color-shadow);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: var(--font-size-small);
-  animation: fade-in 0.15s ease-out;
-}
-
-.storage-warning p {
-  margin: 0;
-  flex: 1;
 }
 
 /* Live kicked message */
@@ -3375,7 +3383,6 @@ button.btn-danger {
   .empty-state-title,
   .live-title,
   .live-waiting,
-  .live-ack,
   .live-tab-badge,
   .live-diagnostics-log,
   .live-tab-share h4,
@@ -3385,7 +3392,6 @@ button.btn-danger {
   .live-tab-peer-table th,
   .live-room-code,
   .live-confirm,
-  .live-new-round-alert,
   .live-announcement,
   .live-announcement button,
   .live-round-select,

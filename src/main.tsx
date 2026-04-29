@@ -17,6 +17,7 @@ import { AppLayout } from './components/layout/AppLayout'
 import { ReloadPrompt } from './components/ReloadPrompt'
 import { SharedView } from './components/SharedView'
 import { StorageWarning } from './components/StorageWarning'
+import { ToastProvider } from './components/toast/ToastProvider'
 import { DatabaseService } from './db/database-service'
 import { UndoManager } from './db/undo-manager'
 import { setUndoManager } from './db/undo-provider'
@@ -121,9 +122,11 @@ async function main() {
   // offer pool) causing P2P connections on the viewer/referee LivePage to fail.
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-      <ReloadPrompt />
-      <StorageWarning />
+      <ToastProvider>
+        <RouterProvider router={router} />
+        <ReloadPrompt />
+        <StorageWarning />
+      </ToastProvider>
     </QueryClientProvider>,
   )
 }

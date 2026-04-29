@@ -4,6 +4,7 @@ import { addGame, updateGame } from '../../api/results'
 import { useRound } from '../../hooks/useRounds'
 import { useTournamentPlayers } from '../../hooks/useTournamentPlayers'
 import { sv } from '../../lib/swedish-text'
+import { useToast } from '../toast/useToast'
 import { Dialog } from './Dialog'
 
 interface Props {
@@ -22,7 +23,7 @@ export function EditBoardDialog({ open, tournamentId, roundNr, mode, boardNr, on
 
   const [whiteId, setWhiteId] = useState<number | ''>('')
   const [blackId, setBlackId] = useState<number | ''>('')
-  const [saveError, setSaveError] = useState('')
+  const { show: showToast } = useToast()
 
   // Get players already paired in this round
   const pairedPlayerIds = new Set<number>()
@@ -69,7 +70,10 @@ export function EditBoardDialog({ open, tournamentId, roundNr, mode, boardNr, on
       queryClient.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'rounds'] })
       onClose()
     } catch (e) {
-      setSaveError('Fel: ' + (e instanceof Error ? e.message : String(e)))
+      showToast({
+        message: 'Fel: ' + (e instanceof Error ? e.message : String(e)),
+        variant: 'error',
+      })
     }
   }
 
@@ -144,18 +148,6 @@ export function EditBoardDialog({ open, tournamentId, roundNr, mode, boardNr, on
             ))}
         </select>
       </div>
-      {saveError && (
-        <div
-          data-testid="save-error"
-          style={{
-            color: 'var(--color-danger)',
-            fontSize: 'var(--font-size-small)',
-            marginTop: 8,
-          }}
-        >
-          {saveError}
-        </div>
-      )}
     </Dialog>
   )
 }
